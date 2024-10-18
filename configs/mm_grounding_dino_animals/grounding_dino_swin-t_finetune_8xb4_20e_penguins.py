@@ -1,7 +1,7 @@
-_base_ = 'grounding_dino_swin-t_pretrain_obj365.py'
+_base_ = '../mm_grounding_dino/grounding_dino_swin-t_pretrain_obj365.py'
 
-data_root = 'data/cat/'
-class_name = ('cat', )
+data_root = '/home/m32patel/projects/rrg-dclausi/wildlife/datasets/birds_penguins'
+class_name = ('penguin', )
 num_classes = len(class_name)
 metainfo = dict(classes=class_name, palette=[(220, 20, 60)])
 lang_model_name = 'checkpoints/bert/bert-base-uncased'
@@ -65,19 +65,38 @@ train_dataloader = dict(
         return_classes=True,
         pipeline=train_pipeline,
         filter_cfg=dict(filter_empty_gt=False, min_size=32),
-        ann_file='annotations/trainval.json',
-        data_prefix=dict(img='images/')))
+        ann_file='train.json',
+        data_prefix=dict(img='')))
+test_pipeline = [
+    dict(
+        type='LoadImageFromFile', backend_args=None,
+        imdecode_backend='pillow'),
+    # dict(
+    #     type='FixScaleResize',
+    #     scale=(800, 1333),
+    #     keep_ratio=True,
+    #     backend='pillow'),
+    dict(type='Resize', scale_factor=1.0, keep_ratio=True),
+    dict(type='LoadAnnotations', with_bbox=True),
+    dict(
+        type='PackDetInputs',
+        meta_keys=('img_id', 'img_path', 'ori_shape', 'img_shape',
+                   'scale_factor', 'text', 'custom_entities',
+                   'tokens_positive'))
+]
 
 val_dataloader = dict(
     dataset=dict(
         metainfo=metainfo,
         data_root=data_root,
-        ann_file='annotations/test.json',
-        data_prefix=dict(img='images/')))
+        ann_file='test.json',
+        pipeline=test_pipeline,
+        return_classes=True,
+        data_prefix=dict(img='')))
 
 test_dataloader = val_dataloader
 
-val_evaluator = dict(ann_file=data_root + 'annotations/test.json')
+val_evaluator = dict(ann_file=data_root + '/test.json')
 test_evaluator = val_evaluator
 
 max_epoch = 20

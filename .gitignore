@@ -126,3 +126,10 @@ wandb/
 *.out
 compute_canada/submit
 output/
+outputs/
+your_output_dir/
+cat_dataset.zip
+plt.jpg
+cat_work_dir/
+work_dir_grounding_dino
+checkpoints/
