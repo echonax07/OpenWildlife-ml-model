@@ -124,7 +124,6 @@ work_dirs/
 
 wandb/
 *.out
-compute_canada/submit
 output/
 outputs/
 your_output_dir/
