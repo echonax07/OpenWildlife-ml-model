@@ -103,8 +103,11 @@ def annotation_inside_slice(annotation: Dict, slice_bbox: List[int]) -> bool:
     Returns:
         (bool): True if any annotation coordinate lies inside slice.
     """
-    left, top, width, height = annotation["bbox"]
-
+    try:
+        left, top, width, height = annotation["bbox"]
+    except:
+        print(annotation)
+    
     right = left + width
     bottom = top + height
 
@@ -140,10 +143,14 @@ def process_coco_annotations(
 
     sliced_coco_annotation_list: List[CocoAnnotation] = []
     for coco_annotation in coco_annotation_list:
-        if annotation_inside_slice(coco_annotation.json, slice_bbox):
-            sliced_coco_annotation = coco_annotation.get_sliced_coco_annotation(slice_bbox)
-            if sliced_coco_annotation.area / coco_annotation.area >= min_area_ratio:
-                sliced_coco_annotation_list.append(sliced_coco_annotation)
+        try:
+            if annotation_inside_slice(coco_annotation.json, slice_bbox):
+                sliced_coco_annotation = coco_annotation.get_sliced_coco_annotation(slice_bbox)
+                if sliced_coco_annotation.area / coco_annotation.area >= min_area_ratio:
+                    sliced_coco_annotation_list.append(sliced_coco_annotation)
+        except:
+            print(coco_annotation.json)
+            print(slice_bbox)
     return sliced_coco_annotation_list
 
 
