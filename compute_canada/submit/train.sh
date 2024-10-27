@@ -1,11 +1,11 @@
 #!/bin/bash
-#SBATCH --nodes 1
-#SBATCH --gpus-per-node=2 # request a GPU
-#SBATCH --tasks-per-node=2
+#SBATCH --nodes 2
+#SBATCH --gpus-per-node=4 # request a GPU
+#SBATCH --tasks-per-node=4
 #SBATCH --cpus-per-task=12 # change this parameter to 2,4,6,... and increase "--num_workers" accordingly to see the effect on performance
 #SBATCH --mem=400G
 #SBATCH --time=23:59:00
-#SBATCH --output=../output2/%j.out
+#SBATCH --output=../output3/%j.out
 #SBATCH --account=rrg-dclausi
 #SBATCH --mail-user=muhammed.computecanada@gmail.com
 #SBATCH --mail-type=BEGIN
@@ -41,14 +41,14 @@ random_number=$(( RANDOM % (max - min + 1) + min ))
 echo "Config file: $1"
 # srun --ntasks=2 --gres=gpu:2  --kill-on-bad-exit=1 --cpus-per-task=12 python tools/train.py $1 --launcher slurm --resume
 # srun --ntasks=2 --gres=gpu:2  --kill-on-bad-exit=1 --cpus-per-task=12 python tools/train.py $1 --launcher slurm
-srun --ntasks=2 --gres=gpu:2  --kill-on-bad-exit=1 --cpus-per-task=12 python tools/train.py $1 --launcher slurm --work-dir work_dir_grounding_dino --cfg-options env_cfg.dist_cfg.port=${random_number}
+srun --ntasks=8 --gres=gpu:4 --kill-on-bad-exit=1 --cpus-per-task=12 --nodes=2 python tools/train.py $1 --launcher slurm --cfg-options env_cfg.dist_cfg.port=${random_number} --resume
 
 # Extract the base name without extension
 base_name=$(basename "$1" .py)
-CHECKPOINT=$(cat work_dirs/$base_name/last_checkpoint)
+CHECKPOINT=$(cat work_dir_grounding_dino/$base_name/last_checkpoint)
 echo "$CHECKPOINT"
 
-srun --ntasks=2 --gres=gpu:2  --kill-on-bad-exit=1 --cpus-per-task=12 python tools/test.py $1 $CHECKPOINT --launcher slurm --out True --work-dir work_dir_grounding_dino --cfg-options env_cfg.dist_cfg.port=${random_number}
+srun --ntasks=8 --gres=gpu:4 --kill-on-bad-exit=1 --cpus-per-task=12 python tools/test.py $1 $CHECKPOINT --launcher slurm --out True --cfg-options env_cfg.dist_cfg.port=${random_number} class_name=('cat', ) num_classes=len(class_name) metainfo = dict(classes=class_name, palette=[(220, 20, 60)])
 
 # python tools/analysis_tools/whale/plot_pr_confusion_matrix_year_wise.py --config $1 --save_year_wise=False
 

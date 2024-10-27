@@ -50,7 +50,7 @@ train_pipeline = [
     dict(type='LoadImageFromFile', backend_args=_base_.backend_args),
     dict(type='LoadAnnotations', with_bbox=True),
     dict(type='RandomCrop', crop_size=patch_size, crop_type='absolute',
-         allow_negative_crop=True, recompute_bbox=True, clip_border=True),
+         allow_negative_crop=True, recompute_bbox=True, bbox_clip_border=True),
     dict(
         type='Albu',
         transforms=albu_train_transforms,
@@ -406,9 +406,39 @@ train_dataloader = dict(
         Narwhal_2016_dataset
     ]))
 
-class_name = ('penguin', )
+class_name = ('bird', 'Polar bear', 'Seal' )
 num_classes = len(class_name)
-metainfo = dict(classes=class_name, palette=[(220, 20, 60)])
+metainfo = dict(classes=class_name, palette=[(220, 20, 60), (20, 220, 60), (60, 20, 220), (0, 110, 60), (100, 26, 255)])
+
+test_pipeline = [
+    dict(
+        backend_args=None, imdecode_backend='pillow',
+        type='LoadImageFromFile'),
+    # dict(
+    #     backend='pillow',
+    #     keep_ratio=True,
+    #     scale=(
+    #         800,
+    #         1333,
+    #     ),
+    #     type='FixScaleResize'),
+    dict(type='Resize', scale_factor=1.0, keep_ratio=True),
+    # dict(type='RandomCrop', crop_size=patch_size, crop_type='absolute',
+    #      allow_negative_crop=True, recompute_bbox=True, bbox_clip_border=True),
+    dict(type='LoadAnnotations', with_bbox=True),
+    dict(
+        meta_keys=(
+            'img_id',
+            'img_path',
+            'ori_shape',
+            'img_shape',
+            'scale_factor',
+            'text',
+            'custom_entities',
+            'tokens_positive',
+        ),
+        type='PackDetInputs'),
+]
 
 val_dataloader = dict(
     batch_size=1,
@@ -421,14 +451,17 @@ val_dataloader = dict(
         metainfo=metainfo,
         data_root='/home/m32patel/projects/rrg-dclausi/wildlife/datasets/birds_qian_penguin/coco',
         ann_file='test.json',
+        pipeline=test_pipeline,
         data_prefix=dict(img=''),
         test_mode=True,))
 test_dataloader = val_dataloader
+
 
 val_evaluator = dict(
     type='CocoMetric',
     ann_file='/home/m32patel/projects/rrg-dclausi/wildlife/datasets/birds_qian_penguin/coco' + '/test.json',
     metric='bbox',
+    pipeline=test_pipeline,
     format_only=False,)
 test_evaluator = val_evaluator
 

@@ -61,7 +61,8 @@ def get_palette(palette: Union[List[tuple], str, tuple],
         dataset_palette = [mmcv.color_val(palette)[::-1]] * num_classes
     else:
         raise TypeError(f'Invalid type for palette: {type(palette)}')
-
+    print(dataset_palette)
+    print(num_classes)
     assert len(dataset_palette) >= num_classes, \
         'The length of palette should not be less than `num_classes`.'
     return dataset_palette

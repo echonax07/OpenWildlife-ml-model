@@ -30,7 +30,9 @@ def has_valid_annotation(anno):
 
 def process_item(args, filename):
     path = osp.join(args.mdetr_anno_dir, filename)
+    print(path)
     coco = COCO(path)
+    
 
     ids = list(sorted(coco.imgs.keys()))
 

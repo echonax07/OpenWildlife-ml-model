@@ -32,6 +32,7 @@ class ODVGDataset(BaseDetDataset):
     def load_data_list(self) -> List[dict]:
         with get_local_path(
                 self.ann_file, backend_args=self.backend_args) as local_path:
+            print(local_path)
             with open(local_path, 'r') as f:
                 data_list = [json.loads(line) for line in f]
 

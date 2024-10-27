@@ -132,3 +132,5 @@ plt.jpg
 cat_work_dir/
 work_dir_grounding_dino
 checkpoints/
+GLIP/
+outputs2/

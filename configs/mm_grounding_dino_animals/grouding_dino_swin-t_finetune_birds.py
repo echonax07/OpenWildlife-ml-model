@@ -50,7 +50,7 @@ train_pipeline = [
     dict(type='LoadImageFromFile', backend_args=_base_.backend_args),
     dict(type='LoadAnnotations', with_bbox=True),
     dict(type='RandomCrop', crop_size=patch_size, crop_type='absolute',
-         allow_negative_crop=True, recompute_bbox=True, clip_border=True),
+         allow_negative_crop=True, recompute_bbox=True, bbox_clip_border=True),
     dict(
         type='Albu',
         transforms=albu_train_transforms,
@@ -219,7 +219,7 @@ qian_od_dataset = dict(
     data_root='/home/m32patel/projects/rrg-dclausi/wildlife/datasets/birds_qian_penguin',
     ann_file='train_od.json',
     label_map_file='o365v1_label_map.json',
-    data_prefix=dict(img='coco'),
+    data_prefix=dict(img=''),
     filter_cfg=dict(filter_empty_gt=False),
     pipeline=_base_.train_pipeline,
     return_classes=True,
@@ -326,7 +326,7 @@ turtle_dataset = dict(
 # Big pipeline
 NOAA_artic_seal_dataset = dict(
     type='ODVGDataset',
-    data_root='/home/m32patel/scratch/animal_patches/NOAA_arctic_seal/train',
+    data_root='/home/m32patel/scratch/animal_patches/NOAA_artic_seal/train',
     ann_file='train_od.json',
     label_map_file='o365v1_label_map.json',
     data_prefix=dict(img=''),
@@ -377,11 +377,10 @@ Narwhal_2016_dataset = dict(
 )
 
 train_dataloader = dict(
-    batch_size=2,
     sampler=dict(
         _delete_=True,
         type='CustomSampleSizeSampler',
-        dataset_size=[-1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1]),
+        dataset_size=[-1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1]),
     dataset=dict(datasets=[
         Aerial_seabird_westafrica_od_dataset,
         birds_izembek_lagoon_od_dataset,
@@ -393,17 +392,17 @@ train_dataloader = dict(
         pfeifer_od_dataset,
         seabirdwatch_od_dataset,
         birds_poland_od_dataset,
-        qian_od_dataset,
-        aerial_livestock_dataset,
-        WAID_livestock_dataset,
-        AED_dataset,
-        Eikelboom_dataset,
-        NOAA_sealion_dataset,
-        turtle_dataset,
-        NOAA_artic_seal_dataset,
-        Beluga_2014_dataset,
-        Beluga_2015_dataset,
-        Narwhal_2016_dataset
+        qian_od_dataset
+        # aerial_livestock_dataset,
+        # WAID_livestock_dataset,
+        # AED_dataset,
+        # Eikelboom_dataset,
+        # NOAA_sealion_dataset,
+        # turtle_dataset,
+        # NOAA_artic_seal_dataset,
+        # Beluga_2014_dataset,
+        # Beluga_2015_dataset,
+        # Narwhal_2016_dataset
     ]))
 
 class_name = ('penguin', )
@@ -419,7 +418,7 @@ val_dataloader = dict(
     dataset=dict(
         type='CocoDataset',
         metainfo=metainfo,
-        data_root='/home/m32patel/projects/rrg-dclausi/wildlife/datasets/birds_qian_penguin/coco',
+        data_root='/home/m32patel/projects/rrg-dclausi/wildlife/datasets/Qian_penguin/coco',
         ann_file='test.json',
         data_prefix=dict(img=''),
         test_mode=True,))
@@ -427,7 +426,7 @@ test_dataloader = val_dataloader
 
 val_evaluator = dict(
     type='CocoMetric',
-    ann_file='/home/m32patel/projects/rrg-dclausi/wildlife/datasets/birds_qian_penguin/coco' + '/test.json',
+    ann_file='/home/m32patel/projects/rrg-dclausi/wildlife/datasets/Qian_penguin/coco' + '/test.json',
     metric='bbox',
     format_only=False,)
 test_evaluator = val_evaluator
@@ -468,6 +467,5 @@ vis_backends = [
     ),
 ]
 
-work_dir='work_dir_grounding_dino/{{fileBasenameNoExtension}}'
 
 load_from = '/home/m32patel/projects/def-dclausi/whale/mmwhale2/checkpoints/grounding_dino_swin-t_pretrain_obj365_goldg_grit9m_v3det_20231204_095047-b448804b.pth'  # noqa

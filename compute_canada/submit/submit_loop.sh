@@ -1,7 +1,7 @@
 #!/bin/bash 
 set -e
 array=(
-configs/DFO_whale_different_backbones/DFO_whale_deformable_detr_2048_convnext_T.py
+configs/mm_grounding_dino_animals/grouding_dino_swin-t_finetune_all.py
 )
 for i in "${!array[@]}"; do
    # bash test_echo.sh ${array[i]} ${array2[i]}

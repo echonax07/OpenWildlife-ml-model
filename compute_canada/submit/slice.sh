@@ -5,7 +5,7 @@
 #SBATCH --mem=50G
 #SBATCH --time=13:59:00
 #SBATCH --output=../output3/%j.out
-#SBATCH --account=def-l44xu-ab
+#SBATCH --account=def-y2863che
 #SBATCH --mail-user=muhammed.computecanada@gmail.com
 #SBATCH --mail-type=BEGIN
 #SBATCH --mail-type=END
@@ -31,6 +31,14 @@ echo "starting training..."
 
 export WANDB_MODE=offline
 
-python slice_img.py --enable=True --data_root_whole=/home/m32patel/projects/rrg-dclausi/wildlife/datasets/birds_Izembek_Lagoon_Waterfowl --data_root_slice=/home/m32patel/scratch/animal_patches/birds_Izembek_Lagoon_Waterfowl/ --ann_file=train.json --img_dir=''  --slice_height=1024 --slice_width=1024 --overlap_height_ratio=0 --overlap_width_ratio=0 --save_only_positive_slices=True 
+# python slice_img.py --enable=True --data_root_whole=/home/m32patel/projects/def-dclausi/whale/merged/ --data_root_slice=/home/m32patel/scratch/animal_patches/2016_Narwhal --ann_file=train/split_dataset_ES_2016.json --img_dir='train'  --slice_height=1024 --slice_width=1024 --overlap_height_ratio=0 --overlap_width_ratio=0 --save_only_positive_slices=True 
 
 
+python slice_img.py --enable=True --data_root_whole=/home/m32patel/projects/def-dclausi/whale/merged/ --data_root_slice=/home/m32patel/scratch/animal_patches/2015_Beluga --ann_file=train/split_dataset_2015.json --img_dir='train'  --slice_height=1024 --slice_width=1024 --overlap_height_ratio=0 --overlap_width_ratio=0 --save_only_positive_slices=True 
+
+
+
+python slice_img.py --enable=True --data_root_whole=/home/m32patel/projects/def-dclausi/whale/merged/ --data_root_slice=/home/m32patel/scratch/animal_patches/2014_Beluga --ann_file=train/split_dataset_140.json --img_dir='train'  --slice_height=1024 --slice_width=1024 --overlap_height_ratio=0 --overlap_width_ratio=0 --save_only_positive_slices=True 
+
+
+python slice_img.py --enable=True --data_root_whole=/home/m32patel/projects/rrg-dclausi/wildlife/datasets/NOAA_arctic_seals/ --data_root_slice=/home/m32patel/scratch/animal_patches/NOAA_arctic_seal --ann_file=train.json --img_dir=''  --slice_height=1024 --slice_width=1024 --overlap_height_ratio=0 --overlap_width_ratio=0 --save_only_positive_slices=True 
