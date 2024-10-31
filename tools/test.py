@@ -136,10 +136,12 @@ def main():
 
     # add `DumpResults` dummy metric
     if args.out is not None:
-        assert args.out.endswith(('.pkl', '.pickle')), \
-            'The dump file must be a pkl file.'
+        # assert args.out.endswith(('.pkl', '.pickle')), \
+        #     'The dump file must be a pkl file.'
+        pickle_file = cfg.pickle_file + '.pkl'
         runner.test_evaluator.metrics.append(
-            DumpDetResults(out_file_path=args.out))
+            DumpDetResults(out_file_path=pickle_file))
+
 
     # start testing
     runner.test()
