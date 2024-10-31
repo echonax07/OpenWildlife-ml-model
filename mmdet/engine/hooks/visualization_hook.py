@@ -379,9 +379,13 @@ class GroundingVisualizationHook(DetVisualizationHook):
                 out_file = osp.join(self.test_out_dir, out_file)
 
             text = data_sample.text
+            # text = 0
+            # from icecream import ic
+            # ic(text)
             if isinstance(text, str):  # VG
                 gt_instances = data_sample.gt_instances
                 tokens_positive = data_sample.tokens_positive
+                # tokens_positive = {'0':[0,5]}
                 if 'phrase_ids' in data_sample:
                     # flickr30k
                     gt_labels = data_sample.phrase_ids

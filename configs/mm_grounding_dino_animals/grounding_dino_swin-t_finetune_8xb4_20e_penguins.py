@@ -50,6 +50,13 @@ train_pipeline = [
             ]
         ]),
     dict(
+        type='RandomSamplingNegPos',
+        tokenizer_name=lang_model_name,
+        num_sample_negative=85,
+        # change this
+        label_map_file='/home/m32patel/projects/rrg-dclausi/wildlife/datasets/birds_penguins/o365v1_label_map.json',
+        max_tokens=256),
+    dict(
         type='PackDetInputs',
         meta_keys=('img_id', 'img_path', 'ori_shape', 'img_shape',
                    'scale_factor', 'flip', 'flip_direction', 'text',

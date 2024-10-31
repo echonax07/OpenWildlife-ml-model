@@ -2,7 +2,7 @@
 _base_ = '../grouding_dino_swin-t_finetune_all.py'
 
 data_root = '/home/m32patel/projects/def-dclausi/whale/merged/test/'
-ann_file = 'test_2015.json'
+ann_file = 'test_2017.json'
 class_name = ('beluga whale')
 num_classes = len(class_name)
 metainfo = dict(classes=class_name, palette=[(220, 20, 60)])

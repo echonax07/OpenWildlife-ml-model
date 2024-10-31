@@ -50,7 +50,7 @@ train_pipeline = [
     dict(type='LoadImageFromFile', backend_args=_base_.backend_args),
     dict(type='LoadAnnotations', with_bbox=True),
     dict(type='RandomCrop', crop_size=patch_size, crop_type='absolute',
-         allow_negative_crop=True, recompute_bbox=True, clip_border=True),
+         allow_negative_crop=True, recompute_bbox=True, bbox_clip_border=True),
     dict(
         type='Albu',
         transforms=albu_train_transforms,

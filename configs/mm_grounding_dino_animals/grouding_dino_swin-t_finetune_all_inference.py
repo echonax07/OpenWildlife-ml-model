@@ -77,7 +77,7 @@ train_pipeline = [
     dict(
         type='PackDetInputs',
         meta_keys=('img_id', 'img_path', 'ori_shape', 'img_shape',
-                   'scale_factor', 'flip', 'flip_direction', 'text',
+                   'scale_factor', 'flip', 'flip_direction', 'text', 'label_map',
                    'custom_entities', 'tokens_positive', 'dataset_mode'))
 ]
 
@@ -381,64 +381,35 @@ train_dataloader = dict(
     sampler=dict(
         _delete_=True,
         type='CustomSampleSizeSampler',
-        dataset_size=[-1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1]),
+        # dataset_size=[-1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1]),
+        dataset_size=[-1,]),
     dataset=dict(datasets=[
-        Aerial_seabird_westafrica_od_dataset,
-        birds_izembek_lagoon_od_dataset,
-        michigan_od_dataset,
-        monash_od_dataset,
-        new_mexico_od_dataset,
-        palmyra_od_dataset,
-        penguins_od_dataset,
-        pfeifer_od_dataset,
-        seabirdwatch_od_dataset,
-        birds_poland_od_dataset,
-        qian_od_dataset,
-        aerial_livestock_dataset,
-        WAID_livestock_dataset,
-        AED_dataset,
-        Eikelboom_dataset,
-        NOAA_sealion_dataset,
-        turtle_dataset,
-        NOAA_artic_seal_dataset,
-        Beluga_2014_dataset,
+        # Aerial_seabird_westafrica_od_dataset,
+        # birds_izembek_lagoon_od_dataset,
+        # michigan_od_dataset,
+        # # monash_od_dataset,
+        # new_mexico_od_dataset,
+        # palmyra_od_dataset,
+        # penguins_od_dataset,
+        # pfeifer_od_dataset,
+        # seabirdwatch_od_dataset,
+        # birds_poland_od_dataset,
+        # qian_od_dataset,
+        # aerial_livestock_dataset,
+        # WAID_livestock_dataset,
+        # AED_dataset,
+        # Eikelboom_dataset,
+        # NOAA_sealion_dataset,
+        # turtle_dataset,
+        # NOAA_artic_seal_dataset,
+        # Beluga_2014_dataset,
         Beluga_2015_dataset,
-        Narwhal_2016_dataset
+        # Narwhal_2016_dataset
     ]))
 
-class_name = ('bird', 'Polar bear', 'Seal' )
+class_name = ('penguin', )
 num_classes = len(class_name)
-metainfo = dict(classes=class_name, palette=[(220, 20, 60), (20, 220, 60), (60, 20, 220), (0, 110, 60), (100, 26, 255)])
-
-test_pipeline = [
-    dict(
-        backend_args=None, imdecode_backend='pillow',
-        type='LoadImageFromFile'),
-    # dict(
-    #     backend='pillow',
-    #     keep_ratio=True,
-    #     scale=(
-    #         800,
-    #         1333,
-    #     ),
-    #     type='FixScaleResize'),
-    dict(type='Resize', scale_factor=1.0, keep_ratio=True),
-    # dict(type='RandomCrop', crop_size=patch_size, crop_type='absolute',
-    #      allow_negative_crop=True, recompute_bbox=True, bbox_clip_border=True),
-    dict(type='LoadAnnotations', with_bbox=True),
-    dict(
-        meta_keys=(
-            'img_id',
-            'img_path',
-            'ori_shape',
-            'img_shape',
-            'scale_factor',
-            'text',
-            'custom_entities',
-            'tokens_positive',
-        ),
-        type='PackDetInputs'),
-]
+metainfo = dict(classes=class_name, palette=[(220, 20, 60)])
 
 val_dataloader = dict(
     batch_size=1,
@@ -451,17 +422,14 @@ val_dataloader = dict(
         metainfo=metainfo,
         data_root='/home/m32patel/projects/rrg-dclausi/wildlife/datasets/birds_qian_penguin/coco',
         ann_file='test.json',
-        pipeline=test_pipeline,
         data_prefix=dict(img=''),
         test_mode=True,))
 test_dataloader = val_dataloader
-
 
 val_evaluator = dict(
     type='CocoMetric',
     ann_file='/home/m32patel/projects/rrg-dclausi/wildlife/datasets/birds_qian_penguin/coco' + '/test.json',
     metric='bbox',
-    pipeline=test_pipeline,
     format_only=False,)
 test_evaluator = val_evaluator
 
@@ -481,7 +449,7 @@ optim_wrapper = dict(
             language_model=dict(lr_mult=0.1))),
     type='OptimWrapper')
 
-train_cfg = dict(max_epochs=20, type='EpochBasedTrainLoop', val_interval=1)
+train_cfg = dict(max_epochs=10, type='EpochBasedTrainLoop', val_interval=1)
 
 vis_backends = [
     dict(
