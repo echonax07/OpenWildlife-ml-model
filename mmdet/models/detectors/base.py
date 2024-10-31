@@ -5,10 +5,13 @@ from typing import Dict, List, Tuple, Union
 import torch
 from mmengine.model import BaseModel
 from torch import Tensor
-
+import numpy as np
 from mmdet.structures import DetDataSample, OptSampleList, SampleList
 from mmdet.utils import InstanceList, OptConfigType, OptMultiConfig
 from ..utils import samplelist_boxtype2tensor
+from mmengine.structures import InstanceData
+from mmdet.utils.slicing import slice_image
+from mmdet.utils.large_image import merge_results_by_nms, shift_predictions
 
 ForwardResults = Union[Dict[str, torch.Tensor], List[DetDataSample],
                        Tuple[torch.Tensor], torch.Tensor]
@@ -27,7 +30,12 @@ class BaseDetector(BaseModel, metaclass=ABCMeta):
 
     def __init__(self,
                  data_preprocessor: OptConfigType = None,
+                 sliding_window_inference: Dict = None,
                  init_cfg: OptMultiConfig = None):
+        self.sliding_window_inference = sliding_window_inference
+        if self.sliding_window_inference == None:
+            self.sliding_window_inference = {}
+            self.sliding_window_inference['enable'] = False
         super().__init__(
             data_preprocessor=data_preprocessor, init_cfg=init_cfg)
 
@@ -91,7 +99,88 @@ class BaseDetector(BaseModel, metaclass=ABCMeta):
         if mode == 'loss':
             return self.loss(inputs, data_samples)
         elif mode == 'predict':
-            return self.predict(inputs, data_samples)
+            if self.sliding_window_inference.get('enable'):
+                # inputs dim (B, 3, H, W)
+                _, _, height, width = inputs.shape
+                sliced_image_object = slice_image(
+                    inputs[0].cpu().numpy().transpose(1, 2, 0),
+                    slice_height=self.sliding_window_inference['patch_size'],
+                    slice_width=self.sliding_window_inference['patch_size'],
+                    auto_slice_resolution=False,
+                    overlap_height_ratio=self.sliding_window_inference['patch_overlap_ratio'],
+                    overlap_width_ratio=self.sliding_window_inference['patch_overlap_ratio'],
+                )
+                stacked_image_slice = np.stack(
+                    sliced_image_object.images, axis=0)
+                stacked_image_slice = stacked_image_slice.transpose(0, 3, 1, 2)
+                stacked_image_slice = torch.tensor(
+                    stacked_image_slice, dtype=inputs.dtype, device=inputs.device)
+
+                clone_data_sample = data_samples[0].clone()
+                patch_size = self.sliding_window_inference['patch_size']
+                clone_data_sample.set_metainfo(dict(batch_input_shape=(patch_size, patch_size), pad_shape=(
+                    patch_size, patch_size), ori_shape=(patch_size, patch_size), img_shape=(patch_size, patch_size), img_id=None, img_path=None))
+                gt_instances = clone_data_sample.ignored_instances.clone()
+                clone_data_sample.set_data(dict(gt_instances=gt_instances))
+                data_samples_sliced = [
+                    clone_data_sample.clone() for _ in range(len(sliced_image_object))]
+
+                # Determine the batch size for slices
+                slice_batch_size = self.sliding_window_inference.get(
+                    'slice_batch_size', -1)
+                num_slices = stacked_image_slice.shape[0]
+
+                if slice_batch_size == -1:
+                    slice_batch_size = num_slices
+
+                slice_results = []
+
+                for i in range(0, num_slices, slice_batch_size):
+                    batch_slices = stacked_image_slice[i:i+slice_batch_size]
+                    batch_data_samples = data_samples_sliced[i:i +
+                                                             slice_batch_size]
+                    batch_results = self.predict(
+                        batch_slices, batch_data_samples)
+                    slice_results.extend(batch_results)
+
+                shifted_instances = shift_predictions(
+                    slice_results,
+                    sliced_image_object.starting_pixels,
+                    src_image_shape=(height, width)
+                )
+
+                found_object = any(len(result.pred_instances)
+                                   for result in slice_results)
+
+                if found_object:
+                    image_result = merge_results_by_nms(
+                        slice_results,
+                        sliced_image_object.starting_pixels,
+                        src_image_shape=(height, width),
+                        nms_cfg={
+                            'type': self.sliding_window_inference['merge_nms_type'],
+                            'iou_threshold': self.sliding_window_inference['merge_iou_thr']
+                        })
+                    instance_data = InstanceData()
+                    instance_data.labels = image_result.pred_instances.labels
+                    instance_data.bboxes = image_result.pred_instances.bboxes
+                    instance_data.scores = image_result.pred_instances.scores
+                else:
+                    instance_data = InstanceData()
+                    instance_data.labels = slice_results[0].pred_instances.labels
+                    instance_data.bboxes = slice_results[0].pred_instances.bboxes
+                    instance_data.scores = slice_results[0].pred_instances.scores
+
+                final_data_sample_sliced = slice_results[0].clone()
+                # Put back original shape and size
+                final_data_sample_sliced.set_metainfo(dict(batch_input_shape=(height, width), pad_shape=(
+                    height, width), ori_shape=(height, width), img_shape=(height, width)))
+                final_data_sample_sliced.set_data(
+                    dict(pred_instances=instance_data))
+                data_samples[0].set_data(dict(pred_instances=instance_data))
+                return data_samples
+            else:
+                return self.predict(inputs, data_samples)
         elif mode == 'tensor':
             return self._forward(inputs, data_samples)
         else:

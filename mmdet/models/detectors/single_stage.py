@@ -1,5 +1,5 @@
 # Copyright (c) OpenMMLab. All rights reserved.
-from typing import List, Tuple, Union
+from typing import List, Tuple, Union, Dict
 
 from torch import Tensor
 
@@ -24,9 +24,10 @@ class SingleStageDetector(BaseDetector):
                  train_cfg: OptConfigType = None,
                  test_cfg: OptConfigType = None,
                  data_preprocessor: OptConfigType = None,
+                 sliding_window_inference: Dict = None,
                  init_cfg: OptMultiConfig = None) -> None:
         super().__init__(
-            data_preprocessor=data_preprocessor, init_cfg=init_cfg)
+            data_preprocessor=data_preprocessor, sliding_window_inference = sliding_window_inference, init_cfg=init_cfg)
         self.backbone = MODELS.build(backbone)
         if neck is not None:
             self.neck = MODELS.build(neck)

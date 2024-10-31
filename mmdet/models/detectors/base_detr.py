@@ -56,9 +56,10 @@ class DetectionTransformer(BaseDetector, metaclass=ABCMeta):
                  train_cfg: OptConfigType = None,
                  test_cfg: OptConfigType = None,
                  data_preprocessor: OptConfigType = None,
+                 sliding_window_inference : Dict = None,
                  init_cfg: OptMultiConfig = None) -> None:
         super().__init__(
-            data_preprocessor=data_preprocessor, init_cfg=init_cfg)
+            data_preprocessor=data_preprocessor, init_cfg=init_cfg, sliding_window_inference = sliding_window_inference)
         # process args
         bbox_head.update(train_cfg=train_cfg)
         bbox_head.update(test_cfg=test_cfg)

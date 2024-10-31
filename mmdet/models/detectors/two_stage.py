@@ -28,9 +28,10 @@ class TwoStageDetector(BaseDetector):
                  train_cfg: OptConfigType = None,
                  test_cfg: OptConfigType = None,
                  data_preprocessor: OptConfigType = None,
+                 sliding_window_inference=None,
                  init_cfg: OptMultiConfig = None) -> None:
         super().__init__(
-            data_preprocessor=data_preprocessor, init_cfg=init_cfg)
+            data_preprocessor=data_preprocessor, init_cfg=init_cfg, sliding_window_inference=sliding_window_inference)
         self.backbone = MODELS.build(backbone)
 
         if neck is not None:
@@ -81,7 +82,7 @@ class TwoStageDetector(BaseDetector):
         if len(bbox_head_keys) != 0 and len(rpn_head_keys) == 0:
             for bbox_head_key in bbox_head_keys:
                 rpn_head_key = rpn_head_prefix + \
-                               bbox_head_key[len(bbox_head_prefix):]
+                    bbox_head_key[len(bbox_head_prefix):]
                 state_dict[rpn_head_key] = state_dict.pop(bbox_head_key)
         super()._load_from_state_dict(state_dict, prefix, local_metadata,
                                       strict, missing_keys, unexpected_keys,
