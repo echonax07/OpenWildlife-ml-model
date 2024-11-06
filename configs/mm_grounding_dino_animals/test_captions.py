@@ -70,7 +70,56 @@ train_pipeline = [
     dict(type='RandomFlip', prob=0.5),
     dict(type='FilterAnnotations', min_gt_bbox_wh=(1e-2, 1e-2)),
     dict(
-        type='RandomSamplingNegPos',
+        type='RandomSamplingNegPos_with_caption',
+        tokenizer_name=lang_model_name,
+        num_sample_negative=85,
+        max_tokens=256),
+    dict(
+        type='PackDetInputs',
+        meta_keys=('img_id', 'img_path', 'ori_shape', 'img_shape',
+                   'scale_factor', 'flip', 'flip_direction', 'text', 'label_map' ,
+                   'custom_entities', 'tokens_positive', 'dataset_mode'))
+]
+
+# train pipeline for small images
+train_pipeline2 = [
+    dict(type='LoadImageFromFile', backend_args=_base_.backend_args),
+    dict(type='LoadAnnotations', with_bbox=True),
+    dict(type='RandomFlip', prob=0.5),
+    dict(
+        type='RandomChoice',
+        transforms=[
+            [
+                dict(
+                    type='RandomChoiceResize',
+                    scales=[(480, 1333), (512, 1333), (544, 1333), (576, 1333),
+                            (608, 1333), (640, 1333), (672, 1333), (704, 1333),
+                            (736, 1333), (768, 1333), (800, 1333)],
+                    keep_ratio=True)
+            ],
+            [
+                dict(
+                    type='RandomChoiceResize',
+                    # The radio of all image in train dataset < 7
+                    # follow the original implement
+                    scales=[(400, 4200), (500, 4200), (600, 4200)],
+                    keep_ratio=True),
+                dict(
+                    type='RandomCrop',
+                    crop_type='absolute_range',
+                    crop_size=(384, 600),
+                    allow_negative_crop=True),
+                dict(
+                    type='RandomChoiceResize',
+                    scales=[(480, 1333), (512, 1333), (544, 1333), (576, 1333),
+                            (608, 1333), (640, 1333), (672, 1333), (704, 1333),
+                            (736, 1333), (768, 1333), (800, 1333)],
+                    keep_ratio=True)
+            ]
+        ]),
+    dict(type='FilterAnnotations', min_gt_bbox_wh=(1e-2, 1e-2)),
+    dict(
+        type='RandomSamplingNegPos_with_caption',
         tokenizer_name=lang_model_name,
         num_sample_negative=85,
         max_tokens=256),
@@ -81,13 +130,14 @@ train_pipeline = [
                    'custom_entities', 'tokens_positive', 'dataset_mode'))
 ]
 
+
 # BIRDS
 # B1
 # Big pipeline
 Aerial_seabird_westafrica_od_dataset = dict(
-    type='ODVGDataset',
+    type='ODVGCaptionDataset',
     data_root='/home/m32patel/scratch/animal_patches/Aerial_Seabirds_West_Africa/train',
-    ann_file='train_od.json',
+    ann_file='train_full_patch_od_grounded.json',
     label_map_file='o365v1_label_map.json',
     data_prefix=dict(img=''),
     filter_cfg=dict(filter_empty_gt=False),
@@ -98,9 +148,9 @@ Aerial_seabird_westafrica_od_dataset = dict(
 # B2
 # Big pipeline
 birds_izembek_lagoon_od_dataset = dict(
-    type='ODVGDataset',
+    type='ODVGCaptionDataset',
     data_root='/home/m32patel/scratch/animal_patches/birds_Izembek_Lagoon_Waterfowl/train',
-    ann_file='train_od.json',
+    ann_file='train_full_patch_od_grounded.json',
     label_map_file='o365v1_label_map.json',
     data_prefix=dict(img=''),
     filter_cfg=dict(filter_empty_gt=False),
@@ -111,9 +161,9 @@ birds_izembek_lagoon_od_dataset = dict(
 # B3
 # Big pipeline
 michigan_od_dataset = dict(
-    type='ODVGDataset',
+    type='ODVGCaptionDataset',
     data_root='/home/m32patel/projects/rrg-dclausi/wildlife/datasets/birds_michigan',
-    ann_file='train_od.json',
+    ann_file='train_od_grounded.json',
     label_map_file='o365v1_label_map.json',
     data_prefix=dict(img=''),
     filter_cfg=dict(filter_empty_gt=False),
@@ -124,9 +174,9 @@ michigan_od_dataset = dict(
 # B4
 # Big pipeline
 monash_od_dataset = dict(
-    type='ODVGDataset',
+    type='ODVGCaptionDataset',
     data_root='/home/m32patel/projects/rrg-dclausi/wildlife/datasets/birds_monash',
-    ann_file='train_od.json',
+    ann_file='train_od_grounded.json',
     label_map_file='o365v1_label_map.json',
     data_prefix=dict(img=''),
     filter_cfg=dict(filter_empty_gt=False),
@@ -137,9 +187,9 @@ monash_od_dataset = dict(
 # B5
 # Big pipeline
 new_mexico_od_dataset = dict(
-    type='ODVGDataset',
+    type='ODVGCaptionDataset',
     data_root='/home/m32patel/projects/rrg-dclausi/wildlife/datasets/birds_newmexico',
-    ann_file='train_od.json',
+    ann_file='train_od_grounded.json',
     label_map_file='o365v1_label_map.json',
     data_prefix=dict(img=''),
     filter_cfg=dict(filter_empty_gt=False),
@@ -150,9 +200,9 @@ new_mexico_od_dataset = dict(
 # B6
 # Big pipeline
 palmyra_od_dataset = dict(
-    type='ODVGDataset',
+    type='ODVGCaptionDataset',
     data_root='/home/m32patel/projects/rrg-dclausi/wildlife/datasets/birds_palmyra',
-    ann_file='train_od.json',
+    ann_file='train_od_grounded.json',
     label_map_file='o365v1_label_map.json',
     data_prefix=dict(img=''),
     filter_cfg=dict(filter_empty_gt=False),
@@ -163,48 +213,48 @@ palmyra_od_dataset = dict(
 # B7
 # Normal pipeline
 penguins_od_dataset = dict(
-    type='ODVGDataset',
+    type='ODVGCaptionDataset',
     data_root='/home/m32patel/projects/rrg-dclausi/wildlife/datasets/birds_penguins',
-    ann_file='train_od.json',
+    ann_file='train_od_grounded.json',
     label_map_file='o365v1_label_map.json',
     data_prefix=dict(img=''),
     filter_cfg=dict(filter_empty_gt=False),
-    pipeline=_base_.train_pipeline,
+    pipeline=train_pipeline2,
     return_classes=True,
     backend_args=None,
 )
 # B8
 # Normal pipeline
 pfeifer_od_dataset = dict(
-    type='ODVGDataset',
+    type='ODVGCaptionDataset',
     data_root='/home/m32patel/projects/rrg-dclausi/wildlife/datasets/birds_pfeifer',
-    ann_file='train_od.json',
+    ann_file='train_od_grounded.json',
     label_map_file='o365v1_label_map.json',
     data_prefix=dict(img=''),
     filter_cfg=dict(filter_empty_gt=False),
-    pipeline=_base_.train_pipeline,
+    pipeline=train_pipeline2,
     return_classes=True,
     backend_args=None,
 )
 # B9
 # Normal pipeline
 seabirdwatch_od_dataset = dict(
-    type='ODVGDataset',
+    type='ODVGCaptionDataset',
     data_root='/home/m32patel/projects/rrg-dclausi/wildlife/datasets/birds_seabirdwatch',
-    ann_file='train_od.json',
+    ann_file='train_od_grounded.json',
     label_map_file='o365v1_label_map.json',
     data_prefix=dict(img=''),
     filter_cfg=dict(filter_empty_gt=False),
-    pipeline=_base_.train_pipeline,
+    pipeline=train_pipeline2,
     return_classes=True,
     backend_args=None,
 )
 # B10
 # Big pipeline
 birds_poland_od_dataset = dict(
-    type='ODVGDataset',
+    type='ODVGCaptionDataset',
     data_root='/home/m32patel/projects/rrg-dclausi/wildlife/datasets/birds_poland',
-    ann_file='train_od.json',
+    ann_file='train_od_grounded.json',
     label_map_file='o365v1_label_map.json',
     data_prefix=dict(img=''),
     filter_cfg=dict(filter_empty_gt=False),
@@ -215,13 +265,13 @@ birds_poland_od_dataset = dict(
 # B11
 # Normal pipeline
 qian_od_dataset = dict(
-    type='ODVGDataset',
+    type='ODVGCaptionDataset',
     data_root='/home/m32patel/projects/rrg-dclausi/wildlife/datasets/birds_qian_penguin',
-    ann_file='train_od.json',
+    ann_file='train_od_grounded.json',
     label_map_file='o365v1_label_map.json',
     data_prefix=dict(img='coco'),
     filter_cfg=dict(filter_empty_gt=False),
-    pipeline=_base_.train_pipeline,
+    pipeline=train_pipeline2,
     return_classes=True,
     backend_args=None,
 )
@@ -230,9 +280,9 @@ qian_od_dataset = dict(
 # L1
 # Big pipeline
 aerial_livestock_dataset = dict(
-    type='ODVGDataset',
+    type='ODVGCaptionDataset',
     data_root='/home/m32patel/scratch/animal_patches/Aerial-livestock-dataset/train/',
-    ann_file='train_od.json',
+    ann_file='train_full_patch_od_grounded.json',
     label_map_file='o365v1_label_map.json',
     data_prefix=dict(img=''),
     filter_cfg=dict(filter_empty_gt=False),
@@ -243,9 +293,9 @@ aerial_livestock_dataset = dict(
 
 # # Big pipeline
 # SAVMAP_dataset = dict(
-#     type='ODVGDataset',
+#     type='ODVGCaptionDataset',
 #     data_root='/home/m32patel/projects/rrg-dclausi/wildlife/datasets/birds_qian_penguin',
-#     ann_file='train_od.json',
+#     ann_file='train_od_grounded.json',
 #     label_map_file='o365v1_label_map.json',
 #     data_prefix=dict(img=''),
 #     filter_cfg=dict(filter_empty_gt=False),
@@ -257,13 +307,13 @@ aerial_livestock_dataset = dict(
 # L2
 # Big pipeline
 WAID_livestock_dataset = dict(
-    type='ODVGDataset',
+    type='ODVGCaptionDataset',
     data_root='/home/m32patel/projects/rrg-dclausi/wildlife/datasets/WAID/train',
-    ann_file='train_od.json',
+    ann_file='train_od_grounded.json',
     label_map_file='o365v1_label_map.json',
     data_prefix=dict(img=''),
     filter_cfg=dict(filter_empty_gt=False),
-    pipeline=_base_.train_pipeline,
+    pipeline=train_pipeline2,
     return_classes=True,
     backend_args=None,
 )
@@ -271,9 +321,9 @@ WAID_livestock_dataset = dict(
 # L3
 # Big pipeline
 AED_dataset = dict(
-    type='ODVGDataset',
+    type='ODVGCaptionDataset',
     data_root='/home/m32patel/scratch/animal_patches/AED/train',
-    ann_file='train_od.json',
+    ann_file='train_full_patch_od_grounded.json',
     label_map_file='o365v1_label_map.json',
     data_prefix=dict(img=''),
     filter_cfg=dict(filter_empty_gt=False),
@@ -284,9 +334,9 @@ AED_dataset = dict(
 # L4
 # Big pipeline
 Eikelboom_dataset = dict(
-    type='ODVGDataset',
+    type='ODVGCaptionDataset',
     data_root='/home/m32patel/scratch/animal_patches/Eikelboom/train',
-    ann_file='train_od.json',
+    ann_file='train_full_patch_od_grounded.json',
     label_map_file='o365v1_label_map.json',
     data_prefix=dict(img=''),
     filter_cfg=dict(filter_empty_gt=False),
@@ -299,9 +349,9 @@ Eikelboom_dataset = dict(
 # O1
 # Big pipeline
 NOAA_sealion_dataset = dict(
-    type='ODVGDataset',
+    type='ODVGCaptionDataset',
     data_root='/home/m32patel/scratch/animal_patches/NOAA_sea_lion_blackout/train',
-    ann_file='train_od.json',
+    ann_file='train_full_patch_od_grounded.json',
     label_map_file='o365v1_label_map.json',
     data_prefix=dict(img=''),
     filter_cfg=dict(filter_empty_gt=False),
@@ -312,9 +362,9 @@ NOAA_sealion_dataset = dict(
 # O2
 # Big pipeline
 turtle_dataset = dict(
-    type='ODVGDataset',
+    type='ODVGCaptionDataset',
     data_root='/home/m32patel/scratch/animal_patches/turtle/train',
-    ann_file='train_od.json',
+    ann_file='train_full_patch_od_grounded.json',
     label_map_file='o365v1_label_map.json',
     data_prefix=dict(img=''),
     filter_cfg=dict(filter_empty_gt=False),
@@ -325,9 +375,9 @@ turtle_dataset = dict(
 # O3
 # Big pipeline
 NOAA_artic_seal_dataset = dict(
-    type='ODVGDataset',
+    type='ODVGCaptionDataset',
     data_root='/home/m32patel/scratch/animal_patches/NOAA_arctic_seal/train',
-    ann_file='train_od.json',
+    ann_file='train_full_patch_od_grounded.json',
     label_map_file='o365v1_label_map.json',
     data_prefix=dict(img=''),
     filter_cfg=dict(filter_empty_gt=False),
@@ -338,9 +388,9 @@ NOAA_artic_seal_dataset = dict(
 # O4
 # Big pipeline
 Beluga_2014_dataset = dict(
-    type='ODVGDataset',
+    type='ODVGCaptionDataset',
     data_root='/home/m32patel/scratch/animal_patches/2014_Beluga/train',
-    ann_file='train_od.json',
+    ann_file='train_full_patch_od_grounded.json',
     label_map_file='o365v1_label_map.json',
     data_prefix=dict(img=''),
     filter_cfg=dict(filter_empty_gt=False),
@@ -352,9 +402,9 @@ Beluga_2014_dataset = dict(
 # O5
 # Big pipeline
 Beluga_2015_dataset = dict(
-    type='ODVGDataset',
+    type='ODVGCaptionDataset',
     data_root='/home/m32patel/scratch/animal_patches/2015_Beluga/train',
-    ann_file='train_od.json',
+    ann_file='train_full_patch_od_grounded.json',
     label_map_file='o365v1_label_map.json',
     data_prefix=dict(img=''),
     filter_cfg=dict(filter_empty_gt=False),
@@ -365,9 +415,9 @@ Beluga_2015_dataset = dict(
 # O6
 # Big pipeline
 Narwhal_2016_dataset = dict(
-    type='ODVGDataset',
+    type='ODVGCaptionDataset',
     data_root='/home/m32patel/scratch/animal_patches/2016_Narwhal/train',
-    ann_file='train_od.json',
+    ann_file='train_full_patch_od_grounded.json',
     label_map_file='o365v1_label_map.json',
     data_prefix=dict(img=''),
     filter_cfg=dict(filter_empty_gt=False),
@@ -381,8 +431,7 @@ train_dataloader = dict(
     sampler=dict(
         _delete_=True,
         type='CustomSampleSizeSampler',
-        # dataset_size=[-1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1]),
-        dataset_size=[-1,]),
+        dataset_size=[-1, 10000, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1]),
     dataset=dict(datasets=[
         Aerial_seabird_westafrica_od_dataset,
         birds_izembek_lagoon_od_dataset,
@@ -449,7 +498,7 @@ optim_wrapper = dict(
             language_model=dict(lr_mult=0.1))),
     type='OptimWrapper')
 
-train_cfg = dict(max_epochs=10, type='EpochBasedTrainLoop', val_interval=1)
+train_cfg = dict(max_epochs=20, type='EpochBasedTrainLoop', val_interval=1)
 
 vis_backends = [
     dict(
@@ -468,6 +517,26 @@ vis_backends = [
         watch_kwargs=None
     ),
 ]
+
+vis_backends = [
+    dict(
+        type='LocalVisBackend'
+    ),
+    dict(
+        type='WandbVisBackend',
+        init_kwargs=dict(
+            entity='mmwhale',
+            project='MM_grounding_DINO',
+            name='{{fileBasenameNoExtension}}',
+        ),
+        define_metric_cfg=None,
+        commit=True,
+        log_code_name=None,
+        watch_kwargs=None
+    ),
+]
+
+# visualizer = dict(vis_backends=vis_backends)
 
 work_dir='work_dir_grounding_dino/{{fileBasenameNoExtension}}'
 

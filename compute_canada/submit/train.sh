@@ -6,7 +6,7 @@
 #SBATCH --mem=400G
 #SBATCH --time=23:59:00
 #SBATCH --output=../output3/%j.out
-#SBATCH --account=rrg-dclausi
+#SBATCH --account=def-y2863che
 #SBATCH --mail-user=muhammed.computecanada@gmail.com
 #SBATCH --mail-type=BEGIN
 #SBATCH --mail-type=END
@@ -41,14 +41,14 @@ random_number=$(( RANDOM % (max - min + 1) + min ))
 echo "Config file: $1"
 # srun --ntasks=2 --gres=gpu:2  --kill-on-bad-exit=1 --cpus-per-task=12 python tools/train.py $1 --launcher slurm --resume
 # srun --ntasks=2 --gres=gpu:2  --kill-on-bad-exit=1 --cpus-per-task=12 python tools/train.py $1 --launcher slurm
-srun --ntasks=8 --gres=gpu:4 --kill-on-bad-exit=1 --cpus-per-task=12 --nodes=2 python tools/train.py $1 --launcher slurm --cfg-options env_cfg.dist_cfg.port=${random_number} --resume
+srun --ntasks=8 --gres=gpu:4 --kill-on-bad-exit=1 --cpus-per-task=12 --nodes=2 python tools/train.py $1 --launcher slurm --cfg-options env_cfg.dist_cfg.port=${random_number}
 
-# Extract the base name without extension
-base_name=$(basename "$1" .py)
-CHECKPOINT=$(cat work_dir_grounding_dino/$base_name/last_checkpoint)
-echo "$CHECKPOINT"
+# # Extract the base name without extension
+# base_name=$(basename "$1" .py)
+# CHECKPOINT=$(cat work_dir_grounding_dino/$base_name/last_checkpoint)
+# echo "$CHECKPOINT"
 
-srun --ntasks=8 --gres=gpu:4 --kill-on-bad-exit=1 --cpus-per-task=12 python tools/test.py $1 $CHECKPOINT --launcher slurm --out True --cfg-options env_cfg.dist_cfg.port=${random_number} class_name=('cat', ) num_classes=len(class_name) metainfo = dict(classes=class_name, palette=[(220, 20, 60)])
+# srun --ntasks=8 --gres=gpu:4 --kill-on-bad-exit=1 --cpus-per-task=12 python tools/test.py $1 $CHECKPOINT --launcher slurm --out True --cfg-options env_cfg.dist_cfg.port=${random_number} class_name=('cat', ) num_classes=len(class_name) metainfo = dict(classes=class_name, palette=[(220, 20, 60)])
 
 # python tools/analysis_tools/whale/plot_pr_confusion_matrix_year_wise.py --config $1 --save_year_wise=False
 

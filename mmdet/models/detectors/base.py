@@ -134,7 +134,7 @@ class BaseDetector(BaseModel, metaclass=ABCMeta):
                     slice_batch_size = num_slices
 
                 slice_results = []
-
+                # print(f'Doing sliding window inference with {num_slices} slices')
                 for i in range(0, num_slices, slice_batch_size):
                     batch_slices = stacked_image_slice[i:i+slice_batch_size]
                     batch_data_samples = data_samples_sliced[i:i +

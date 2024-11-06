@@ -10,7 +10,7 @@ from .base_det_dataset import BaseDetDataset
 
 
 @DATASETS.register_module()
-class ODVGDataset(BaseDetDataset):
+class ODVGCaptionDataset(BaseDetDataset):
     """object detection and visual grounding dataset."""
 
     def __init__(self,
@@ -32,6 +32,7 @@ class ODVGDataset(BaseDetDataset):
     def load_data_list(self) -> List[dict]:
         with get_local_path(
                 self.ann_file, backend_args=self.backend_args) as local_path:
+            print(local_path)
             with open(local_path, 'r') as f:
                 data_list = [json.loads(line) for line in f]
 
@@ -44,7 +45,9 @@ class ODVGDataset(BaseDetDataset):
             data_info['width'] = data['width']
             if self.dataset_mode == 'OD':
                 if self.need_text:
-                    data_info['text'] = self.label_map
+                    # data_info['text'] = self.label_map
+                    data_info['label_map'] = self.label_map
+                    data_info['text'] = data['caption']
                 anno = data.get('detection', {})
                 instances = [obj for obj in anno.get('instances', [])]
                 bboxes = [obj['bbox'] for obj in instances]

@@ -77,7 +77,7 @@ train_pipeline = [
     dict(
         type='PackDetInputs',
         meta_keys=('img_id', 'img_path', 'ori_shape', 'img_shape',
-                   'scale_factor', 'flip', 'flip_direction', 'text', 'label_map',
+                   'scale_factor', 'flip', 'flip_direction', 'text',
                    'custom_entities', 'tokens_positive', 'dataset_mode'))
 ]
 
@@ -87,7 +87,7 @@ train_pipeline = [
 Aerial_seabird_westafrica_od_dataset = dict(
     type='ODVGDataset',
     data_root='/home/m32patel/scratch/animal_patches/Aerial_Seabirds_West_Africa/train',
-    ann_file='train_od.json',
+    ann_file='train_full_patch_od.json',
     label_map_file='o365v1_label_map.json',
     data_prefix=dict(img=''),
     filter_cfg=dict(filter_empty_gt=False),
@@ -100,7 +100,7 @@ Aerial_seabird_westafrica_od_dataset = dict(
 birds_izembek_lagoon_od_dataset = dict(
     type='ODVGDataset',
     data_root='/home/m32patel/scratch/animal_patches/birds_Izembek_Lagoon_Waterfowl/train',
-    ann_file='train_od.json',
+    ann_file='train_full_patch_od.json',
     label_map_file='o365v1_label_map.json',
     data_prefix=dict(img=''),
     filter_cfg=dict(filter_empty_gt=False),
@@ -232,7 +232,7 @@ qian_od_dataset = dict(
 aerial_livestock_dataset = dict(
     type='ODVGDataset',
     data_root='/home/m32patel/scratch/animal_patches/Aerial-livestock-dataset/train/',
-    ann_file='train_od.json',
+    ann_file='train_full_patch_od.json',
     label_map_file='o365v1_label_map.json',
     data_prefix=dict(img=''),
     filter_cfg=dict(filter_empty_gt=False),
@@ -273,7 +273,7 @@ WAID_livestock_dataset = dict(
 AED_dataset = dict(
     type='ODVGDataset',
     data_root='/home/m32patel/scratch/animal_patches/AED/train',
-    ann_file='train_od.json',
+    ann_file='train_full_patch_od.json',
     label_map_file='o365v1_label_map.json',
     data_prefix=dict(img=''),
     filter_cfg=dict(filter_empty_gt=False),
@@ -286,7 +286,7 @@ AED_dataset = dict(
 Eikelboom_dataset = dict(
     type='ODVGDataset',
     data_root='/home/m32patel/scratch/animal_patches/Eikelboom/train',
-    ann_file='train_od.json',
+    ann_file='train_full_patch_od.json',
     label_map_file='o365v1_label_map.json',
     data_prefix=dict(img=''),
     filter_cfg=dict(filter_empty_gt=False),
@@ -301,7 +301,7 @@ Eikelboom_dataset = dict(
 NOAA_sealion_dataset = dict(
     type='ODVGDataset',
     data_root='/home/m32patel/scratch/animal_patches/NOAA_sea_lion_blackout/train',
-    ann_file='train_od.json',
+    ann_file='train_full_patch_od.json',
     label_map_file='o365v1_label_map.json',
     data_prefix=dict(img=''),
     filter_cfg=dict(filter_empty_gt=False),
@@ -314,7 +314,7 @@ NOAA_sealion_dataset = dict(
 turtle_dataset = dict(
     type='ODVGDataset',
     data_root='/home/m32patel/scratch/animal_patches/turtle/train',
-    ann_file='train_od.json',
+    ann_file='train_full_patch_od.json',
     label_map_file='o365v1_label_map.json',
     data_prefix=dict(img=''),
     filter_cfg=dict(filter_empty_gt=False),
@@ -327,7 +327,7 @@ turtle_dataset = dict(
 NOAA_artic_seal_dataset = dict(
     type='ODVGDataset',
     data_root='/home/m32patel/scratch/animal_patches/NOAA_arctic_seal/train',
-    ann_file='train_od.json',
+    ann_file='train_full_patch_od.json',
     label_map_file='o365v1_label_map.json',
     data_prefix=dict(img=''),
     filter_cfg=dict(filter_empty_gt=False),
@@ -340,7 +340,7 @@ NOAA_artic_seal_dataset = dict(
 Beluga_2014_dataset = dict(
     type='ODVGDataset',
     data_root='/home/m32patel/scratch/animal_patches/2014_Beluga/train',
-    ann_file='train_od.json',
+    ann_file='train_full_patch_od.json',
     label_map_file='o365v1_label_map.json',
     data_prefix=dict(img=''),
     filter_cfg=dict(filter_empty_gt=False),
@@ -354,7 +354,7 @@ Beluga_2014_dataset = dict(
 Beluga_2015_dataset = dict(
     type='ODVGDataset',
     data_root='/home/m32patel/scratch/animal_patches/2015_Beluga/train',
-    ann_file='train_od.json',
+    ann_file='train_full_patch_od.json',
     label_map_file='o365v1_label_map.json',
     data_prefix=dict(img=''),
     filter_cfg=dict(filter_empty_gt=False),
@@ -367,7 +367,7 @@ Beluga_2015_dataset = dict(
 Narwhal_2016_dataset = dict(
     type='ODVGDataset',
     data_root='/home/m32patel/scratch/animal_patches/2016_Narwhal/train',
-    ann_file='train_od.json',
+    ann_file='train_full_patch_od.json',
     label_map_file='o365v1_label_map.json',
     data_prefix=dict(img=''),
     filter_cfg=dict(filter_empty_gt=False),
@@ -381,8 +381,9 @@ train_dataloader = dict(
     sampler=dict(
         _delete_=True,
         type='CustomSampleSizeSampler',
-        # dataset_size=[-1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1]),
-        dataset_size=[-1,]),
+        dataset_size=[-1, 10000, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1]),
+        # dataset_size=[-1]),
+    
     dataset=dict(datasets=[
         Aerial_seabird_westafrica_od_dataset,
         birds_izembek_lagoon_od_dataset,
@@ -420,7 +421,7 @@ val_dataloader = dict(
     dataset=dict(
         type='CocoDataset',
         metainfo=metainfo,
-        data_root='/home/m32patel/projects/rrg-dclausi/wildlife/datasets/birds_qian_penguin/coco',
+        data_root='/home/m32patel/projects/rrg-dclausi/wildlife/datasets/birds_penguins',
         ann_file='test.json',
         data_prefix=dict(img=''),
         test_mode=True,))
@@ -428,7 +429,7 @@ test_dataloader = val_dataloader
 
 val_evaluator = dict(
     type='CocoMetric',
-    ann_file='/home/m32patel/projects/rrg-dclausi/wildlife/datasets/birds_qian_penguin/coco' + '/test.json',
+    ann_file='/home/m32patel/projects/rrg-dclausi/wildlife/datasets/birds_penguins' + '/test.json',
     metric='bbox',
     format_only=False,)
 test_evaluator = val_evaluator
@@ -449,7 +450,7 @@ optim_wrapper = dict(
             language_model=dict(lr_mult=0.1))),
     type='OptimWrapper')
 
-train_cfg = dict(max_epochs=10, type='EpochBasedTrainLoop', val_interval=1)
+train_cfg = dict(max_epochs=20, type='EpochBasedTrainLoop', val_interval=1)
 
 vis_backends = [
     dict(
@@ -468,6 +469,8 @@ vis_backends = [
         watch_kwargs=None
     ),
 ]
+
+# visualizer = dict(vis_backends=vis_backends)
 
 work_dir='work_dir_grounding_dino/{{fileBasenameNoExtension}}'
 

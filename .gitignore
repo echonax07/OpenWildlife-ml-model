@@ -134,3 +134,4 @@ work_dir_grounding_dino
 checkpoints/
 GLIP/
 outputs2/
+result_viz/

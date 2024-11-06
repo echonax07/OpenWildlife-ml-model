@@ -4,7 +4,7 @@
 #SBATCH --tasks-per-node=1
 #SBATCH --cpus-per-task=12 # change this parameter to 2,4,6,... and increase "--num_workers" accordingly to see the effect on performance
 #SBATCH --mem=400G
-#SBATCH --time=4:59:00
+#SBATCH --time=6:59:00
 #SBATCH --output=../output3/%j.out
 #SBATCH --account=rrg-dclausi
 #SBATCH --mail-user=muhammed.computecanada@gmail.com
@@ -38,7 +38,7 @@ export WANDB_DATA_DIR='/home/m32patel/scratch/wandb'
 echo "Config file: $1"
 
 # python tools/test.py $1 work_dir_grounding_dino/grouding_dino_swin-t_finetune_all/epoch_20.pth
-python tools/test.py $1 /home/m32patel/projects/def-dclausi/whale/mmwhale2/checkpoints/grounding_dino_swin-t_pretrain_obj365_goldg_grit9m_v3det_20231204_095047-b448804b.pth
+python tools/test.py $1 /home/m32patel/projects/def-dclausi/whale/mmwhale2/work_dir_grounding_dino/grouding_dino_swin-t_no_caption/epoch_20.pth
 
 # python tools/analysis_tools/whale/plot_pr_confusion_matrix_year_wise.py --config $1 --save_year_wise=False
 

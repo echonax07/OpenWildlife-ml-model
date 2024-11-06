@@ -443,9 +443,16 @@ class GroundingDINO(DINO):
                 new_tokens_positive = [
                     token_positive[label.item()] for label in gt_label
                 ]
-                _, positive_map = self.get_positive_map(
-                    tokenized, new_tokens_positive)
-                positive_maps.append(positive_map)
+                try:
+                    _, positive_map = self.get_positive_map(
+                        tokenized, new_tokens_positive)
+                    positive_maps.append(positive_map)
+                except:
+                    from icecream import ic
+                    ic(token_positive)
+                    ic(text_prompt)
+                    ic(gt_label)
+                    
             new_text_prompts = text_prompts
         else:
             new_text_prompts = []
