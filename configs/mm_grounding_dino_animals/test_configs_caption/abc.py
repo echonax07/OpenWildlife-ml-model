@@ -1,11 +1,13 @@
 
 _base_ = '../grouding_dino_swin-t_finetune_all.py'
 
-data_root = '/home/m32patel/projects/rrg-dclausi/wildlife/datasets/SAVMAP_test/images'
-ann_file = 'test.json'
-class_name = ('animal')
+data_root = '/home/m32patel/projects/rrg-dclausi/wildlife/datasets/AED/test'
+ann_file = 'test_grounded.json'
+class_name = ('elephant', )
 num_classes = len(class_name)
 metainfo = dict(classes=class_name, palette=[(220, 20, 60)])
+
+lang_model_name = _base_.lang_model_name
 
 backend_args = None
 patch_size = (1024, 1024)
@@ -14,8 +16,6 @@ merge_iou_thr = 0.5
 model = dict(sliding_window_inference = dict(enable=True, patch_size=patch_size[0], batch_size=-1,
                                 patch_overlap_ratio=patch_overlap_ratio, merge_nms_type='nms', merge_iou_thr=merge_iou_thr),
              bbox_head=dict(num_classes=num_classes))
-
-lang_model_name = 'checkpoints/bert/bert-base-uncased'
 
 test_pipeline = [
     dict(
@@ -28,39 +28,25 @@ test_pipeline = [
     #     backend='pillow'),
     dict(type='Resize', scale_factor=1.0, keep_ratio=True),
     dict(type='LoadAnnotations', with_bbox=True),
-    # dict(
-    #     type='RandomSamplingNegPos',
-    #     tokenizer_name=lang_model_name,
-    #     num_sample_negative=85,
-    #     max_tokens=256),
-    # dict(
-    #     type='PackDetInputs',
-    #     meta_keys=('img_id', 'img_path', 'ori_shape', 'img_shape',
-    #                'scale_factor', 'text', 'custom_entities',
-    #                'tokens_positive'))
+    dict(
+        type='RandomSamplingNegPos_with_caption',
+        tokenizer_name=lang_model_name,
+        num_sample_negative=85,
+        max_tokens=256),
         dict(
         type='PackDetInputs',
-        meta_keys=('img_id', 'img_path', 'ori_shape',
-                   'img_shape', 'scale_factor', 'text',
-                   'custom_entities', 
-                #    'caption_prompt'))
-                ))
+        meta_keys=('img_id', 'img_path', 'ori_shape', 'img_shape',
+                   'scale_factor', 'flip', 'flip_direction', 'text', 'label_map' ,
+                   'custom_entities', 'tokens_positive', 'dataset_mode'))
 ]
 
-# caption_prompt = {
-#     'animal': {
-#         'prefix': 'There are some',
-#         # 'suffix': 'in the aerial imagery'
-#     },
-# }
 val_dataloader = dict(
     dataset=dict(
         metainfo=metainfo,
         data_root=data_root,
         ann_file=ann_file,
         pipeline=test_pipeline,
-        return_classes=True,
-        # caption_prompt=caption_prompt,
+        dataset_type = 'CocoDatasetWithCaption',
         data_prefix=dict(img='')))
 
 test_dataloader = val_dataloader

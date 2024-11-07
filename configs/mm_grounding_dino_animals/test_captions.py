@@ -77,7 +77,7 @@ train_pipeline = [
     dict(
         type='PackDetInputs',
         meta_keys=('img_id', 'img_path', 'ori_shape', 'img_shape',
-                   'scale_factor', 'flip', 'flip_direction', 'text', 'label_map' ,
+                   'scale_factor', 'flip', 'flip_direction', 'text', 'label_map',
                    'custom_entities', 'tokens_positive', 'dataset_mode'))
 ]
 
@@ -460,6 +460,32 @@ class_name = ('penguin', )
 num_classes = len(class_name)
 metainfo = dict(classes=class_name, palette=[(220, 20, 60)])
 
+caption_prompt = {
+    'penguin': {
+        # 'prefix': 'There are some',
+        # 'suffix': 'in the aerial imagery'
+    },
+}
+test_pipeline = [
+    dict(
+        type='LoadImageFromFile', backend_args=None,
+        imdecode_backend='pillow'),
+    dict(
+        type='FixScaleResize',
+        scale=(800, 1333),
+        keep_ratio=True,
+        backend='pillow'),
+    dict(type='LoadAnnotations', with_bbox=True),
+    dict(
+        type='PackDetInputs',
+        meta_keys=('img_id', 'img_path', 'ori_shape',
+                   'img_shape', 'scale_factor', 'text',
+                   'custom_entities', 
+                #    'caption_prompt'))
+                   ))
+                
+]
+
 val_dataloader = dict(
     batch_size=1,
     num_workers=2,
@@ -471,9 +497,13 @@ val_dataloader = dict(
         metainfo=metainfo,
         data_root='/home/m32patel/projects/rrg-dclausi/wildlife/datasets/birds_qian_penguin/coco',
         ann_file='test.json',
+        # caption_prompt=caption_prompt,
+        pipeline=test_pipeline,
+        return_classes=True,
         data_prefix=dict(img=''),
         test_mode=True,))
 test_dataloader = val_dataloader
+
 
 val_evaluator = dict(
     type='CocoMetric',
@@ -538,6 +568,6 @@ vis_backends = [
 
 # visualizer = dict(vis_backends=vis_backends)
 
-work_dir='work_dir_grounding_dino/{{fileBasenameNoExtension}}'
+work_dir = 'work_dir_grounding_dino/{{fileBasenameNoExtension}}'
 
 load_from = '/home/m32patel/projects/def-dclausi/whale/mmwhale2/checkpoints/grounding_dino_swin-t_pretrain_obj365_goldg_grit9m_v3det_20231204_095047-b448804b.pth'  # noqa

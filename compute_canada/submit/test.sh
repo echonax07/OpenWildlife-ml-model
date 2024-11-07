@@ -38,7 +38,7 @@ export WANDB_DATA_DIR='/home/m32patel/scratch/wandb'
 echo "Config file: $1"
 
 # python tools/test.py $1 work_dir_grounding_dino/grouding_dino_swin-t_finetune_all/epoch_20.pth
-python tools/test.py $1 /home/m32patel/projects/def-dclausi/whale/mmwhale2/work_dir_grounding_dino/grouding_dino_swin-t_no_caption/epoch_20.pth
+python tools/test.py $1 /home/m32patel/projects/def-dclausi/whale/mmwhale2/work_dir_grounding_dino/grouding_dino_swin-t_caption/epoch_20.pth
 
 # python tools/analysis_tools/whale/plot_pr_confusion_matrix_year_wise.py --config $1 --save_year_wise=False
 

@@ -1,10 +1,10 @@
 
 _base_ = '../grouding_dino_swin-t_finetune_all.py'
 
-# data_root = '/home/m32patel/projects/def-dclausi/whale/merged/test/'
-# ann_file = 'test_2017.json'
-data_root = '/home/m32patel/projects/rrg-dclausi/whale/DFO_2014_2015_2016_2017/2017_Cumberland_Sound_Beluga_Analysis'
-ann_file = 'coco_annotations_2017.json'
+data_root = '/home/m32patel/projects/def-dclausi/whale/merged/test/'
+ann_file = 'test_2017.json'
+# data_root = '/home/m32patel/projects/rrg-dclausi/whale/DFO_2014_2015_2016_2017/2017_Cumberland_Sound_Beluga_Analysis'
+# ann_file = 'coco_annotations_2017.json'
 class_name = ('beluga whale')
 num_classes = len(class_name)
 metainfo = dict(classes=class_name, palette=[(220, 20, 60)])

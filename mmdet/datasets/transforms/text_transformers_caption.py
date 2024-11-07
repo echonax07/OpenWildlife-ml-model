@@ -98,6 +98,7 @@ class RandomSamplingNegPos_with_caption(BaseTransform):
                  num_sample_negative=85,
                  max_tokens=256,
                  full_sampling_prob=0.5,
+                 mode='train',
                  label_map_file=None):
         if AutoTokenizer is None:
             raise RuntimeError(
@@ -109,6 +110,7 @@ class RandomSamplingNegPos_with_caption(BaseTransform):
         self.full_sampling_prob = full_sampling_prob
         self.max_tokens = max_tokens
         self.label_map = None
+        self.mode = mode
         if label_map_file:
             with open(label_map_file, 'r') as file:
                 self.label_map = json.load(file)
@@ -182,6 +184,7 @@ class RandomSamplingNegPos_with_caption(BaseTransform):
         results['gt_bboxes_labels'] = gt_labels
         results['text'] = text
         results['tokens_positive'] = label_to_positions
+        
         return results
 
 
