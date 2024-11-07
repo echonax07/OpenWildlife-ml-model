@@ -1,4 +1,4 @@
-_base_ = 'grounding_dino_swin-t_pretrain_obj365.py'
+_base_ = '../../mm_grounding_dino/grounding_dino_swin-t_pretrain_obj365.py'
 
 data_root = '/home/m32patel/projects/rrg-dclausi/wildlife/datasets/birds_penguins'
 class_name = ('penguin', )
