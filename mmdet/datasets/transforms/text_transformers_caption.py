@@ -149,6 +149,8 @@ class RandomSamplingNegPos_with_caption(BaseTransform):
         if isinstance(gt_bboxes, BaseBoxes):
             gt_bboxes = gt_bboxes.tensor
         gt_labels = results['gt_bboxes_labels']
+        # from icecream import ic
+        # ic(results['text'])
         text = results['text'].lower().strip()
         if not text.endswith('.'):
             text = text + '. '
@@ -158,18 +160,26 @@ class RandomSamplingNegPos_with_caption(BaseTransform):
         #                                 text, self.tokenizer, self.max_tokens)
         label_map = results['label_map']
         label_map = {int(key): value for key, value in label_map.items()}
-        swapped_label_map = {value: key for key, value in label_map.items()}
-        unique_categories_present_index = np.unique(gt_labels)
-        unique_categories_present_text = [label_map[index] for index in unique_categories_present_index]
-        
         # Find start and end positions for each phrase in the list
-        label_to_positions = {}
-        for label in unique_categories_present_text:
-            # Escape special characters in the phrase to ensure exact match
-            # Escape special characters in the phrase to ensure exact match
-                matches = [[match.start(), match.end()] for match in re.finditer(re.escape(label), text)]
-                label_to_positions[swapped_label_map[label]] = matches
-        
+        if self.mode=='train':
+            swapped_label_map = {value: key for key, value in label_map.items()}
+            unique_categories_present_index = np.unique(gt_labels)
+            unique_categories_present_text = [label_map[index] for index in unique_categories_present_index]
+            label_to_positions = {}
+            for label in unique_categories_present_text:
+                # Escape special characters in the phrase to ensure exact match
+                # Escape special characters in the phrase to ensure exact match
+                    matches = [[match.start(), match.end()] for match in re.finditer(re.escape(label.lower()), text)]
+                    label_to_positions[swapped_label_map[label]] = matches
+        else:
+            label_to_positions = []
+            for label in results['label_map'].values():
+                # Escape special characters in the phrase to ensure exact match
+                # Escape special characters in the phrase to ensure exact match
+                    # matches = [[match.start(), match.end()] for match in re.finditer(re.escape(label.lower()), text)]
+                matches = self.find_all_word_positions(text,label.lower())
+                label_to_positions.append(matches)
+            
         gt_bboxes, gt_labels, positive_caption_length = \
             check_for_positive_overflow(gt_bboxes, gt_labels,
                                         text, self.tokenizer, self.max_tokens)
@@ -187,8 +197,17 @@ class RandomSamplingNegPos_with_caption(BaseTransform):
         
         return results
 
+    def find_all_word_positions(self,sentence, word):
+        # Match the word with an optional 's' at the end for plural form
+        positions = []
+        pattern = rf'\b{re.escape(word)}s?\b'
+        for match in re.finditer(pattern, sentence, re.IGNORECASE):  # Case-insensitive
+            start_pos = match.start()
+            end_pos = match.end() # End position (inclusive)
+            positions.append([start_pos, end_pos])
+        return positions
 
-    
+        
 # #     def od_aug(self, results):
 #         gt_bboxes = results['gt_bboxes']
 #         if isinstance(gt_bboxes, BaseBoxes):

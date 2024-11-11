@@ -128,12 +128,12 @@ class CocoDatasetWithCaption(BaseDetDataset):
         data_info['seg_map_path'] = seg_map_path
         data_info['height'] = img_info['height']
         data_info['width'] = img_info['width']
-        data_info['caption'] = img_info['caption']
+        data_info['text'] = img_info['caption']
         # Create the label map, which will show the presence of ground truth
         classes = self.metainfo['classes']
         data_info['label_map']={str(idx): class_name for idx, class_name in enumerate(classes)}
         if self.return_classes:
-            data_info['text'] = self.metainfo['classes']
+            # data_info['text'] = self.metainfo['classes']
             data_info['caption_prompt'] = self.caption_prompt
             data_info['custom_entities'] = True
 
