@@ -425,7 +425,19 @@ Narwhal_2016_dataset = dict(
     return_classes=True,
     backend_args=None,
 )
-
+# O7
+# Big pipeline
+Beluga_2017_dataset = dict(
+    type='ODVGCaptionDataset',
+    data_root='/home/m32patel/scratch/animal_patches/2017_Beluga/train',
+    ann_file='train_full_patch_od_grounded.json',
+    label_map_file='o365v1_label_map.json',
+    data_prefix=dict(img=''),
+    filter_cfg=dict(filter_empty_gt=False),
+    pipeline=train_pipeline,
+    return_classes=True,
+    backend_args=None,
+)
 train_dataloader = dict(
     batch_size=2,
     sampler=dict(
@@ -469,7 +481,7 @@ val_dataloader = dict(
     dataset=dict(
         type='CocoDataset',
         metainfo=metainfo,
-        data_root='/home/m32patel/projects/rrg-dclausi/wildlife/datasets/birds_qian_penguin/coco',
+        data_root='/home/m32patel/projects/rrg-dclausi/wildlife/datasets/birds_penguins',
         ann_file='test.json',
         data_prefix=dict(img=''),
         test_mode=True,))
@@ -477,7 +489,7 @@ test_dataloader = val_dataloader
 
 val_evaluator = dict(
     type='CocoMetric',
-    ann_file='/home/m32patel/projects/rrg-dclausi/wildlife/datasets/birds_qian_penguin/coco' + '/test.json',
+    ann_file='/home/m32patel/projects/rrg-dclausi/wildlife/datasets/birds_penguins' + '/test.json',
     metric='bbox',
     format_only=False,)
 test_evaluator = val_evaluator

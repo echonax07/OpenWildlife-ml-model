@@ -1,17 +1,17 @@
 
 _base_ = '../grouding_dino_swin-t_finetune_all.py'
-
+lang_model_name = 'checkpoints/bert/bert-base-uncased'
 data_root = '/home/m32patel/projects/def-dclausi/whale/merged/test/'
-ann_file = 'test_2015.json'
-class_name = ('beluga whale')
+ann_file = 'test_2015_grounded.json'
+class_name = ('beluga whale',)
 num_classes = len(class_name)
 metainfo = dict(classes=class_name, palette=[(220, 20, 60)])
 
 backend_args = None
 patch_size = (1024, 1024)
-patch_overlap_ratio = 0
+patch_overlap_ratio = 0.2
 merge_iou_thr = 0.5
-model = dict(sliding_window_inference = dict(enable=True, patch_size=patch_size[0], batch_size=-1,
+model = dict(sliding_window_inference = dict(enable=True, patch_size=patch_size[0], batch_size=-1,slice_batch_size=24,
                                 patch_overlap_ratio=patch_overlap_ratio, merge_nms_type='nms', merge_iou_thr=merge_iou_thr),
              bbox_head=dict(num_classes=num_classes))
 
@@ -25,12 +25,18 @@ test_pipeline = [
     #     keep_ratio=True,
     #     backend='pillow'),
     dict(type='Resize', scale_factor=1.0, keep_ratio=True),
-    dict(type='LoadAnnotations', with_bbox=True),
+        dict(type='LoadAnnotations', with_bbox=True),
+    dict(
+        type='RandomSamplingNegPos_with_caption',
+        tokenizer_name=lang_model_name,
+        num_sample_negative=85,
+        mode='test',
+        max_tokens=256),
     dict(
         type='PackDetInputs',
         meta_keys=('img_id', 'img_path', 'ori_shape', 'img_shape',
-                   'scale_factor', 'text', 'custom_entities',
-                   'tokens_positive'))
+                   'scale_factor', 'flip', 'flip_direction', 'text', 'label_map' ,
+                   'custom_entities', 'tokens_positive', 'dataset_mode'))
 ]
 
 val_dataloader = dict(
@@ -38,6 +44,7 @@ val_dataloader = dict(
         metainfo=metainfo,
         data_root=data_root,
         ann_file=ann_file,
+        type = 'CocoDatasetWithCaption',
         pipeline=test_pipeline,
         data_prefix=dict(img='')))
 

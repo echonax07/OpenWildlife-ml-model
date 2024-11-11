@@ -1,8 +1,8 @@
 
 _base_ = '../grouding_dino_swin-t_finetune_all.py'
-
+lang_model_name = 'checkpoints/bert/bert-base-uncased'
 data_root = '/home/m32patel/projects/rrg-dclausi/wildlife/datasets/WAID/test'
-ann_file = 'test.json'
+ann_file = 'test_grounded.json'
 class_name = ('sheep', 'cattle', 'seal', 'camelus', 'kiang', 'zebra')
 num_classes = len(class_name)
 metainfo = dict(classes=class_name, palette=[
@@ -14,14 +14,40 @@ metainfo = dict(classes=class_name, palette=[
     (0, 255, 255)     # zebra - Cyan
 ])
 
-model = dict(bbox_head=dict(num_classes=num_classes))
+# model = dict(bbox_head=dict(num_classes=num_classes))
+
+test_pipeline = [
+    dict(
+        type='LoadImageFromFile', backend_args=None,
+        imdecode_backend='pillow'),
+    dict(
+        type='FixScaleResize',
+        scale=(800, 1333),
+        keep_ratio=True,
+        backend='pillow'),
+        dict(type='LoadAnnotations', with_bbox=True),
+    dict(
+        type='RandomSamplingNegPos_with_caption',
+        tokenizer_name=lang_model_name,
+        num_sample_negative=85,
+        mode='test',
+        max_tokens=256),
+    dict(
+        type='PackDetInputs',
+        meta_keys=('img_id', 'img_path', 'ori_shape', 'img_shape',
+                   'scale_factor', 'text', 'custom_entities',
+                   'tokens_positive'))
+]
 
 
 val_dataloader = dict(
+    batch_size=4,
     dataset=dict(
         metainfo=metainfo,
         data_root=data_root,
         ann_file=ann_file,
+        pipeline=test_pipeline,
+        type = 'CocoDatasetWithCaption',
         data_prefix=dict(img='')))
 
 test_dataloader = val_dataloader

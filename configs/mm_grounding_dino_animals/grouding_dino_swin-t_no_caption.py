@@ -472,6 +472,6 @@ vis_backends = [
 
 # visualizer = dict(vis_backends=vis_backends)
 
-work_dir='work_dir_grounding_dino/{{fileBasenameNoExtension}}'
+work_dir='t/{{fileBasenameNoExtension}}'
 
 load_from = '/home/m32patel/projects/def-dclausi/whale/mmwhale2/checkpoints/grounding_dino_swin-t_pretrain_obj365_goldg_grit9m_v3det_20231204_095047-b448804b.pth'  # noqa

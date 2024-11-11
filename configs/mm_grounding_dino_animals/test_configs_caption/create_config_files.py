@@ -32,9 +32,9 @@ file_names = [
 # Content for each file
 content = """
 _base_ = '../grouding_dino_swin-t_finetune_all.py'
-
+lang_model_name = 'checkpoints/bert/bert-base-uncased'
 data_root = '/home/m32patel/projects/rrg-dclausi/wildlife/datasets/birds_penguins'
-ann_file = 'test.json'
+ann_file = 'test_grounded.json'
 class_name = ('penguin', )
 num_classes = len(class_name)
 metainfo = dict(classes=class_name, palette=[(220, 20, 60)])
@@ -46,6 +46,7 @@ val_dataloader = dict(
         metainfo=metainfo,
         data_root=data_root,
         ann_file=ann_file,
+        type = 'CocoDatasetWithCaption',
         data_prefix=dict(img='')))
 
 test_dataloader = val_dataloader

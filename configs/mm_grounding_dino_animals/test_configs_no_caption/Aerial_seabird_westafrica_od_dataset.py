@@ -3,16 +3,17 @@ _base_ = '../grouding_dino_swin-t_finetune_all.py'
 
 data_root = '/home/m32patel/projects/rrg-dclausi/wildlife/datasets/Aerial_Seabirds_West_Africa'
 ann_file = 'test.json'
-class_name = ('Royal tern', 'Caspian tern', 'unknown', 'Slender-billed gull', 'Gray headed gull', 'Great cormorant', 'Great white Pelican')
+class_name = ('Royal tern', 'Caspian tern', 'unknown', 'Slender-billed gull',
+              'Gray headed gull', 'Great cormorant', 'Great white Pelican')
 num_classes = len(class_name)
 metainfo = dict(classes=class_name, palette=[(220, 20, 60)])
 
 backend_args = None
 patch_size = (1024, 1024)
-patch_overlap_ratio = 0
+patch_overlap_ratio = 0.5
 merge_iou_thr = 0.5
-model = dict(sliding_window_inference = dict(enable=True, patch_size=patch_size[0], batch_size=-1,
-                                patch_overlap_ratio=patch_overlap_ratio, merge_nms_type='nms', merge_iou_thr=merge_iou_thr),
+model = dict(sliding_window_inference=dict(enable=True, patch_size=patch_size[0], batch_size=-1,  slice_batch_size=24,
+                                           patch_overlap_ratio=patch_overlap_ratio, merge_nms_type='nms', merge_iou_thr=merge_iou_thr),
              bbox_head=dict(num_classes=num_classes))
 
 test_pipeline = [
@@ -44,6 +45,6 @@ val_dataloader = dict(
 test_dataloader = val_dataloader
 
 val_evaluator = dict(ann_file=data_root + '/' + ann_file,
-                    outfile_prefix=f'./work_dir_grounding_dino/{{fileBasenameNoExtension}}/prediction_mm_grounding_dino_nocaption')
+                     outfile_prefix=f'./work_dir_grounding_dino/{{fileBasenameNoExtension}}/prediction_mm_grounding_dino_nocaption')
 test_evaluator = val_evaluator
 pickle_file = f'./work_dir_grounding_dino/{{fileBasenameNoExtension}}/prediction_mm_grounding_dino_nocaption'
