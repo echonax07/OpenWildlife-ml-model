@@ -28,12 +28,13 @@ def compute_iou(box1, box2):
     iou = inter_area / float(b1_area + b2_area - inter_area)
     return iou
 
-def draw_bbox(img, bbox, color, label, thickness=2):
+def draw_bbox(img, bbox, color, label, show_text, thickness=2):
     x, y, w, h = map(int, bbox)
     cv2.rectangle(img, (x, y), (x+w, y+h), color, thickness)
-    cv2.putText(img, label, (x, y-10), cv2.FONT_HERSHEY_SIMPLEX, 0.6, color, 2)
+    if show_text:
+        cv2.putText(img, label, (x, y-10), cv2.FONT_HERSHEY_SIMPLEX, 0.6, color, 2)
 
-def plot_coco_image(gt_path, pred_path, img_folder, save_folder, mode='file', image_name=None, score_threshold=0.5, iou_threshold=0.5):
+def plot_coco_image(gt_path, pred_path, img_folder, save_folder, mode='file', image_name=None, score_threshold=0.5, iou_threshold=0.5, show_text=True):
     # Load JSON files
     gt_data = load_json(gt_path)
     pred_data = load_json(pred_path)
@@ -58,7 +59,6 @@ def plot_coco_image(gt_path, pred_path, img_folder, save_folder, mode='file', im
 
         # Load image
         img_path = os.path.join(img_folder, img_name)
-        # ic(img_path)
         img = cv2.imread(img_path)
 
         if img is None:
@@ -89,7 +89,6 @@ def plot_coco_image(gt_path, pred_path, img_folder, save_folder, mode='file', im
                     if iou > max_iou:
                         max_iou = iou
                         max_gt = gt
-
                 if max_iou >= iou_threshold:
                     # True Positive
                     color = (0, 255, 0)  # Green
@@ -104,30 +103,29 @@ def plot_coco_image(gt_path, pred_path, img_folder, save_folder, mode='file', im
                 color = (0, 0, 255)  # Red
                 label = f"FP: {pred_category_name} ({pred['score']:.2f})"
                 
-            draw_bbox(img, pred_bbox, color, label)
+            draw_bbox(img, pred_bbox, color, label, show_text)
 
         # Draw remaining GT boxes (False Negatives)
         for category_id, anns in gt_anns.items():
             gt_category_name = category_id_to_name.get(category_id, "Unknown")
             for ann in anns:
                 label = f"FN: {gt_category_name}"
-                draw_bbox(img, ann['bbox'], (255, 0, 0), label)  # Blue for False Negatives
+                draw_bbox(img, ann['bbox'], (255, 0, 0), label, show_text)  # Blue for False Negatives
 
         # Save the image
         os.makedirs(save_folder, exist_ok=True)
         save_path = os.path.join(save_folder, f"{img_name}")
         cv2.imwrite(save_path, img)
-        # print(f"Saved plotted image to: {save_path}")
 
 # Example usage
-gt_json_path = '/home/m32patel/projects/rrg-dclausi/wildlife/datasets/Virunga_Garamba/groundtruth/json/big_size/test_big_size_A_B_E_K_WH_WB.json'
-pred_json_path = '/home/m32patel/projects/def-dclausi/whale/mmwhale2/work_dir_grounding_dino/Virunga_garamba_dataset/prediction_mm_grounding_dino.bbox.json'
-img_folder = '/home/m32patel/projects/rrg-dclausi/wildlife/datasets/Virunga_Garamba/test'
-save_folder = "/home/m32patel/projects/def-dclausi/whale/mmwhale2/result_viz/Virunga_Garamba/no_caption"
-score_threshold = 0.1 # You can adjust this value
+gt_json_path = '/home/m32patel/projects/rrg-dclausi/wildlife/datasets/birds_penguins/test_grounded.json'
+pred_json_path = '/home/m32patel/projects/def-dclausi/whale/mmwhale2/work_dir_grounding_dino/penguins_od_dataset/prediction_mm_grounding_dino_nocaption.bbox.json'
+img_folder = '/home/m32patel/projects/rrg-dclausi/wildlife/datasets/birds_penguins/'
+save_folder = "/home/m32patel/projects/def-dclausi/whale/mmwhale2/result_viz/birds_penguins/nocaption"
+score_threshold = 0.3
 
 # For single image
-# plot_coco_image(gt_json_path, pred_json_path, img_folder, save_folder, mode='file', image_name='14155f30121958a811385dd40c96f8e9294da086.JPG', score_threshold=score_threshold, iou_threshold=0.1)
+# plot_coco_image(gt_json_path, pred_json_path, img_folder, save_folder, mode='file', image_name='14155f30121958a811385dd40c96f8e9294da086.JPG', score_threshold=score_threshold, iou_threshold=0.1, show_text=True)
 
-# # For all images
-plot_coco_image(gt_json_path, pred_json_path, img_folder, save_folder, mode='all', score_threshold=score_threshold, iou_threshold=0.1)
+# For all images
+plot_coco_image(gt_json_path, pred_json_path, img_folder, save_folder, mode='all', score_threshold=score_threshold, iou_threshold=0.1, show_text=True)
