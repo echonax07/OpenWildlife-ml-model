@@ -16,7 +16,7 @@ def parse_args():
     parser.add_argument('--work-dir', help='the dir to save logs and models')
     parser.add_argument(
         '--amp',
-        action='store_true',
+    action='store_true',
         default=False,
         help='enable automatic-mixed-precision training')
     parser.add_argument(

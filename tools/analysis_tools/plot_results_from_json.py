@@ -114,14 +114,15 @@ def plot_coco_image(gt_path, pred_path, img_folder, save_folder, mode='file', im
 
         # Save the image
         os.makedirs(save_folder, exist_ok=True)
+        img_name = os.path.basename(img_name)
         save_path = os.path.join(save_folder, f"{img_name}")
         cv2.imwrite(save_path, img)
 
 # Example usage
-gt_json_path = '/home/m32patel/projects/rrg-dclausi/wildlife/datasets/birds_penguins/test_grounded.json'
-pred_json_path = '/home/m32patel/projects/def-dclausi/whale/mmwhale2/work_dir_grounding_dino/penguins_od_dataset/prediction_mm_grounding_dino_nocaption.bbox.json'
-img_folder = '/home/m32patel/projects/rrg-dclausi/wildlife/datasets/birds_penguins/'
-save_folder = "/home/m32patel/projects/def-dclausi/whale/mmwhale2/result_viz/birds_penguins/nocaption"
+gt_json_path = '/home/m32patel/projects/rrg-dclausi/whale/dataset/2023_Survey_DFO/DFO_2023_Survey_annotation/High_Arctic_Survey/Plane1/corrected_tasks/coco_iter12345.json'
+pred_json_path = '/home/m32patel/projects/def-dclausi/whale/mmwhale2/work_dir_grounding_dino/DFO_Whale23/prediction_mm_grounding_dino_nocaption.bbox.json'
+img_folder = ''
+save_folder = "/home/m32patel/projects/def-dclausi/whale/mmwhale2/result_viz/DFO_whale23/nocaption"
 score_threshold = 0.3
 
 # For single image

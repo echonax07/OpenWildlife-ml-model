@@ -331,6 +331,7 @@ class CdnQueryGenerator(BaseModule):
         assert self.label_noise_scale > 0
         gt_labels_expand = gt_labels.repeat(2 * num_groups,
                                             1).view(-1)  # Note `* 2`  # noqa
+        gt_labels_expand = gt_labels_expand.to(torch.int64)
         p = torch.rand_like(gt_labels_expand.float())
         chosen_indice = torch.nonzero(p < (self.label_noise_scale * 0.5)).view(
             -1)  # Note `* 0.5`

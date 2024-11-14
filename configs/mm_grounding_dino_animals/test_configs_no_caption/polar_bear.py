@@ -2,7 +2,9 @@
 _base_ = '../grouding_dino_swin-t_finetune_all.py'
 
 data_root = '/home/m32patel/projects/rrg-dclausi/wildlife/datasets/polar_bear_annotated/'
-ann_file = 'test_filtered.json'
+# ann_file = 'test_filtered.json'
+
+ann_file = 'test_15.json'
 
 # class_name = ('polar bear, seal, bird')
 class_name = ('polar bear',)

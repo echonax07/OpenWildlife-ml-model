@@ -55,7 +55,7 @@ train_dataloader = dict(
     dataset=dict(
         _delete_=True,
         type='CocoDataset',
-        batch_size=4,
+        # batch_size=4,
         data_root=data_root,
         metainfo=metainfo,
         return_classes=True,
@@ -75,6 +75,9 @@ test_dataloader = val_dataloader
 
 val_evaluator = dict(ann_file=data_root + '/' + test_ann_file)
 test_evaluator = val_evaluator
+
+test_evaluator = dict(ann_file=data_root + '/' + test_ann_file,
+                     outfile_prefix=f'./work_dir_grounding_dino/finetune/{{fileBasenameNoExtension}}/prediction_mm_grounding_dino_finetune_test')
 
 max_epoch = 20
 
@@ -103,4 +106,4 @@ optim_wrapper = dict(
         }))
 
 work_dir = 'work_dir_grounding_dino/finetune/{{fileBasenameNoExtension}}'
-load_from = '/home/m32patel/projects/def-dclausi/whale/mmwhale2/work_dir_grounding_dino/grouding_dino_swin-t_no_caption/epoch_20.pth'  # noqa
+load_from = '/home/m32patel/projects/def-dclausi/whale/mmwhale2/t/grouding_dino_swin-t_no_caption/epoch_20.pth'  # noqa

@@ -4,9 +4,9 @@
 #SBATCH --tasks-per-node=1
 #SBATCH --cpus-per-task=12 # change this parameter to 2,4,6,... and increase "--num_workers" accordingly to see the effect on performance
 #SBATCH --mem=400G
-#SBATCH --time=15:59:00
+#SBATCH --time=12:59:00
 #SBATCH --output=../output3/%j.out
-#SBATCH --account=rrg-dclausi
+#SBATCH --account=def-y2863che
 #SBATCH --mail-user=muhammed.computecanada@gmail.com
 #SBATCH --mail-type=BEGIN
 #SBATCH --mail-type=END
@@ -34,16 +34,16 @@ echo "starting training..."
 export WANDB_MODE=offline
 export WANDB_DATA_DIR='/home/m32patel/scratch/wandb'
 
-
 echo "Config file: $1"
 
-# python tools/test.py $1 work_dir_grounding_dino/grouding_dino_swin-t_finetune_all/epoch_20.pth
-python tools/test.py $1 /home/m32patel/projects/def-dclausi/whale/mmwhale2/t/grouding_dino_swin-t_no_caption/epoch_20.pth
 
-# python tools/test.py $1 /home/m32patel/projects/def-dclausi/whale/mmwhale2/work_dir_grounding_dino/grouding_dino_swin-t_caption/epoch_20.pth
+# python tools/test.py $1 /home/m32patel/projects/def-dclausi/whale/mmwhale2/t/grouding_dino_swin-t_no_caption/epoch_20.pth
+
+python tools/test.py $1 /home/m32patel/projects/def-dclausi/whale/mmwhale2/work_dir_grounding_dino/grouding_dino_swin-t_caption/epoch_20.pth
 
 # python tools/analysis_tools/whale/plot_pr_confusion_matrix_year_wise.py --config $1 --save_year_wise=False
 
+# python tools/test.py $1 work_dir_grounding_dino/grouding_dino_swin-t_finetune_all/epoch_20.pth
 # python tools/dataset_converters/whale/convert_mmdet_pred_to_labelstudio_tasks.py /home/m32patel/projects/def-dclausi/whale/merged/test/test_non_whale.json work_dirs/$base_name/test_results_whale_non_whale.bbox.json work_dirs/$base_name/test_results_whale_non_whale_labelstudio.bbox.json --LABEL_STUDIO_LOCAL_FILES_DOCUMENT_ROOT=/media/pc2041
 # # python tools/train.py $1
 

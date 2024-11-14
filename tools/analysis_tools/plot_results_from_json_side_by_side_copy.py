@@ -29,7 +29,7 @@ def compute_iou(box1, box2):
     iou = inter_area / float(b1_area + b2_area - inter_area)
     return iou
 
-def draw_bbox(img, bbox, color, label, show_text, thickness=1):
+def draw_bbox(img, bbox, color, label, show_text, thickness=2):
     x, y, w, h = map(int, bbox)
     cv2.rectangle(img, (x, y), (x+w, y+h), color, thickness)
     if show_text:
@@ -50,11 +50,8 @@ def plot_coco_image_side_by_side(gt_path, pred_path1, pred_path2, img_folder, sa
     for img_name in tqdm(images_to_process):
         # Find image ID
         if img_list is not None:
-            # ic(os.path.basename(img_name))
             if os.path.basename(img_name) not in img_list:
                 continue
-            else:
-                print('found image: ',os.path.basename(img_name))
         image_id = None
         for img_info in gt_data['images']:
             if img_info['file_name'] == img_name:
@@ -102,20 +99,14 @@ def plot_coco_image_side_by_side(gt_path, pred_path1, pred_path2, img_folder, sa
                             max_gt = gt
                     if max_iou >= iou_threshold:
                         color = (0, 255, 0)  # True Positive: Green
-                        # label = f"TP: {pred_category_name} ({pred['score']:.2f})"
-                        label = f"{pred_category_name} ({pred['score']:.2f})"
-                        
+                        label = f"TP: {pred_category_name} ({pred['score']:.2f})"
                         gt_anns[category_id].remove(max_gt)
                     else:
                         color = (0, 0, 255)  # False Positive: Red
-                        # label = f"FP: {pred_category_name} ({pred['score']:.2f})"
-                        label = f"{pred_category_name} ({pred['score']:.2f})"
-                        
+                        label = f"FP: {pred_category_name} ({pred['score']:.2f})"
                 else:
                     color = (0, 0, 255)  # False Positive: Red
-                    # label = f"FP: {pred_category_name} ({pred['score']:.2f})"
-                    label = f"{pred_category_name} ({pred['score']:.2f})"
-                    
+                    label = f"FP: {pred_category_name} ({pred['score']:.2f})"
                 
                 draw_bbox(annotated_img, pred_bbox, color, label, show_text)
 
@@ -149,8 +140,7 @@ def plot_coco_image_side_by_side(gt_path, pred_path1, pred_path2, img_folder, sa
 
             return annotated_img
 
-        # img1_annotated = annotate_image(img, pred_data1, caption, score_threshold1)
-        img1_annotated = annotate_image(img, pred_data1, '', score_threshold1)
+        img1_annotated = annotate_image(img, pred_data1, caption, score_threshold1)
         img2_annotated = annotate_image(img, pred_data2, '', score_threshold2)
 
         # Combine images side by side
@@ -164,28 +154,139 @@ def plot_coco_image_side_by_side(gt_path, pred_path1, pred_path2, img_folder, sa
         cv2.imwrite(save_path, combined_img)
 
 # Example usage
-gt_json_path = '/home/m32patel/projects/rrg-dclausi/wildlife/datasets/birds_penguins/test_grounded.json'
-pred_json_path1 = '/home/m32patel/projects/def-dclausi/whale/mmwhale2/work_dir_grounding_dino/penguins_od_dataset/prediction_mm_grounding_dino_caption.bbox.json'
-pred_json_path2 = '/home/m32patel/projects/def-dclausi/whale/mmwhale2/work_dir_grounding_dino/penguins_od_dataset/prediction_mm_grounding_dino_nocaption.bbox.json'
-img_folder = '/home/m32patel/projects/rrg-dclausi/wildlife/datasets/birds_penguins'
-save_folder = "/home/m32patel/projects/def-dclausi/whale/mmwhale2/result_viz/birds_penguins/combined"
-score_threshold1 = 0.3
+gt_json_path1 = '/home/m32patel/projects/def-dclausi/whale/merged/test/test_140_grounded.json'
+gt_json_path2 = '/home/m32patel/projects/def-dclausi/whale/merged/test/test_140_grounded.json'
+pred_json_path1 = '/home/m32patel/projects/def-dclausi/whale/mmwhale2/work_dir_grounding_dino/Beluga_2014_dataset/prediction_mm_grounding_dino_caption.bbox.json'
+pred_json_path2 = '/home/m32patel/projects/def-dclausi/whale/mmwhale2/work_dir_grounding_dino/Beluga_2014_dataset/prediction_mm_grounding_dino_nocaption.bbox.json'
+img_folder = '/home/m32patel/projects/def-dclausi/whale/merged/test/'
+save_folder = "/home/m32patel/projects/def-dclausi/whale/mmwhale2/result_viz/Beluga_2014_dataset/combined"
+score_threshold1 = 0.05
 score_threshold2= 0.3
 iou_threshold = 0.5
 
 # For single image
 # plot_coco_image_side_by_side(gt_json_path, pred_json_path1, pred_json_path2, img_folder, save_folder, mode='file', image_name='14155f30121958a811385dd40c96f8e9294da086.JPG', score_threshold=score_threshold, iou_threshold=0.1, show_text=True)
 
+# # For all images
+plot_coco_image_side_by_side(gt_json_path1,gt_json_path, pred_json_path1, pred_json_path2, img_folder, save_folder, mode='all', score_threshold1=score_threshold1,score_threshold2=score_threshold2,iou_threshold=iou_threshold, show_text=True, img_list=None)
 
+img_list= ['20230811_25mm_cam1_0156.jpg',
+ '20230811_25mm_cam1_0312.jpg',
+ '20230811_25mm_cam1_0477.jpg',
+ '20230811_25mm_cam1_0613.jpg',
+ '20230811_25mm_cam1_0650.jpg',
+ '20230811_25mm_cam1_1124.jpg',
+ '20230811_25mm_cam1_1125.jpg',
+ '20230811_25mm_cam1_1127.jpg',
+ '20230811_25mm_cam1_1128.jpg',
+ '20230811_25mm_cam1_1129.jpg',
+ '20230811_25mm_cam1_1130.jpg',
+ '20230812_25mm_cam2_1711.jpg',
+ '20230812_25mm_cam2_1712.jpg',
+ '20230812_25mm_cam2_1713.jpg',
+ '20230812_25mm_cam2_1714.jpg',
+ '20230812_25mm_cam2_2069.jpg',
+ '20230812_25mm_cam2_2812.jpg',
+ '20230812_25mm_cam2_3262.jpg',
+ '20230812_25mm_cam2_3581.jpg',
+ '20230812_25mm_cam2_3582.jpg',
+ '20230812_25mm_cam2_3583.jpg',
+ '20230812_25mm_cam2_3584.jpg',
+ '20230820_25mm_cam1_10051.jpg',
+ '20230820_25mm_cam1_10240.jpg',
+ '20230820_25mm_cam1_7214.jpg',
+ '20230820_25mm_cam1_7700.jpg',
+ '20230820_25mm_cam1_7886.jpg',
+ '20230820_25mm_cam1_7934.jpg',
+ '20230820_25mm_cam1_8329.jpg',
+ '20230820_25mm_cam1_9408.jpg',
+ '20230820_25mm_cam1_9483.jpg',
+ '20230823_25mm_cam2_13659.jpg',
+ '20230823_25mm_cam2_13716.jpg',
+ '20230823_25mm_cam2_14027.jpg',
+ '20230823_25mm_cam2_14117.jpg',
+ '20230823_25mm_cam2_14121.jpg',
+ '20230823_25mm_cam2_14122.jpg',
+ '20230823_25mm_cam2_14123.jpg',
+ '20230823_25mm_cam2_14124.jpg',
+ '20230823_25mm_cam2_14125.jpg',
+ '20230823_25mm_cam2_14126.jpg',
+ '20230823_25mm_cam2_14127.jpg',
+ '20230823_25mm_cam2_14128.jpg',
+ '20230823_25mm_cam2_14129.jpg',
+ '20230823_25mm_cam2_14130.jpg',
+ '20230823_25mm_cam2_14131.jpg',
+ '20230823_25mm_cam2_14132.jpg',
+ '20230823_25mm_cam2_14133.jpg',
+ '20230823_25mm_cam2_14134.jpg',
+ '20230823_25mm_cam2_14152.jpg',
+ '20230823_25mm_cam2_14172.jpg',
+ '20230823_25mm_cam2_14180.jpg',
+ '20230823_25mm_cam2_14615.jpg',
+ '20230823_25mm_cam2_14619.jpg',
+ '20230823_25mm_cam2_14651.jpg',
+ '20230823_25mm_cam2_14652.jpg',
+ '20230823_25mm_cam2_14658.jpg',
+ '20230823_25mm_cam2_14659.jpg',
+ '20230823_25mm_cam2_14660.jpg',
+ '20230823_25mm_cam2_14661.jpg',
+ '20230823_25mm_cam2_14662.jpg',
+ '20230823_25mm_cam2_14669.jpg',
+ '20230823_25mm_cam2_14670.jpg',
+ '20230823_25mm_cam2_14675.jpg',
+ '20230823_25mm_cam2_14678.jpg',
+ '20230823_25mm_cam2_14892.jpg',
+ '20230823_25mm_cam2_14896.jpg',
+ '20230823_25mm_cam2_14897.jpg',
+ '20230823_25mm_cam2_14927.jpg',
+ '20230823_25mm_cam2_14928.jpg',
+ '20230823_25mm_cam2_14929.jpg',
+ '20230823_25mm_cam2_15040.jpg',
+ '20230825_25mm_cam1_01061.jpg',
+ '20230825_25mm_cam1_02022.jpg',
+ '20230825_25mm_cam1_02057.jpg',
+ '20230828_25mm_cam1_03894.jpg',
+ '20230828_25mm_cam1_04320.jpg',
+ '20230828_25mm_cam1_04452.jpg',
+ '20230828_25mm_cam1_04597.jpg',
+ '20230828_25mm_cam1_04741.jpg',
+ '20230828_25mm_cam1_04779.jpg',
+ '20230828_25mm_cam1_04899.jpg',
+ '20230828_25mm_cam1_04900.jpg',
+ '20230828_25mm_cam1_05005.jpg',
+ '20230828_25mm_cam1_05006.jpg',
+ '20230828_25mm_cam1_05007.jpg',
+ '20230828_25mm_cam1_05219.jpg',
+ '20230828_25mm_cam1_05222.jpg',
+ '20230828_25mm_cam1_05240.jpg',
+ '20230828_25mm_cam1_05243.jpg',
+ '20230828_25mm_cam1_05251.jpg',
+ '20230828_25mm_cam1_05278.jpg',
+ '20230828_25mm_cam1_05316.jpg',
+ '20230828_25mm_cam1_05318.jpg',
+ '20230828_25mm_cam1_05319.jpg',
+ '20230828_25mm_cam1_05321.jpg',
+ '20230828_25mm_cam1_05324.jpg',
+ '20230828_25mm_cam1_05359.jpg',
+ '20230828_25mm_cam1_05383.jpg',
+ '20230828_25mm_cam1_05431.jpg',
+ '20230828_25mm_cam1_05655.jpg',
+ '20230828_25mm_cam1_05656.jpg',
+ '20230828_25mm_cam1_05658.jpg',
+ '20230828_25mm_cam1_05756.jpg',
+ '20230828_25mm_cam1_05769.jpg',
+ '20230828_25mm_cam1_05786.jpg',
+ '20230828_25mm_cam1_05857.jpg',
+ '20230828_25mm_cam1_05858.jpg',
+ '20230828_25mm_cam1_05861.jpg',
+ '20230828_25mm_cam1_05929.jpg',
+ '20230828_25mm_cam1_06095.jpg',
+ '20230828_25mm_cam1_06570.jpg',
+ '20230828_25mm_cam1_06596.jpg',
+ '20230829_25mm_cam1_00111.jpg',
+ '20230829_25mm_cam1_00234.jpg',
+ '20230829_25mm_cam1_00381.jpg']
 
-# plot_coco_image_side_by_side(gt_json_path, pred_json_path1, pred_json_path2, img_folder, save_folder, mode='file',image_name='20170807_2000588.jpg', score_threshold1=score_threshold1,score_threshold2=score_threshold2,iou_threshold=iou_threshold, show_text=False, img_list=None)
 
 # # For all images
-plot_coco_image_side_by_side(gt_json_path, pred_json_path1, pred_json_path2, img_folder, save_folder, mode='all', score_threshold1=score_threshold1,score_threshold2=score_threshold2,iou_threshold=iou_threshold, show_text=False, img_list=None)
-
-# img_list= ['9Aug20159Aug20151RioBeach3KMLaneAM20150809cr7riobeach3kmlaneamimg_20150809_144508_IMG_6892_NIR.jpg',]
-
-
-# # For all images
-# # plot_coco_image_side_by_side(gt_json_path, pred_json_path1, pred_json_path2, img_folder, save_folder, mode='all', score_threshold=score_threshold, iou_threshold=iou_threshold, show_text=True, img_list=img_list)
-# plot_coco_image_side_by_side(gt_json_path, pred_json_path1, pred_json_path2, img_folder, save_folder, mode='all', score_threshold1=score_threshold1,score_threshold2=score_threshold2,iou_threshold=iou_threshold, show_text=True, img_list=img_list)
+# plot_coco_image_side_by_side(gt_json_path, pred_json_path1, pred_json_path2, img_folder, save_folder, mode='all', score_threshold=score_threshold, iou_threshold=iou_threshold, show_text=True, img_list=img_list)

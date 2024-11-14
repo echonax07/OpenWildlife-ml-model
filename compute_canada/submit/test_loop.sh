@@ -52,8 +52,10 @@ array=(
 # /home/m32patel/projects/def-dclausi/whale/mmwhale2/configs/mm_grounding_dino_animals/test_configs_no_caption/seabirdwatch_od_dataset.py
 # /home/m32patel/projects/def-dclausi/whale/mmwhale2/configs/mm_grounding_dino_animals/test_configs_no_caption/turtle_dataset.py
 # /home/m32patel/projects/def-dclausi/whale/mmwhale2/configs/mm_grounding_dino_animals/test_configs_no_caption/WAID_livestock_dataset.py
-/home/m32patel/projects/def-dclausi/whale/mmwhale2/configs/mm_grounding_dino_animals/test_configs_no_caption/Virunga_garamba_dataset.py
+# /home/m32patel/projects/def-dclausi/whale/mmwhale2/configs/mm_grounding_dino_animals/test_configs_no_caption/Virunga_garamba_dataset.py
 # /home/m32patel/projects/def-dclausi/whale/mmwhale2/configs/mm_grounding_dino_animals/test_configs_no_caption/polar_bear.py
+# configs/mm_grounding_dino_animals/test_configs_no_caption/DFO_Whale23.py
+configs/mm_grounding_dino_animals/test_configs_caption/DFO_Whale23.py
 
 
 # /home/m32patel/projects/def-dclausi/whale/mmwhale2/configs/mm_grounding_dino_animals/test_configs_caption/NOAA_artic_seal_dataset.py

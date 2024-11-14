@@ -105,7 +105,9 @@ def annotation_inside_slice(annotation: Dict, slice_bbox: List[int]) -> bool:
     """
     try:
         left, top, width, height = annotation["bbox"]
-    except:
+    except Exception as e:
+        print(e)
+        print('skipping annotation')
         print(annotation)
     
     right = left + width
@@ -149,6 +151,7 @@ def process_coco_annotations(
                 if sliced_coco_annotation.area / coco_annotation.area >= min_area_ratio:
                     sliced_coco_annotation_list.append(sliced_coco_annotation)
         except:
+            print("try failed at code postion 153")
             print(coco_annotation.json)
             print(slice_bbox)
     return sliced_coco_annotation_list

@@ -12,9 +12,11 @@ import json
 from pycocotools.coco import COCO as COCO2
 import numpy as np
 from tqdm import tqdm
+import concurrent.futures
+
 
 def calculate_centers(boxes):
-    """Calculate the centers ofp multiple bounding boxes."""
+    """Calculate the centers of multiple bounding boxes."""
     x_centers = boxes[:, 0] + boxes[:, 2] / 2
     y_centers = boxes[:, 1] + boxes[:, 3] / 2
     return np.vstack((x_centers, y_centers)).T
@@ -72,9 +74,55 @@ def custom_metric(predictions, ground_truths, distance_threshold):
     return true_positives, false_positives, false_negatives
 
 
+
+def calculate_metrics_for_image(img_id, coco_gt, coco_pred, scores, distance_threshold):
+    """
+    Calculate TP, FP, FN for a single image.
+
+    Parameters:
+    - img_id: ID of the image to process
+    - coco_gt: Ground truth COCO object
+    - coco_pred: Prediction COCO object
+    - scores: List of score thresholds to evaluate
+    - distance_threshold: Distance threshold to consider a match
+
+    Returns:
+    - A tuple of (tp_list, fp_list, fn_list, images_with_predictions_only_list, fp_in_images_with_predictions_only_list)
+      for the image
+    """
+    tp_list = [0] * len(scores)
+    fp_list = [0] * len(scores)
+    fn_list = [0] * len(scores)
+    images_with_predictions_only_list = [0] * len(scores)
+    fp_in_images_with_predictions_only_list = [0] * len(scores)
+
+    # Get ground truth annotations for the current image
+    ann_ids_gt = coco_gt.getAnnIds(imgIds=img_id)
+    anns_gt = coco_gt.loadAnns(ann_ids_gt)
+    gt_boxes = [ann['bbox'] for ann in anns_gt]
+
+    # Get prediction annotations for the current image
+    ann_ids_pred = coco_pred.getAnnIds(imgIds=img_id)
+    anns_pred = coco_pred.loadAnns(ann_ids_pred)
+
+    # Evaluate each score threshold
+    for idx, scr in enumerate(scores):
+        pred_boxes = [ann['bbox'] for ann in anns_pred if ann['score'] >= scr]
+
+        if len(gt_boxes) == 0 and len(pred_boxes) > 0:
+            images_with_predictions_only_list[idx] += 1
+            fp_in_images_with_predictions_only_list[idx] += len(pred_boxes)
+
+        tp, fp, fn = custom_metric(pred_boxes, gt_boxes, distance_threshold)
+        tp_list[idx] += tp
+        fp_list[idx] += fp
+        fn_list[idx] += fn
+
+    return tp_list, fp_list, fn_list, images_with_predictions_only_list, fp_in_images_with_predictions_only_list
+
 def calculate_metrics(gt_json_path, pred_json_path, scores, image_ids=None, distance_threshold=10):
     """
-    Calculate TP, FP, FN for specified image IDs in the JSON files, with score threshold.
+    Calculate TP, FP, FN across specified images using multiprocessing.
 
     Parameters:
     - gt_json_path: Path to the ground truth JSON file
@@ -84,45 +132,43 @@ def calculate_metrics(gt_json_path, pred_json_path, scores, image_ids=None, dist
     - distance_threshold: Threshold for the center distance to consider a match
 
     Returns:
-    - true_positives: Number of true positive detections across specified images
-    - false_positives: Number of false positive detections across specified images
-    - false_negatives: Number of false negative detections across specified images
+    - Aggregated tp_list, fp_list, fn_list, images_with_predictions_only_list, fp_in_images_with_predictions_only_list
     """
     # Load COCO instances
-    coco_gt = COCO2(gt_json_path)
+    coco_gt = COCO(gt_json_path)
     coco_pred = coco_gt.loadRes(pred_json_path)
 
     if image_ids is None:
         image_ids = coco_gt.getImgIds()
 
-    tp_list = [0]*101
-    fp_list = [0]*101
-    fn_list = [0]*101
-    images_with_predictions_only_list = [0]*101
-    fp_in_images_with_predictions_only_list = [0]*101
-    
-    for img_id in tqdm(image_ids):
-        # Get ground truth annotations for current image
-        ann_ids_gt = coco_gt.getAnnIds(imgIds=img_id)
-        anns_gt = coco_gt.loadAnns(ann_ids_gt)
-        gt_boxes = [ann['bbox'] for ann in anns_gt]
+    # Initialize lists to aggregate results
+    tp_list = [0] * len(scores)
+    fp_list = [0] * len(scores)
+    fn_list = [0] * len(scores)
+    images_with_predictions_only_list = [0] * len(scores)
+    fp_in_images_with_predictions_only_list = [0] * len(scores)
 
-        # Get prediction annotations for current image, filtered by score threshold
-        ann_ids_pred = coco_pred.getAnnIds(imgIds=img_id)
-        anns_pred = coco_pred.loadAnns(ann_ids_pred)
-        for idx,scr in enumerate(scores):            
-            pred_boxes = [ann['bbox']
-                        for ann in anns_pred if ann['score'] >= scr]
-            if len(gt_boxes) == 0 and len(pred_boxes) > 0:
-                images_with_predictions_only_list[idx] += 1
-                fp_in_images_with_predictions_only_list[idx] += len(pred_boxes)
-            tp, fp, fn = custom_metric(pred_boxes, gt_boxes, distance_threshold)
-            tp_list[idx]+= tp
-            fp_list[idx] += fp
-            fn_list[idx] += fn 
+    # Use ProcessPoolExecutor for parallel processing
+    with concurrent.futures.ProcessPoolExecutor(max_workers=8) as executor:
+        # Prepare tasks for each image
+        tasks = [
+            executor.submit(calculate_metrics_for_image, img_id, coco_gt, coco_pred, scores, distance_threshold)
+            for img_id in image_ids
+        ]
+
+        for future in tqdm(concurrent.futures.as_completed(tasks), total=len(tasks)):
+            result = future.result()
+            if result:
+                tp_result, fp_result, fn_result, img_pred_only_result, fp_img_pred_only_result = result
+                # Aggregate results
+                for i in range(len(scores)):
+                    tp_list[i] += tp_result[i]
+                    fp_list[i] += fp_result[i]
+                    fn_list[i] += fn_result[i]
+                    images_with_predictions_only_list[i] += img_pred_only_result[i]
+                    fp_in_images_with_predictions_only_list[i] += fp_img_pred_only_result[i]
 
     return tp_list, fp_list, fn_list, images_with_predictions_only_list, fp_in_images_with_predictions_only_list
-
 
 def load(file):
     with open(file) as io:
@@ -177,24 +223,25 @@ def plot_confusion_matrix(gt_path, prediction_path, threshold_iou=0.5):
     else:
         cocoGt = COCO(prepared_coco_in_dict)
         cocoDt = cocoGt.loadRes(prepared_anns)
-        cur = Curves(cocoGt, cocoDt, iou_tresh=threshold_iou, iouType='bbox', useCats=True)
+        cur = Curves(cocoGt, cocoDt, iou_tresh=threshold_iou, iouType='bbox')
         fig, recall, precision, scores, names = cur.plot_pre_rec(
             plotly_backend=True)
     # cur.display_matrix(score_threshold=score_threshold)
         return len(prepared_anns), cur, recall, precision, scores, names
 
+ic('Starting script')
 threshold_iou = 0.5
 bbox_distance_threshold = 200
 GT_json = [
     # '/home/m32patel/projects/rrg-dclausi/wildlife/datasets/AED/test.json',
     # '/home/m32patel/projects/rrg-dclausi/wildlife/datasets/Aerial_Seabirds_West_Africa/test.json',
     # '/home/m32patel/projects/rrg-dclausi/wildlife/datasets/Aerial-livestock-dataset/test/test.json',
-    # # '/home/m32patel/projects/rrg-dclausi/wildlife/datasets/birds_Izembek_Lagoon_Waterfowl/test.json',
+    '/home/m32patel/projects/rrg-dclausi/wildlife/datasets/birds_Izembek_Lagoon_Waterfowl/test.json',
     # '/home/m32patel/projects/rrg-dclausi/wildlife/datasets/birds_michigan/test.json',
     # '/home/m32patel/projects/rrg-dclausi/wildlife/datasets/birds_monash/test.json',
     # '/home/m32patel/projects/rrg-dclausi/wildlife/datasets/birds_newmexico/test.json',
     # '/home/m32patel/projects/rrg-dclausi/wildlife/datasets/birds_palmyra/test.json',
-    '/home/m32patel/projects/rrg-dclausi/wildlife/datasets/birds_penguins/test.json',
+    # '/home/m32patel/projects/rrg-dclausi/wildlife/datasets/birds_penguins/test.json',
     # '/home/m32patel/projects/rrg-dclausi/wildlife/datasets/birds_pfeifer/test.json',
     # '/home/m32patel/projects/rrg-dclausi/wildlife/datasets/birds_seabirdwatch/test.json',
     # '/home/m32patel/projects/rrg-dclausi/wildlife/datasets/birds_qian_penguin/test.json',
@@ -206,69 +253,36 @@ GT_json = [
     # '/home/m32patel/projects/def-dclausi/whale/merged/test/test_140.json',
     # '/home/m32patel/projects/def-dclausi/whale/merged/test/test_2015.json',
     # '/home/m32patel/projects/def-dclausi/whale/merged/test/test_ES_2016.json',
-    # '/home/m32patel/projects/def-dclausi/whale/merged/test/test_2017.json',
-    # '/home/m32patel/projects/rrg-dclausi/wildlife/datasets/SAVMAP_test/images/test.json',
+    # '/home/m32patel/projects/rrg-dclausi/wildlife/datasets/savmap_dataset_v2/test.json',
     # '/home/m32patel/projects/rrg-dclausi/wildlife/datasets/polar_bear_annotated/test_filtered.json',
     # '/home/m32patel/projects/rrg-dclausi/wildlife/datasets/Virunga_Garamba/groundtruth/json/big_size/test_big_size_A_B_E_K_WH_WB_grounded.json'
 ]
-
-# # List of prediction JSON file paths
+# List of prediction JSON file paths
 pred_json = [
     # "/home/m32patel/projects/def-dclausi/whale/mmwhale2/work_dir_grounding_dino/AED_dataset/prediction_mm_grounding_dino_nocaption.bbox.json",
-#     "/home/m32patel/projects/def-dclausi/whale/mmwhale2/work_dir_grounding_dino/Aerial_seabird_westafrica_od_dataset/prediction_mm_grounding_dino_nocaption.bbox.json",
-#     "/home/m32patel/projects/def-dclausi/whale/mmwhale2/work_dir_grounding_dino/aerial_livestock_dataset/prediction_mm_grounding_dino_nocaption.bbox.json",
-#     # "/home/m32patel/projects/def-dclausi/whale/mmwhale2/work_dir_grounding_dino/birds_izembek_lagoon_od_dataset/prediction_mm_grounding_dino_nocaption.bbox.json",
-#     "/home/m32patel/projects/def-dclausi/whale/mmwhale2/work_dir_grounding_dino/michigan_od_dataset/prediction_mm_grounding_dino_nocaption.bbox.json",
-#     "/home/m32patel/projects/def-dclausi/whale/mmwhale2/work_dir_grounding_dino/monash_od_dataset/prediction_mm_grounding_dino_nocaption.bbox.json",
-#     "/home/m32patel/projects/def-dclausi/whale/mmwhale2/work_dir_grounding_dino/new_mexico_od_dataset/prediction_mm_grounding_dino_nocaption.bbox.json",
-#     "/home/m32patel/projects/def-dclausi/whale/mmwhale2/work_dir_grounding_dino/palmyra_od_dataset/prediction_mm_grounding_dino_nocaption.bbox.json",
-#     "/home/m32patel/projects/def-dclausi/whale/mmwhale2/work_dir_grounding_dino/penguins_od_dataset/prediction_mm_grounding_dino_nocaption.bbox.json",
-#     "/home/m32patel/projects/def-dclausi/whale/mmwhale2/work_dir_grounding_dino/pfeifer_od_dataset/prediction_mm_grounding_dino_nocaption.bbox.json",
-#     "/home/m32patel/projects/def-dclausi/whale/mmwhale2/work_dir_grounding_dino/seabirdwatch_od_dataset/prediction_mm_grounding_dino_nocaption.bbox.json",
-#     "/home/m32patel/projects/def-dclausi/whale/mmwhale2/work_dir_grounding_dino/qian_od_dataset/prediction_mm_grounding_dino_nocaption.bbox.json",
+    # "/home/m32patel/projects/def-dclausi/whale/mmwhale2/work_dir_grounding_dino/Aerial_seabird_westafrica_od_dataset/prediction_mm_grounding_dino_nocaption.bbox.json",
+    # "/home/m32patel/projects/def-dclausi/whale/mmwhale2/work_dir_grounding_dino/aerial_livestock_dataset/prediction_mm_grounding_dino_nocaption.bbox.json",
+    "/home/m32patel/projects/def-dclausi/whale/mmwhale2/work_dir_grounding_dino/birds_izembek_lagoon_od_dataset/prediction_mm_grounding_dino_nocaption.bbox.json",
+    # "/home/m32patel/projects/def-dclausi/whale/mmwhale2/work_dir_grounding_dino/michigan_od_dataset/prediction_mm_grounding_dino_nocaption.bbox.json",
+    # "/home/m32patel/projects/def-dclausi/whale/mmwhale2/work_dir_grounding_dino/monash_od_dataset/prediction_mm_grounding_dino_nocaption.bbox.json",
+    # "/home/m32patel/projects/def-dclausi/whale/mmwhale2/work_dir_grounding_dino/new_mexico_od_dataset/prediction_mm_grounding_dino_nocaption.bbox.json",
+    # "/home/m32patel/projects/def-dclausi/whale/mmwhale2/work_dir_grounding_dino/palmyra_od_dataset/prediction_mm_grounding_dino_nocaption.bbox.json",
+    # "/home/m32patel/projects/def-dclausi/whale/mmwhale2/work_dir_grounding_dino/penguins_od_dataset/prediction_mm_grounding_dino_nocaption.bbox.json",
+    # "/home/m32patel/projects/def-dclausi/whale/mmwhale2/work_dir_grounding_dino/pfeifer_od_dataset/prediction_mm_grounding_dino_nocaption.bbox.json",
+    # "/home/m32patel/projects/def-dclausi/whale/mmwhale2/work_dir_grounding_dino/seabirdwatch_od_dataset/prediction_mm_grounding_dino_nocaption.bbox.json",
+    # "/home/m32patel/projects/def-dclausi/whale/mmwhale2/work_dir_grounding_dino/qian_od_dataset/prediction_mm_grounding_dino_nocaption.bbox.json",
     # "/home/m32patel/projects/def-dclausi/whale/mmwhale2/work_dir_grounding_dino/WAID_livestock_dataset/prediction_mm_grounding_dino_nocaption.bbox.json",
     # "/home/m32patel/projects/def-dclausi/whale/mmwhale2/work_dir_grounding_dino/Eikelboom_dataset/prediction_mm_grounding_dino_nocaption.bbox.json",
-#     "/home/m32patel/projects/def-dclausi/whale/mmwhale2/work_dir_grounding_dino/NOAA_sealion_dataset/prediction_mm_grounding_dino_nocaption.bbox.json",
-#     "/home/m32patel/projects/def-dclausi/whale/mmwhale2/work_dir_grounding_dino/turtle_dataset/prediction_mm_grounding_dino_nocaption.bbox.json",
-#     "/home/m32patel/projects/def-dclausi/whale/mmwhale2/work_dir_grounding_dino/NOAA_artic_seal_dataset/prediction_mm_grounding_dino_nocaption.bbox.json",
-#     "/home/m32patel/projects/def-dclausi/whale/mmwhale2/work_dir_grounding_dino/Beluga_2014_dataset/prediction_mm_grounding_dino_nocaption.bbox.json",  # whale data based on year
-#     "/home/m32patel/projects/def-dclausi/whale/mmwhale2/work_dir_grounding_dino/Beluga_2015_dataset/prediction_mm_grounding_dino_nocaption.bbox.json",
-#     "/home/m32patel/projects/def-dclausi/whale/mmwhale2/work_dir_grounding_dino/Narwhal_2016_dataset/prediction_mm_grounding_dino_nocaption.bbox.json",
-#     "/home/m32patel/projects/def-dclausi/whale/mmwhale2/work_dir_grounding_dino/Beluga_2017_dataset/prediction_mm_grounding_dino_nocaption.bbox.json",
-#     "/home/m32patel/projects/def-dclausi/whale/mmwhale2/work_dir_grounding_dino/SAVMAP/prediction_mm_grounding_dino_nocaption.bbox.json",
-#     "/home/m32patel/projects/def-dclausi/whale/mmwhale2/work_dir_grounding_dino/polar_bear/prediction_mm_grounding_dino_nocaption.bbox.json",
-#     "/home/m32patel/projects/def-dclausi/whale/mmwhale2/work_dir_grounding_dino/Virunga_garamba_dataset/prediction_mm_grounding_dino_nocaption.bbox.json"
-'/home/m32patel/projects/def-dclausi/whale/mmwhale2/work_dir_grounding_dino/finetune/penguins_od_finetune/prediction_mm_grounding_dino_finetune_test.bbox.json'
+    # "/home/m32patel/projects/def-dclausi/whale/mmwhale2/work_dir_grounding_dino/NOAA_sealion_dataset/prediction_mm_grounding_dino_nocaption.bbox.json",
+    # "/home/m32patel/projects/def-dclausi/whale/mmwhale2/work_dir_grounding_dino/turtle_dataset/prediction_mm_grounding_dino_nocaption.bbox.json",
+    # "/home/m32patel/projects/def-dclausi/whale/mmwhale2/work_dir_grounding_dino/NOAA_artic_seal_dataset/prediction_mm_grounding_dino_nocaption.bbox.json",
+    # "/home/m32patel/projects/def-dclausi/whale/mmwhale2/work_dir_grounding_dino/Beluga_2014_dataset/prediction_mm_grounding_dino_nocaption.bbox.json",  # whale data based on year
+    # "/home/m32patel/projects/def-dclausi/whale/mmwhale2/work_dir_grounding_dino/Beluga_2015_dataset/prediction_mm_grounding_dino_nocaption.bbox.json",
+    # "/home/m32patel/projects/def-dclausi/whale/mmwhale2/work_dir_grounding_dino/Narwhal_2016_dataset/prediction_mm_grounding_dino_nocaption.bbox.json",
+    # "/home/m32patel/projects/def-dclausi/whale/mmwhale2/work_dir_grounding_dino/SAVMAP/prediction_mm_grounding_dino_nocaption.bbox.json",
+    # "/home/m32patel/projects/def-dclausi/whale/mmwhale2/work_dir_grounding_dino/polar_bear/prediction_mm_grounding_dino_nocaption.bbox.json",
+    # "/home/m32patel/projects/def-dclausi/whale/mmwhale2/work_dir_grounding_dino/Virunga_garamba_dataset/prediction_mm_grounding_dino_nocaption.bbox.json"
 ]
-
-
-# # List of prediction JSON file paths
-# pred_json = [
-    # "/home/m32patel/projects/def-dclausi/whale/mmwhale2/work_dir_grounding_dino/AED_dataset/prediction_mm_grounding_dino_caption.bbox.json",
-#     "/home/m32patel/projects/def-dclausi/whale/mmwhale2/work_dir_grounding_dino/Aerial_seabird_westafrica_od_dataset/prediction_mm_grounding_dino_caption.bbox.json",
-#     "/home/m32patel/projects/def-dclausi/whale/mmwhale2/work_dir_grounding_dino/aerial_livestock_dataset/prediction_mm_grounding_dino_caption.bbox.json",
-#     # "/home/m32patel/projects/def-dclausi/whale/mmwhale2/work_dir_grounding_dino/birds_izembek_lagoon_od_dataset/prediction_mm_grounding_dino_caption.bbox.json",
-#     "/home/m32patel/projects/def-dclausi/whale/mmwhale2/work_dir_grounding_dino/michigan_od_dataset/prediction_mm_grounding_dino_caption.bbox.json",
-#     "/home/m32patel/projects/def-dclausi/whale/mmwhale2/work_dir_grounding_dino/monash_od_dataset/prediction_mm_grounding_dino_caption.bbox.json",
-#     "/home/m32patel/projects/def-dclausi/whale/mmwhale2/work_dir_grounding_dino/new_mexico_od_dataset/prediction_mm_grounding_dino_caption.bbox.json",
-#     "/home/m32patel/projects/def-dclausi/whale/mmwhale2/work_dir_grounding_dino/palmyra_od_dataset/prediction_mm_grounding_dino_caption.bbox.json",
-#     "/home/m32patel/projects/def-dclausi/whale/mmwhale2/work_dir_grounding_dino/penguins_od_dataset/prediction_mm_grounding_dino_caption.bbox.json",
-#     "/home/m32patel/projects/def-dclausi/whale/mmwhale2/work_dir_grounding_dino/pfeifer_od_dataset/prediction_mm_grounding_dino_caption.bbox.json",
-#     "/home/m32patel/projects/def-dclausi/whale/mmwhale2/work_dir_grounding_dino/seabirdwatch_od_dataset/prediction_mm_grounding_dino_caption.bbox.json",
-#     "/home/m32patel/projects/def-dclausi/whale/mmwhale2/work_dir_grounding_dino/qian_od_dataset/prediction_mm_grounding_dino_caption.bbox.json",
-#     "/home/m32patel/projects/def-dclausi/whale/mmwhale2/work_dir_grounding_dino/WAID_livestock_dataset/prediction_mm_grounding_dino_caption.bbox.json",
-#     "/home/m32patel/projects/def-dclausi/whale/mmwhale2/work_dir_grounding_dino/Eikelboom_dataset/prediction_mm_grounding_dino_caption.bbox.json",
-#     "/home/m32patel/projects/def-dclausi/whale/mmwhale2/work_dir_grounding_dino/NOAA_sealion_dataset/prediction_mm_grounding_dino_caption.bbox.json",
-#     "/home/m32patel/projects/def-dclausi/whale/mmwhale2/work_dir_grounding_dino/turtle_dataset/prediction_mm_grounding_dino_caption.bbox.json",
-#     "/home/m32patel/projects/def-dclausi/whale/mmwhale2/work_dir_grounding_dino/NOAA_artic_seal_dataset/prediction_mm_grounding_dino_caption.bbox.json",
-#     "/home/m32patel/projects/def-dclausi/whale/mmwhale2/work_dir_grounding_dino/Beluga_2014_dataset/prediction_mm_grounding_dino_caption.bbox.json",  # whale data based on year
-#     "/home/m32patel/projects/def-dclausi/whale/mmwhale2/work_dir_grounding_dino/Beluga_2015_dataset/prediction_mm_grounding_dino_caption.bbox.json",
-#     "/home/m32patel/projects/def-dclausi/whale/mmwhale2/work_dir_grounding_dino/Narwhal_2016_dataset/prediction_mm_grounding_dino_caption.bbox.json",
-#     "/home/m32patel/projects/def-dclausi/whale/mmwhale2/work_dir_grounding_dino/Beluga_2017_dataset/prediction_mm_grounding_dino_caption.bbox.json",
-#     "/home/m32patel/projects/def-dclausi/whale/mmwhale2/work_dir_grounding_dino/SAVMAP/prediction_mm_grounding_dino_caption.bbox.json",
-#     "/home/m32patel/projects/def-dclausi/whale/mmwhale2/work_dir_grounding_dino/polar_bear/prediction_mm_grounding_dino_caption.bbox.json",
-#     "/home/m32patel/projects/def-dclausi/whale/mmwhale2/work_dir_grounding_dino/Virunga_garamba_dataset/prediction_mm_grounding_dino_caption.bbox.json"
-# ]
 
 # Extract the names of the runs
 names = [os.path.basename(os.path.dirname(path)) for path in pred_json]
@@ -277,10 +291,9 @@ fig = make_subplots(rows=1, cols=1, subplot_titles=[
     'Precision-Recall'])
 
 experiments = []
-
 for GT, pred, name in zip(GT_json, pred_json, names):
-    try:
-        ic(name)
+    # try:
+        ic('Plotting confusion matrix')
         len_anns, cur, r, p, score, auc = plot_confusion_matrix(GT, pred, threshold_iou)
         # Find the index of the element closest to 0.9
         tp_list = []
@@ -290,7 +303,9 @@ for GT, pred, name in zip(GT_json, pred_json, names):
         fp_in_images_with_predictions_only_list = []
         # closest_index = np.argmin(np.abs(r - 0.9))
         # score_at_p_90 = score[closest_index]
-        tp_list, fp_list, fn_list, images_with_predictions_only_list, fp_in_images_with_predictions_only_list = calculate_metrics(
+        ic('Plotting confusion matrix')
+        tp_list, fp_list, fn_list, images_with_predictions_only_list, 
+        fp_in_images_with_predictions_only_list = calculate_metrics(
             GT, pred, score, distance_threshold=bbox_distance_threshold)
         # print(
         #     f"True Positives: {tp}, False Positives: {fp}, False Negatives: {fn}")
@@ -365,19 +380,19 @@ for GT, pred, name in zip(GT_json, pred_json, names):
 
             fig.update_layout(height=600, width=1200)
 
-    except Exception as e:
-        print(f'Exception: {e}')
-        print(f'file {pred} maynot be found pls check the path')
-        continue
+    # except Exception as e:
+    #     print(f'Exception: {e}')
+    #     print(f'file {pred} maynot be found pls check the path')
+    #     continue
 
 experiment_json = {
     "experiments": experiments
 }
 
-with open("/home/m32patel/projects/def-dclausi/whale/mmwhale2/result_viz/penguin_finetune.json", "w") as outfile:
+with open("/home/m32patel/projects/def-dclausi/whale/mmwhale2/result_viz/all_pr.json", "w") as outfile:
     json.dump(experiment_json, outfile)
 fig.write_image('pr_curve_plotly.png')
 fig.show()
 fig.write_html(
-    "/home/m32patel/projects/def-dclausi/whale/mmwhale2/result_viz/penguin_finetune.html")
+    "/home/m32patel/projects/def-dclausi/whale/mmwhale2/result_viz/all_pr.html")
 print("file dumped sucessfully")

@@ -14,7 +14,7 @@ class ExtraEval():
                  min_score: float = 0,
                  iou_tresh: float = 0.0,
                  recall_count: int = 100,
-                 useCats: bool = False,
+                 useCats: bool = True,
                  ):
         self.iouType = iouType
         self.min_score = min_score

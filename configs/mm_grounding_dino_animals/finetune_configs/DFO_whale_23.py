@@ -1,29 +1,19 @@
 _base_ = '../../mm_grounding_dino/grounding_dino_swin-t_pretrain_obj365.py'
 
-data_root = '/home/m32patel/projects/rrg-dclausi/wildlife/datasets/Virunga_Garamba'
-train_ann_file = '/lustre07/scratch/m32patel/animal_patches/Virunga_Garamba/train/train.json'
-val_ann_file = 'groundtruth/json/big_size/val_big_size_A_B_E_K_WH_WB.json'
-test_ann_file = 'groundtruth/json/big_size/test_big_size_A_B_E_K_WH_WB.json'
+data_root = ''
+train_ann_file= '/home/m32patel/scratch/animal_patches/DFO_whale_23/train/train.json'
+# val_ann_file = 'val_2017.json'
+test_ann_file = '/home/m32patel/projects/rrg-dclausi/whale/dataset/2023_Survey_DFO/DFO_2023_Survey_annotation/High_Arctic_Survey/Plane1/corrected_tasks/coco_iter12345_val.json'
 
 
 backend_args = None
 patch_size = (1024, 1024)
-patch_overlap_ratio = 0.5
+patch_overlap_ratio = 0
 merge_iou_thr = 0.5
-class_name = ("Alcelaphinae",
-              "Buffalo",
-              "Kob",
-              "Warthog",
-              "Waterbuck",
-              "Elephant", )
+class_name = ("whale",)
 num_classes = len(class_name)
 metainfo = dict(classes=class_name, palette=[
-    (220, 20, 60),   # Alcelaphinae
-    (34, 139, 34),   # Buffalo
-    (30, 144, 255),  # Kob
-    (205, 133, 63),  # Warthog
-    (0, 191, 255),   # Waterbuck
-    (128, 128, 128)  # Elephant
+    (220, 20, 60),   # beluga whale
 ])
 
 patch_size = (1024, 1024)
@@ -31,17 +21,16 @@ patch_size = (1024, 1024)
 lang_model_name = 'checkpoints/bert/bert-base-uncased'
 model = dict(
     sliding_window_inference=dict(enable=True, patch_size=patch_size[0], batch_size=-1,
-                                  slice_batch_size=36,
-                                  patch_overlap_ratio=patch_overlap_ratio, merge_nms_type='nms', merge_iou_thr=merge_iou_thr),
+                                           patch_overlap_ratio=patch_overlap_ratio, merge_nms_type='nms', merge_iou_thr=merge_iou_thr),
     language_model=dict(
-        type='BertModel',
-        name=lang_model_name,
-        max_tokens=256,
-        pad_to_max=False,
-        use_sub_sentence_represent=True,
-        special_tokens_list=['[CLS]', '[SEP]', '.', '?'],
-        add_pooling_layer=False,
-    ), bbox_head=dict(num_classes=num_classes))
+    type='BertModel',
+    name=lang_model_name,
+    max_tokens=256,
+    pad_to_max=False,
+    use_sub_sentence_represent=True,
+    special_tokens_list=['[CLS]', '[SEP]', '.', '?'],
+    add_pooling_layer=False,
+), bbox_head=dict(num_classes=num_classes))
 
 # big pipeline
 albu_train_transforms = [
@@ -91,22 +80,22 @@ train_pipeline = [
     dict(type='LoadAnnotations', with_bbox=True),
     dict(type='RandomCrop', crop_size=patch_size, crop_type='absolute',
          allow_negative_crop=True, recompute_bbox=True, bbox_clip_border=True),
-    # dict(
-    #     type='Albu',
-    #     transforms=albu_train_transforms,
-    #     bbox_params=dict(
-    #         type='BboxParams',
-    #         format='pascal_voc',
-    #         label_fields=['gt_bboxes_labels', 'gt_ignore_flags'],
-    #         min_visibility=0.0,
-    #         filter_lost_elements=True),
-    #     keymap={
-    #         'img': 'image',
-    #         'gt_masks': 'masks',
-    #         'gt_bboxes': 'bboxes'
-    #     },
-    #     # update_pad_shape=False,
-    #     skip_img_without_anno=False),
+    dict(
+        type='Albu',
+        transforms=albu_train_transforms,
+        bbox_params=dict(
+            type='BboxParams',
+            format='pascal_voc',
+            label_fields=['gt_bboxes_labels', 'gt_ignore_flags'],
+            min_visibility=0.0,
+            filter_lost_elements=True),
+        keymap={
+            'img': 'image',
+            'gt_masks': 'masks',
+            'gt_bboxes': 'bboxes'
+        },
+        # update_pad_shape=False,
+        skip_img_without_anno=False),
     dict(type='RandomFlip', prob=0.5),
     dict(
         type='PackDetInputs',
@@ -150,32 +139,30 @@ test_pipeline = [
 val_dataloader = dict(
     dataset=dict(
         metainfo=metainfo,
-        data_root=data_root,
+        data_root='',
         pipeline=test_pipeline,
-        ann_file='groundtruth/json/big_size/val_big_size_A_B_E_K_WH_WB.json',
-        data_prefix=dict(img='val/')))
+        ann_file=test_ann_file,
+        data_prefix=dict(img='')))
 
-test_dataloader = dict(
-    dataset=dict(
-        metainfo=metainfo,
-        data_root=data_root,
-        pipeline=test_pipeline,
-        ann_file='groundtruth/json/big_size/test_big_size_A_B_E_K_WH_WB.json',
-        data_prefix=dict(img='test/')))
+# test_dataloader = dict(
+#     dataset=dict(
+#         metainfo=metainfo,
+#         data_root='',
+#         pipeline=test_pipeline,
+#         ann_file='test_2017.json',
+#         data_prefix=dict(img='test/')))
 
-# test_dataloader = val_dataloader
+test_dataloader = val_dataloader
 
-val_evaluator = dict(ann_file=data_root + '/' +
-                     'groundtruth/json/big_size/val_big_size_A_B_E_K_WH_WB.json')
-test_evaluator = dict(ann_file=data_root + '/' +
-                      'groundtruth/json/big_size/test_big_size_A_B_E_K_WH_WB.json')
+val_evaluator = dict(ann_file=test_ann_file)
+test_evaluator = dict(ann_file=test_ann_file)
 
-max_epoch = 80
+max_epoch = 20
 
 default_hooks = dict(
     checkpoint=dict(interval=1, max_keep_ckpts=1, save_best='auto'),
-    logger=dict(type='LoggerHook', interval=50))
-train_cfg = dict(max_epochs=max_epoch, val_interval=1)
+    logger=dict(type='LoggerHook', interval=5))
+train_cfg = dict(max_epochs=max_epoch, val_interval=5)
 
 param_scheduler = [
     dict(
@@ -197,12 +184,12 @@ optim_wrapper = dict(
         }))
 
 
-val_evaluator = dict(ann_file=data_root + '/' + val_ann_file,
+val_evaluator = dict(ann_file=test_ann_file,
                      outfile_prefix=f'./work_dir_grounding_dino/finetune/{{fileBasenameNoExtension}}/prediction_mm_grounding_dino_finetune_val')
-test_evaluator = dict(ann_file=data_root + '/' + test_ann_file,
-                      outfile_prefix=f'./work_dir_grounding_dino/finetune/{{fileBasenameNoExtension}}/prediction_mm_grounding_dino_finetune_test')
+test_evaluator = dict(ann_file=test_ann_file,
+                     outfile_prefix=f'./work_dir_grounding_dino/finetune/{{fileBasenameNoExtension}}/prediction_mm_grounding_dino_finetune_test')
 
 pickle_file = f'./work_dir_grounding_dino/finetune/{{fileBasenameNoExtension}}/prediction_mm_grounding_dino_finetune_val'
 
-work_dir = 'work_dir_grounding_dino/finetune/{{fileBasenameNoExtension}}'
+work_dir='work_dir_grounding_dino/finetune/{{fileBasenameNoExtension}}'
 load_from = '/home/m32patel/projects/def-dclausi/whale/mmwhale2/t/grouding_dino_swin-t_no_caption/epoch_20.pth'  # noqa

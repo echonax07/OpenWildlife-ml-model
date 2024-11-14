@@ -89,24 +89,24 @@ albu_train_transforms = [
 train_pipeline = [
     dict(type='LoadImageFromFile', backend_args=_base_.backend_args),
     dict(type='LoadAnnotations', with_bbox=True),
-    dict(type='RandomCrop', crop_size=patch_size, crop_type='absolute',
-         allow_negative_crop=True, recompute_bbox=True, bbox_clip_border=True),
-    # dict(
-    #     type='Albu',
-    #     transforms=albu_train_transforms,
-    #     bbox_params=dict(
-    #         type='BboxParams',
-    #         format='pascal_voc',
-    #         label_fields=['gt_bboxes_labels', 'gt_ignore_flags'],
-    #         min_visibility=0.0,
-    #         filter_lost_elements=True),
-    #     keymap={
-    #         'img': 'image',
-    #         'gt_masks': 'masks',
-    #         'gt_bboxes': 'bboxes'
-    #     },
-    #     # update_pad_shape=False,
-    #     skip_img_without_anno=False),
+    # dict(type='RandomCrop', crop_size=patch_size, crop_type='absolute',
+    #  allow_negative_crop=True, recompute_bbox=True, bbox_clip_border=True),
+    dict(
+        type='Albu',
+        transforms=albu_train_transforms,
+        bbox_params=dict(
+            type='BboxParams',
+            format='pascal_voc',
+            label_fields=['gt_bboxes_labels', 'gt_ignore_flags'],
+            min_visibility=0.0,
+            filter_lost_elements=True),
+        keymap={
+            'img': 'image',
+            'gt_masks': 'masks',
+            'gt_bboxes': 'bboxes'
+        },
+        # update_pad_shape=False,
+        skip_img_without_anno=False),
     dict(type='RandomFlip', prob=0.5),
     dict(
         type='PackDetInputs',
@@ -120,13 +120,13 @@ train_dataloader = dict(
         _delete_=True,
         # batch_size=4,
         type='CocoDataset',
-        data_root='',
+        data_root='/lustre07/scratch/m32patel/animal_patches/Virunga_Garamba_all_patches/',
         metainfo=metainfo,
         return_classes=True,
         pipeline=train_pipeline,
         filter_cfg=dict(filter_empty_gt=False, min_size=32),
-        ann_file=train_ann_file,
-        data_prefix=dict(img='')))
+        ann_file='train_big_size_A_B_E_K_WH_WB_1024_0.json',
+        data_prefix=dict(img='train_big_size_A_B_E_K_WH_WB_images_1024_0/')))
 
 
 test_pipeline = [
@@ -174,7 +174,7 @@ max_epoch = 80
 
 default_hooks = dict(
     checkpoint=dict(interval=1, max_keep_ckpts=1, save_best='auto'),
-    logger=dict(type='LoggerHook', interval=50))
+    logger=dict(type='LoggerHook', interval=5))
 train_cfg = dict(max_epochs=max_epoch, val_interval=1)
 
 param_scheduler = [

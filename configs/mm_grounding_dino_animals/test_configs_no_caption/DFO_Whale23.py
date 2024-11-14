@@ -1,20 +1,19 @@
 
 _base_ = '../grouding_dino_swin-t_finetune_all.py'
 
-data_root = '/home/m32patel/projects/rrg-dclausi/wildlife/datasets/Eikelboom/test'
-ann_file = 'test.json'
-# class_name = ('Elephant', 'Zebra', 'Giraffe')
-# num_classes = len(class_name)
-# metainfo = dict(classes=class_name, palette=[(220, 20, 60)])
+data_root = ''
+ann_file = '/home/m32patel/projects/rrg-dclausi/whale/dataset/2023_Survey_DFO/DFO_2023_Survey_annotation/High_Arctic_Survey/Plane1/corrected_tasks/coco_iter12345.json'
+class_name = ('whale',)
+num_classes = len(class_name)
+metainfo = dict(classes=class_name, palette=[(220, 20, 60)])
 
 backend_args = None
 patch_size = (1024, 1024)
 patch_overlap_ratio = 0.5
 merge_iou_thr = 0.5
-model = dict(sliding_window_inference = dict(enable=True, patch_size=patch_size[0], batch_size=-1, slice_batch_size = 24,
+model = dict(sliding_window_inference = dict(enable=True, patch_size=patch_size[0], batch_size=-1, slice_batch_size = 36,
                                 patch_overlap_ratio=patch_overlap_ratio, merge_nms_type='nms', merge_iou_thr=merge_iou_thr),
-            #  bbox_head=dict(num_classes=num_classes)
-             )
+             bbox_head=dict(num_classes=num_classes))
 
 test_pipeline = [
     dict(
@@ -36,7 +35,7 @@ test_pipeline = [
 
 val_dataloader = dict(
     dataset=dict(
-        # metainfo=metainfo,
+        metainfo=metainfo,
         data_root=data_root,
         ann_file=ann_file,
         pipeline=test_pipeline,

@@ -6,6 +6,24 @@ from typing import Any, Dict, Optional
 
 ''' USAGE
 python slice_img.py --enable=True --data_root_whole=/home/m32patel/projects/rrg-dclausi/wildlife/datasets/Aerial_Seabirds_West_Africa/ --data_root_slice=/home/m32patel/scratch/animal_patches/Aerial_Seabirds_West_Africa/ --ann_file=train.json --img_dir=''  --slice_height=1024 --slice_width=1024 --overlap_height_ratio=0 --overlap_width_ratio=0 --save_only_positive_slices=True 
+
+
+python slice_img.py --enable=True --data_root_whole=/home/m32patel/projects/rrg-dclausi/wildlife/datasets/Virunga_Garamba --data_root_slice=/home/m32patel/scratch/animal_patches/Virunga_Garamba/ --ann_file=groundtruth/json/big_size/train_big_size_A_B_E_K_WH_WB.json --img_dir='train'  --slice_height=1024 --slice_width=1024 --overlap_height_ratio=0 --overlap_width_ratio=0 --save_only_positive_slices=True
+
+
+python slice_img.py --enable=True --data_root_whole=/home/m32patel/projects/def-dclausi/whale/merged/train --data_root_slice=/home/m32patel/scratch/animal_patches/2017_Beluga/ --ann_file=/home/m32patel/projects/def-dclausi/whale/merged/train/split_dataset_2017.json --img_dir=''  --slice_height=1024 --slice_width=1024 --overlap_height_ratio=0 --overlap_width_ratio=0 --save_only_positive_slices=True
+
+sahi coco slice --image_dir /home/m32patel/projects/def-dclausi/whale/merged/train --dataset_json_path /home/m32patel/projects/def-dclausi/whale/merged/train/split_dataset_201117.json --slice_size 1024 --overlap_ratio 0 --output_dir /lustre07/scratch/m32patel/animal_patches/2017_Beluga_all_patches/
+
+sahi coco slice --image_dir /home/m32patel/projects/rrg-dclausi/wildlife/datasets/polar_bear_annotated --dataset_json_path /home/m32patel/projects/rrg-dclausi/wildlife/datasets/polar_bear_annotated/train_5.json --slice_size 1024 --overlap_ratio 0 --output_dir /lustre07/scratch/m32patel/animal_patches/polar_bear
+
+sahi coco slice --image_dir /home/m32patel/projects/rrg-dclausi/wildlife/datasets/Virunga_Garamba/train --dataset_json_path /home/m32patel/projects/rrg-dclausi/wildlife/datasets/Virunga_Garamba/groundtruth/json/big_size/train_big_size_A_B_E_K_WH_WB.json --slice_size 1024 --overlap_ratio 0 --output_dir /lustre07/scratch/m32patel/animal_patches/Virunga_Garamba_all_patches
+
+
+python slice_img.py --enable=True --data_root_whole='' --data_root_slice=/home/m32patel/scratch/animal_patches/DFO_whale_23/ --ann_file=/home/m32patel/projects/rrg-dclausi/whale/dataset/2023_Survey_DFO/DFO_2023_Survey_annotation/High_Arctic_Survey/Plane1/corrected_tasks/coco_iter12345_train.json --img_dir='' --slice_height=1024 --slice_width=1024 --overlap_height_ratio=0 --overlap_width_ratio=0 --save_only_positive_slices=True
+
+python slice_img.py --enable=True --data_root_whole='/home/m32patel/projects/rrg-dclausi/wildlife/datasets/SAVMAP_test/images' --data_root_slice=/home/m32patel/scratch/animal_patches/SAVMAP/ --ann_file=/home/m32patel/projects/rrg-dclausi/wildlife/datasets/SAVMAP_test/images/coco_split_train.json --img_dir='' --slice_height=1024 --slice_width=1024 --overlap_height_ratio=0 --overlap_width_ratio=0 --save_only_positive_slices=True
+
 '''
 
 
@@ -118,7 +136,7 @@ def coco_merge(input_extend: str, input_add: str, extend_dir_path: str, add_dir_
 
             output["annotations"].append(annotation)
 
-    print(f"Result: {len(output['images'])} images, {len(output['annotations'])} annotations")
+    # print(f"Result: {len(output['images'])} images, {len(output['annotations'])} annotations")
 
     with open(output_file, "w", encoding="utf-8") as f:
         json.dump(output, f, indent=indent, ensure_ascii=False)
