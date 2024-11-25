@@ -3,9 +3,9 @@ _base_ = '../grouding_dino_swin-t_finetune_all.py'
 
 data_root = '/home/m32patel/projects/rrg-dclausi/wildlife/datasets/birds_newmexico'
 ann_file = 'test.json'
-# class_name = ('bird', )
-# num_classes = len(class_name)
-# metainfo = dict(classes=class_name, palette=[(220, 20, 60)])
+class_name = ('penguin', "seals")
+num_classes = len(class_name)
+metainfo = dict(classes=class_name, palette=[(255, 140, 0), (255, 255, 0)])
 
 # model = dict(bbox_head=dict(num_classes=num_classes))
 
