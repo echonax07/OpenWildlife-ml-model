@@ -1,10 +1,10 @@
 #!/bin/bash
-#SBATCH --nodes 1
+#SBATCH --nodes 2
 #SBATCH --gpus-per-node=4 # request a GPU
 #SBATCH --tasks-per-node=4
 #SBATCH --cpus-per-task=12 # change this parameter to 2,4,6,... and increase "--num_workers" accordingly to see the effect on performance
 #SBATCH --mem=400G
-#SBATCH --time=23:59:00
+#SBATCH --time=29:59:00
 #SBATCH --output=../output3/%j.out
 #SBATCH --account=def-y2863che
 #SBATCH --mail-user=muhammed.computecanada@gmail.com
@@ -41,7 +41,7 @@ random_number=$(( RANDOM % (max - min + 1) + min ))
 echo "Config file: $1"
 # srun --ntasks=2 --gres=gpu:2  --kill-on-bad-exit=1 --cpus-per-task=12 python tools/train.py $1 --launcher slurm --resume
 # srun --ntasks=2 --gres=gpu:2  --kill-on-bad-exit=1 --cpus-per-task=12 python tools/train.py $1 --launcher slurm
-srun --ntasks=4 --gres=gpu:4 --kill-on-bad-exit=1 --cpus-per-task=12 --nodes=1 python tools/train.py $1 --launcher slurm --cfg-options env_cfg.dist_cfg.port=${random_number}
+srun --ntasks=8 --gres=gpu:4 --kill-on-bad-exit=1 --cpus-per-task=12 --nodes=2 python tools/train.py $1 --launcher slurm --cfg-options env_cfg.dist_cfg.port=${random_number}
 
 # # Extract the base name without extension
 base_name=$(basename "$1" .py)
@@ -52,7 +52,7 @@ echo "$CHECKPOINT"
 
 # srun --ntasks=4 --gres=gpu:4 --kill-on-bad-exit=1 --cpus-per-task=12 --nodes=1 python tools/train.py $1 --launcher slurm --cfg-options env_cfg.dist_cfg.port=${random_number}
 
-srun --ntasks=4 --gres=gpu:4 --kill-on-bad-exit=1 --cpus-per-task=12 python tools/test.py $1 $CHECKPOINT --launcher slurm --out True --cfg-options env_cfg.dist_cfg.port=${random_number}
+# srun --ntasks=4 --gres=gpu:4 --kill-on-bad-exit=1 --cpus-per-task=12 python tools/test.py $1 $CHECKPOINT --launcher slurm --out True --cfg-options env_cfg.dist_cfg.port=${random_number}
 # python tools/analysis_tools/whale/plot_pr_confusion_matrix_year_wise.py --config $1 --save_year_wise=False
 
 # python tools/dataset_converters/whale/convert_mmdet_pred_to_labelstudio_tasks.py /home/m32patel/projects/def-dclausi/whale/merged/test/test_non_whale.json work_dirs/$base_name/test_results_whale_non_whale.bbox.json work_dirs/$base_name/test_results_whale_non_whale_labelstudio.bbox.json --LABEL_STUDIO_LOCAL_FILES_DOCUMENT_ROOT=/media/pc2041

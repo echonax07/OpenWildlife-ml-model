@@ -6,7 +6,7 @@
 #SBATCH --mem=400G
 #SBATCH --time=12:59:00
 #SBATCH --output=../output3/%j.out
-#SBATCH --account=def-y2863che
+#SBATCH --account=rrg-dclausi
 #SBATCH --mail-user=muhammed.computecanada@gmail.com
 #SBATCH --mail-type=BEGIN
 #SBATCH --mail-type=END
@@ -39,7 +39,8 @@ echo "Config file: $1"
 
 # python tools/test.py $1 /home/m32patel/projects/def-dclausi/whale/mmwhale2/t/grouding_dino_swin-t_no_caption/epoch_20.pth
 
-python tools/test.py $1 /home/m32patel/projects/def-dclausi/whale/mmwhale2/work_dir_grounding_dino/grouding_dino_swin-t_caption/epoch_20.pth
+# python tools/test.py $1 /home/m32patel/projects/def-dclausi/whale/mmwhale2/work_dir_grounding_dino/grouding_dino_swin-t_caption/epoch_20.pth
+python tools/test.py $1 /home/m32patel/projects/def-dclausi/whale/mmwhale2/work_dir_grounding_dino/grouding_dino_swin-t_vis_caption/epoch_20.pth
 
 # python tools/analysis_tools/whale/plot_pr_confusion_matrix_year_wise.py --config $1 --save_year_wise=False
 
