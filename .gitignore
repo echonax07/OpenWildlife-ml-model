@@ -136,3 +136,5 @@ GLIP/
 outputs2/
 result_viz/
 t/
+outputs3/
+faster_coco_eval_repo/csrc/mask/pycocotools/_mask.c
