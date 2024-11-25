@@ -149,8 +149,8 @@ def plot_coco_image_side_by_side(gt_path, pred_path1, pred_path2, img_folder, sa
 
             return annotated_img
 
-        # img1_annotated = annotate_image(img, pred_data1, caption, score_threshold1)
-        img1_annotated = annotate_image(img, pred_data1, '', score_threshold1)
+        img1_annotated = annotate_image(img, pred_data1, caption, score_threshold1)
+        # img1_annotated = annotate_image(img, pred_data1, '', score_threshold1)
         img2_annotated = annotate_image(img, pred_data2, '', score_threshold2)
 
         # Combine images side by side
@@ -164,23 +164,23 @@ def plot_coco_image_side_by_side(gt_path, pred_path1, pred_path2, img_folder, sa
         cv2.imwrite(save_path, combined_img)
 
 # Example usage
-gt_json_path = '/home/m32patel/projects/rrg-dclausi/wildlife/datasets/birds_penguins/test_grounded.json'
-pred_json_path1 = '/home/m32patel/projects/def-dclausi/whale/mmwhale2/work_dir_grounding_dino/penguins_od_dataset/prediction_mm_grounding_dino_caption.bbox.json'
-pred_json_path2 = '/home/m32patel/projects/def-dclausi/whale/mmwhale2/work_dir_grounding_dino/penguins_od_dataset/prediction_mm_grounding_dino_nocaption.bbox.json'
-img_folder = '/home/m32patel/projects/rrg-dclausi/wildlife/datasets/birds_penguins'
-save_folder = "/home/m32patel/projects/def-dclausi/whale/mmwhale2/result_viz/birds_penguins/combined"
+gt_json_path = '/home/m32patel/projects/rrg-dclausi/wildlife/datasets/birds_pfeifer/test_grounded.json'
+pred_json_path1 = '/home/m32patel/projects/def-dclausi/whale/mmwhale2/work_dir_grounding_dino/birds_pfeifer/prediction_mm_grounding_dino_nocaption.bbox.json'
+pred_json_path2 = '/home/m32patel/projects/def-dclausi/whale/mmwhale2/work_dir_grounding_dino/birds_pfeifer/prediction_mm_grounding_dino_viz_caption.bbox.json'
+img_folder = '/home/m32patel/projects/rrg-dclausi/wildlife/datasets/birds_pfeifer/'
+save_folder = "/home/m32patel/projects/def-dclausi/whale/mmwhale2/result_viz/birds_penguins/combined_full_vs_viz"
 score_threshold1 = 0.3
 score_threshold2= 0.3
-iou_threshold = 0.5
+iou_threshold = 0.3
 
 # For single image
 # plot_coco_image_side_by_side(gt_json_path, pred_json_path1, pred_json_path2, img_folder, save_folder, mode='file', image_name='14155f30121958a811385dd40c96f8e9294da086.JPG', score_threshold=score_threshold, iou_threshold=0.1, show_text=True)
 
 
 
-# plot_coco_image_side_by_side(gt_json_path, pred_json_path1, pred_json_path2, img_folder, save_folder, mode='file',image_name='20170807_2000588.jpg', score_threshold1=score_threshold1,score_threshold2=score_threshold2,iou_threshold=iou_threshold, show_text=False, img_list=None)
+# plot_coco_image_side_by_side(gt_json_path, pred_json_path1, pred_json_path2, img_folder, save_folder, mode='file',image_name='1a8832f39cde46878e90bf9d5328d23f.JPG', score_threshold1=score_threshold1,score_threshold2=score_threshold2,iou_threshold=iou_threshold, show_text=True, img_list=None)
 
-# # For all images
+# # # For all images
 plot_coco_image_side_by_side(gt_json_path, pred_json_path1, pred_json_path2, img_folder, save_folder, mode='all', score_threshold1=score_threshold1,score_threshold2=score_threshold2,iou_threshold=iou_threshold, show_text=False, img_list=None)
 
 # img_list= ['9Aug20159Aug20151RioBeach3KMLaneAM20150809cr7riobeach3kmlaneamimg_20150809_144508_IMG_6892_NIR.jpg',]

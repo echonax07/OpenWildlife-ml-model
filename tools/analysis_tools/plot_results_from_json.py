@@ -28,7 +28,7 @@ def compute_iou(box1, box2):
     iou = inter_area / float(b1_area + b2_area - inter_area)
     return iou
 
-def draw_bbox(img, bbox, color, label, show_text, thickness=2):
+def draw_bbox(img, bbox, color, label, show_text, thickness=1):
     x, y, w, h = map(int, bbox)
     cv2.rectangle(img, (x, y), (x+w, y+h), color, thickness)
     if show_text:
@@ -119,14 +119,16 @@ def plot_coco_image(gt_path, pred_path, img_folder, save_folder, mode='file', im
         cv2.imwrite(save_path, img)
 
 # Example usage
-gt_json_path = '/home/m32patel/projects/rrg-dclausi/whale/dataset/2023_Survey_DFO/DFO_2023_Survey_annotation/High_Arctic_Survey/Plane1/corrected_tasks/coco_iter12345.json'
-pred_json_path = '/home/m32patel/projects/def-dclausi/whale/mmwhale2/work_dir_grounding_dino/DFO_Whale23/prediction_mm_grounding_dino_nocaption.bbox.json'
-img_folder = ''
-save_folder = "/home/m32patel/projects/def-dclausi/whale/mmwhale2/result_viz/DFO_whale23/nocaption"
+gt_json_path = '/home/m32patel/projects/def-dclausi/whale/merged/test/test_ES_viz_2016_grounded.json'
+
+pred_json_path = '/home/m32patel/projects/def-dclausi/whale/mmwhale2/work_dir_grounding_dino/Narwhal_2016_dataset/prediction_mm_grounding_dino_viz_caption.bbox.json'
+img_folder = '/home/m32patel/projects/def-dclausi/whale/merged/test/'
+save_folder = "/home/m32patel/projects/def-dclausi/whale/mmwhale2/result_viz/Narwhal_2016_dataset/viz_caption"
+
 score_threshold = 0.3
 
-# For single image
-# plot_coco_image(gt_json_path, pred_json_path, img_folder, save_folder, mode='file', image_name='14155f30121958a811385dd40c96f8e9294da086.JPG', score_threshold=score_threshold, iou_threshold=0.1, show_text=True)
+# # For single image
+plot_coco_image(gt_json_path, pred_json_path, img_folder, save_folder, mode='file', image_name='ES_20160821_25mm_00178.jpg', score_threshold=score_threshold, iou_threshold=0.5, show_text=False)
 
-# For all images
-plot_coco_image(gt_json_path, pred_json_path, img_folder, save_folder, mode='all', score_threshold=score_threshold, iou_threshold=0.1, show_text=True)
+# # # For all images
+# plot_coco_image(gt_json_path, pred_json_path, img_folder, save_folder, mode='all', score_threshold=score_threshold, iou_threshold=0.3, show_text=False)

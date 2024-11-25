@@ -155,7 +155,7 @@ class DetLocalVisualizer(Visualizer):
                 if 'scores' in instances:
                     score = round(float(instances.scores[i]) * 100, 1)
                     label_text += f': {score}'
-
+                # label_text="Beluga Whale"
                 self.draw_texts(
                     label_text,
                     pos,

@@ -398,6 +398,8 @@ class DetInferencer(BaseInferencer):
             ori_inputs, batch_size=batch_size, **preprocess_kwargs)
 
         results_dict = {'predictions': [], 'visualization': []}
+        # from icecream import ic
+        # ic(results_dict)
         for ori_imgs, data in (track(inputs, description='Inference')
                                if self.show_progress else inputs):
             preds = self.forward(data, **forward_kwargs)
@@ -423,6 +425,7 @@ class DetInferencer(BaseInferencer):
             results_dict['predictions'].extend(results['predictions'])
             if results['visualization'] is not None:
                 results_dict['visualization'].extend(results['visualization'])
+        # ic(results_dict)
         return results_dict
 
     def visualize(self,

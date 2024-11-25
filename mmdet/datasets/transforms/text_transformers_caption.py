@@ -139,7 +139,6 @@ class RandomSamplingNegPos_with_caption(BaseTransform):
 
         results['gt_bboxes'] = gt_bboxes
         results['gt_bboxes_labels'] = gt_labels
-
         results['text'] = text
         results['tokens_positive'] = label_to_positions
         return results
@@ -194,7 +193,15 @@ class RandomSamplingNegPos_with_caption(BaseTransform):
         results['gt_bboxes_labels'] = gt_labels
         results['text'] = text
         results['tokens_positive'] = label_to_positions
+        # from icecream import ic
+        # ic(results['text'])
         
+        # ic(results['tokens_positive'])
+        # for label,positions in label_to_positions.items():
+        #     for position in positions:
+        #         # ic(label_map)
+        #         # print(f'Label: {label}: {label_map[label]}, ')
+        #         ic(text[position[0]:position[1]])  
         return results
 
     def find_all_word_positions(self,sentence, word):

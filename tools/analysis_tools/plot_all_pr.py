@@ -194,7 +194,7 @@ GT_json = [
     # '/home/m32patel/projects/rrg-dclausi/wildlife/datasets/birds_monash/test.json',
     # '/home/m32patel/projects/rrg-dclausi/wildlife/datasets/birds_newmexico/test.json',
     # '/home/m32patel/projects/rrg-dclausi/wildlife/datasets/birds_palmyra/test.json',
-    '/home/m32patel/projects/rrg-dclausi/wildlife/datasets/birds_penguins/test.json',
+    # '/home/m32patel/projects/rrg-dclausi/wildlife/datasets/birds_penguins/test.json',
     # '/home/m32patel/projects/rrg-dclausi/wildlife/datasets/birds_pfeifer/test.json',
     # '/home/m32patel/projects/rrg-dclausi/wildlife/datasets/birds_seabirdwatch/test.json',
     # '/home/m32patel/projects/rrg-dclausi/wildlife/datasets/birds_qian_penguin/test.json',
@@ -207,7 +207,7 @@ GT_json = [
     # '/home/m32patel/projects/def-dclausi/whale/merged/test/test_2015.json',
     # '/home/m32patel/projects/def-dclausi/whale/merged/test/test_ES_2016.json',
     # '/home/m32patel/projects/def-dclausi/whale/merged/test/test_2017.json',
-    # '/home/m32patel/projects/rrg-dclausi/wildlife/datasets/SAVMAP_test/images/test.json',
+    '/home/m32patel/projects/rrg-dclausi/wildlife/datasets/SAVMAP_test/images/coco_split_val.json'
     # '/home/m32patel/projects/rrg-dclausi/wildlife/datasets/polar_bear_annotated/test_filtered.json',
     # '/home/m32patel/projects/rrg-dclausi/wildlife/datasets/Virunga_Garamba/groundtruth/json/big_size/test_big_size_A_B_E_K_WH_WB_grounded.json'
 ]
@@ -238,7 +238,8 @@ pred_json = [
 #     "/home/m32patel/projects/def-dclausi/whale/mmwhale2/work_dir_grounding_dino/SAVMAP/prediction_mm_grounding_dino_nocaption.bbox.json",
 #     "/home/m32patel/projects/def-dclausi/whale/mmwhale2/work_dir_grounding_dino/polar_bear/prediction_mm_grounding_dino_nocaption.bbox.json",
 #     "/home/m32patel/projects/def-dclausi/whale/mmwhale2/work_dir_grounding_dino/Virunga_garamba_dataset/prediction_mm_grounding_dino_nocaption.bbox.json"
-'/home/m32patel/projects/def-dclausi/whale/mmwhale2/work_dir_grounding_dino/finetune/penguins_od_finetune/prediction_mm_grounding_dino_finetune_test.bbox.json'
+# '/home/m32patel/projects/def-dclausi/whale/mmwhale2/work_dir_grounding_dino/finetune/penguins_od_finetune/prediction_mm_grounding_dino_finetune_test.bbox.json'
+'/home/m32patel/projects/def-dclausi/whale/mmwhale2/work_dir_grounding_dino/finetune/SAVMAP/prediction_mm_grounding_dino_finetune_val.bbox.json'
 ]
 
 
@@ -374,10 +375,10 @@ experiment_json = {
     "experiments": experiments
 }
 
-with open("/home/m32patel/projects/def-dclausi/whale/mmwhale2/result_viz/penguin_finetune.json", "w") as outfile:
+with open("/home/m32patel/projects/def-dclausi/whale/mmwhale2/result_viz/SAVMAP.json", "w") as outfile:
     json.dump(experiment_json, outfile)
 fig.write_image('pr_curve_plotly.png')
 fig.show()
 fig.write_html(
-    "/home/m32patel/projects/def-dclausi/whale/mmwhale2/result_viz/penguin_finetune.html")
+    "/home/m32patel/projects/def-dclausi/whale/mmwhale2/result_viz/SAVMAP.html")
 print("file dumped sucessfully")
