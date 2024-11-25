@@ -2,7 +2,7 @@
 _base_ = '../grouding_dino_swin-t_finetune_all.py'
 
 data_root = '/home/m32patel/projects/rrg-dclausi/wildlife/datasets/Eider_survey_project'
-ann_file = 'coco_test2_broken.json'
+ann_file = 'coco_test.json'
 class_name = ('duck',)
 num_classes = len(class_name)
 metainfo = dict(classes=class_name, palette=[(220, 20, 60)])
@@ -44,6 +44,6 @@ val_dataloader = dict(
 test_dataloader = val_dataloader
 
 val_evaluator = dict(ann_file=data_root + '/' + ann_file,
-                    outfile_prefix=f'./work_dir_grounding_dino/{{fileBasenameNoExtension}}/prediction_mm_grounding_dino_nocaption')
+                    outfile_prefix=f'./work_dir_grounding_dino/{{fileBasenameNoExtension}}/prediction_mm_grounding_dino_nocaption_finetune')
 test_evaluator = val_evaluator
-pickle_file = f'./work_dir_grounding_dino/{{fileBasenameNoExtension}}/prediction_mm_grounding_dino_nocaption'
+pickle_file = f'./work_dir_grounding_dino/{{fileBasenameNoExtension}}/prediction_mm_grounding_dino_finetune'

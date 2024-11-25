@@ -32,7 +32,7 @@ def draw_bbox(img, bbox, color, label, show_text, thickness=1):
     x, y, w, h = map(int, bbox)
     cv2.rectangle(img, (x, y), (x+w, y+h), color, thickness)
     if show_text:
-        cv2.putText(img, label, (x, y-10), cv2.FONT_HERSHEY_SIMPLEX, 0.6, color, 2)
+        cv2.putText(img, label, (x, y-10), cv2.FONT_HERSHEY_SIMPLEX, 0.6, color, 1)
 
 def plot_coco_image(gt_path, pred_path, img_folder, save_folder, mode='file', image_name=None, score_threshold=0.5, iou_threshold=0.5, show_text=True):
     # Load JSON files
@@ -92,16 +92,22 @@ def plot_coco_image(gt_path, pred_path, img_folder, save_folder, mode='file', im
                 if max_iou >= iou_threshold:
                     # True Positive
                     color = (0, 255, 0)  # Green
-                    label = f"TP: {pred_category_name} ({pred['score']:.2f})"
+                    # label = f"TP: {pred_category_name} ({pred['score']:.2f})"
+                    label = f"TP: {pred_category_name}"
+                    
                     gt_anns[category_id].remove(max_gt)
                 else:
                     # False Positive
                     color = (0, 0, 255)  # Red
-                    label = f"FP: {pred_category_name} ({pred['score']:.2f})"
+                    # label = f"FP: {pred_category_name} ({pred['score']:.2f})"
+                    label = f"FP: {pred_category_name}"
+                    
             else:
                 # False Positive (no GT for this category)
                 color = (0, 0, 255)  # Red
-                label = f"FP: {pred_category_name} ({pred['score']:.2f})"
+                # label = f"FP: {pred_category_name} ({pred['score']:.2f})"
+                label = f"FP: {pred_category_name}"
+                
                 
             draw_bbox(img, pred_bbox, color, label, show_text)
 
@@ -118,17 +124,23 @@ def plot_coco_image(gt_path, pred_path, img_folder, save_folder, mode='file', im
         save_path = os.path.join(save_folder, f"{img_name}")
         cv2.imwrite(save_path, img)
 
+# # Example usage
+# gt_json_path = '/home/m32patel/projects/rrg-dclausi/wildlife/datasets/eider_duck_synthesized/annotations.json'
+
+# pred_json_path = '/home/m32patel/projects/def-dclausi/whale/mmwhale2/work_dir_grounding_dino/finetune/eider_syn_finetune/prediction_mm_grounding_dino_finetune_test.bbox.json'
+# img_folder = '/home/m32patel/projects/rrg-dclausi/wildlife/datasets/eider_duck_synthesized/'
+# save_folder = "/home/m32patel/projects/def-dclausi/whale/mmwhale2/result_viz/eider_duck_synthesized/viz_caption"
+
+
 # Example usage
-gt_json_path = '/home/m32patel/projects/def-dclausi/whale/merged/test/test_ES_viz_2016_grounded.json'
+gt_json_path = '/home/m32patel/projects/rrg-dclausi/wildlife/datasets/Eider_survey_project/coco_test.json'
 
-pred_json_path = '/home/m32patel/projects/def-dclausi/whale/mmwhale2/work_dir_grounding_dino/Narwhal_2016_dataset/prediction_mm_grounding_dino_viz_caption.bbox.json'
-img_folder = '/home/m32patel/projects/def-dclausi/whale/merged/test/'
-save_folder = "/home/m32patel/projects/def-dclausi/whale/mmwhale2/result_viz/Narwhal_2016_dataset/viz_caption"
-
-score_threshold = 0.3
-
+pred_json_path = '/home/m32patel/projects/def-dclausi/whale/mmwhale2/work_dir_grounding_dino/Eider_duck/prediction_mm_grounding_dino_nocaption_finetune.bbox.json'
+img_folder = '/home/m32patel/projects/rrg-dclausi/wildlife/datasets/Eider_survey_project/'
+save_folder = "/home/m32patel/projects/def-dclausi/whale/mmwhale2/result_viz/eider_duck_real_from_synth/viz_caption"
+score_threshold = 0.2
 # # For single image
-plot_coco_image(gt_json_path, pred_json_path, img_folder, save_folder, mode='file', image_name='ES_20160821_25mm_00178.jpg', score_threshold=score_threshold, iou_threshold=0.5, show_text=False)
+plot_coco_image(gt_json_path, pred_json_path, img_folder, save_folder, mode='file', image_name='2008/grants_photos_1/100EOS5D/IMG_4430.JPG', score_threshold=score_threshold, iou_threshold=0.5, show_text=False)
 
 # # # For all images
 # plot_coco_image(gt_json_path, pred_json_path, img_folder, save_folder, mode='all', score_threshold=score_threshold, iou_threshold=0.3, show_text=False)
