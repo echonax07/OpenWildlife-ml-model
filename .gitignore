@@ -138,3 +138,102 @@ result_viz/
 t/
 outputs3/
 faster_coco_eval_repo/csrc/mask/pycocotools/_mask.c
+projects/LabelStudio/
+
+*.out
+*.swp
+#work_dirs/
+*.log.json
+.vscode/
+batchlogs/
+artifacts/
+wandb/
+.idea/
+jupyter_notebooks/gradcam/
+jupyter_notebooks/predictions_images/
+jupyter_notebooks/runs/predict/
+jupyter_notebooks/gradcam/sliced_140803_cam2_00452_images/
+jupyter_notebooks/gradcam/sliced_140803_Cam2_00449_images/
+output/
+outputs/
+# work_dirs/
+work_dirs/**/*.py
+work_dirs/**/*.txt
+work_dirs/**/*.json
+work_dirs/*.jpg
+work_dirs/**/*.jpg
+last_checkpoint
+# !work_dirs/**/*.bbox.json
+# !*.bbox.json
+*.pkl
+projects/LabelStudio/backend_template/**/*.json
+
+
+work_dirs/**/*.png
+# work_dirs/work_dirs/**/*.png
+
+# Ignore all files and directories inside work_dirs
+# work_dirs/
+
+
+# Allow directories inside work_dirs
+# !/work_dirs/*/
+
+# tensorboard events
+events.*.*
+
+# mim related files
+.mim/
+
+*.zip
+*.out
+# *.pkl
+# pytorch path files
+*.pth
+*$py.cl
+*.pyc
+*.cpython-38.pyc
+pip-wheel-metadata/
+share/python-wheels/
+.nox/
+*.py,cover
+db.sqlite3-journal
+docs/_build/
+# IPython
+profile_default/
+ipython_config.py
+# pipenv
+#   According to pypa/pipenv#598, it is recommended to include Pipfile.lock in version control.
+#   However, in case of collaboration, if having platform-specific dependencies or dependencies
+#   having no cross-platform support, pipenv may install dependencies that don't work, or not
+#   install all needed dependencies.
+#Pipfile.lock
+
+# PEP 582; used by e.g. github.com/David-OConnor/pyflow
+__pypackages__/
+
+# Celery stuff
+celerybeat.pid
+runs/predict
+.dmypy.json
+dmypy.json
+
+# core files
+core.*
+# Pyre type checker
+.pyre/
+
+# some specific lfs files
+!work_dirs/faster_rcnn_clean_v2/best_coco_bbox_mAP_epoch_10.pth
+*.json
+tools/dataset_converters/seal/surv_test_kamera_detections_20210212_full_paths.csv
+wandb/latest-run
+faster_coco_eval_repo/csrc/mask/pycocotools/_mask.c
+demo/20150812_25mm_002533_crop.jpg
+tools/analysis_tools/whale/whale_pr_curve_plotly.png
+tools/analysis_tools/whale/whale_pr_curve.png
+spider_plot.png
+spider_plot2.png
+whale_pr_curve_plotly.png
+wandb/settings
+configs/DFO_whale_different_backbones/plot.html
