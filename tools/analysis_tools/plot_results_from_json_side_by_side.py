@@ -61,6 +61,8 @@ def plot_coco_image_side_by_side(gt_path, pred_path1, pred_path2, img_folder, sa
                 image_id = img_info['id']
                 if 'caption' in img_info:
                     caption=img_info['caption']
+                else: 
+                     caption=''
                 break
 
         if image_id is None:
@@ -145,10 +147,11 @@ def plot_coco_image_side_by_side(gt_path, pred_path1, pred_path2, img_folder, sa
                     text_x = (annotated_img.shape[1] - text_size[0]) // 2  # Center align
                     text_y = start_y + i * (text_size[1] + 5)  # Increment y position for each line
                     cv2.putText(annotated_img, line, (text_x, text_y), font, font_scale, (0, 0, 0), font_thickness, cv2.LINE_AA)
-
+            # else: caption= ''
 
             return annotated_img
 
+        
         img1_annotated = annotate_image(img, pred_data1, caption, score_threshold1)
         # img1_annotated = annotate_image(img, pred_data1, '', score_threshold1)
         img2_annotated = annotate_image(img, pred_data2, '', score_threshold2)
@@ -164,13 +167,15 @@ def plot_coco_image_side_by_side(gt_path, pred_path1, pred_path2, img_folder, sa
         cv2.imwrite(save_path, combined_img)
 
 # Example usage
-gt_json_path = '/home/m32patel/projects/rrg-dclausi/wildlife/datasets/birds_pfeifer/test_grounded.json'
-pred_json_path1 = '/home/m32patel/projects/def-dclausi/whale/mmwhale2/work_dir_grounding_dino/birds_pfeifer/prediction_mm_grounding_dino_nocaption.bbox.json'
-pred_json_path2 = '/home/m32patel/projects/def-dclausi/whale/mmwhale2/work_dir_grounding_dino/birds_pfeifer/prediction_mm_grounding_dino_viz_caption.bbox.json'
-img_folder = '/home/m32patel/projects/rrg-dclausi/wildlife/datasets/birds_pfeifer/'
-save_folder = "/home/m32patel/projects/def-dclausi/whale/mmwhale2/result_viz/birds_penguins/combined_full_vs_viz"
-score_threshold1 = 0.3
-score_threshold2= 0.3
+# gt_json_path = '/home/m32patel/projects/rrg-dclausi/wildlife/datasets/birds_pfeifer/test_grounded.json'
+gt_json_path = '/home/m32patel/projects/rrg-dclausi/wildlife/datasets/Eider_survey_project/coco_test.json'
+
+pred_json_path1 = '/home/m32patel/projects/def-dclausi/whale/mmwhale2/work_dir_grounding_dino/Eider_duck/prediction_mm_grounding_dino_sparse_synth_finetune.bbox.json'
+pred_json_path2 = '/home/m32patel/projects/def-dclausi/whale/mmwhale2/work_dir_grounding_dino/Eider_duck/prediction_mm_grounding_dino_nocaption_finetune.bbox.json'
+img_folder = '/home/m32patel/projects/rrg-dclausi/wildlife/datasets/Eider_survey_project/'
+save_folder = "/home/m32patel/projects/def-dclausi/whale/mmwhale2/result_viz/eiderducks/real_sparse_vs_dense"
+score_threshold1 = 0.2
+score_threshold2= 0.2
 iou_threshold = 0.3
 
 # For single image

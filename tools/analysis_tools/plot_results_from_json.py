@@ -125,22 +125,22 @@ def plot_coco_image(gt_path, pred_path, img_folder, save_folder, mode='file', im
         cv2.imwrite(save_path, img)
 
 # # Example usage
-# gt_json_path = '/home/m32patel/projects/rrg-dclausi/wildlife/datasets/eider_duck_synthesized/annotations.json'
+gt_json_path = '/home/m32patel/projects/rrg-dclausi/wildlife/datasets/eider_duck_synthesized/annotations.json'
 
-# pred_json_path = '/home/m32patel/projects/def-dclausi/whale/mmwhale2/work_dir_grounding_dino/finetune/eider_syn_finetune/prediction_mm_grounding_dino_finetune_test.bbox.json'
-# img_folder = '/home/m32patel/projects/rrg-dclausi/wildlife/datasets/eider_duck_synthesized/'
-# save_folder = "/home/m32patel/projects/def-dclausi/whale/mmwhale2/result_viz/eider_duck_synthesized/viz_caption"
+pred_json_path = '/home/m32patel/projects/def-dclausi/whale/mmwhale2/work_dir_grounding_dino/finetune/eider_syn_finetune/prediction_mm_grounding_dino_finetune_test.bbox.json'
+img_folder = '/home/m32patel/projects/rrg-dclausi/wildlife/datasets/eider_duck_synthesized/'
+save_folder = "/home/m32patel/projects/def-dclausi/whale/mmwhale2/result_viz/eider_duck_synthesized/viz_caption"
 
 
-# Example usage
-gt_json_path = '/home/m32patel/projects/rrg-dclausi/wildlife/datasets/Eider_survey_project/coco_test.json'
+# # Example usage
+# gt_json_path = '/home/m32patel/projects/rrg-dclausi/wildlife/datasets/Eider_survey_project/coco_test.json'
 
-pred_json_path = '/home/m32patel/projects/def-dclausi/whale/mmwhale2/work_dir_grounding_dino/Eider_duck/prediction_mm_grounding_dino_nocaption_finetune.bbox.json'
-img_folder = '/home/m32patel/projects/rrg-dclausi/wildlife/datasets/Eider_survey_project/'
-save_folder = "/home/m32patel/projects/def-dclausi/whale/mmwhale2/result_viz/eider_duck_real_from_synth/viz_caption"
+# pred_json_path = '/home/m32patel/projects/def-dclausi/whale/mmwhale2/work_dir_grounding_dino/Eider_duck/prediction_mm_grounding_dino_nocaption_finetune.bbox.json'
+# img_folder = '/home/m32patel/projects/rrg-dclausi/wildlife/datasets/Eider_survey_project/'
+# save_folder = "/home/m32patel/projects/def-dclausi/whale/mmwhale2/result_viz/eider_duck_real_from_synth_dense/viz_caption"
 score_threshold = 0.2
 # # For single image
-plot_coco_image(gt_json_path, pred_json_path, img_folder, save_folder, mode='file', image_name='2008/grants_photos_1/100EOS5D/IMG_4430.JPG', score_threshold=score_threshold, iou_threshold=0.5, show_text=False)
+# plot_coco_image(gt_json_path, pred_json_path, img_folder, save_folder, mode='file', image_name='2008/grants_photos_1/100EOS5D/IMG_4430.JPG', score_threshold=score_threshold, iou_threshold=0.5, show_text=False)
 
 # # # For all images
-# plot_coco_image(gt_json_path, pred_json_path, img_folder, save_folder, mode='all', score_threshold=score_threshold, iou_threshold=0.3, show_text=False)
+plot_coco_image(gt_json_path, pred_json_path, img_folder, save_folder, mode='all', score_threshold=score_threshold, iou_threshold=0.3, show_text=False)
