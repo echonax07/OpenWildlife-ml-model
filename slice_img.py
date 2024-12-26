@@ -24,6 +24,10 @@ python slice_img.py --enable=True --data_root_whole='' --data_root_slice=/home/m
 
 python slice_img.py --enable=True --data_root_whole='/home/m32patel/projects/rrg-dclausi/wildlife/datasets/SAVMAP_test/images' --data_root_slice=/home/m32patel/scratch/animal_patches/SAVMAP/ --ann_file=/home/m32patel/projects/rrg-dclausi/wildlife/datasets/SAVMAP_test/images/coco_split_train.json --img_dir='' --slice_height=1024 --slice_width=1024 --overlap_height_ratio=0 --overlap_width_ratio=0 --save_only_positive_slices=True
 
+
+python slice_img.py --enable=True --data_root_whole=/home/m32patel/projects/rrg-dclausi/wildlife/datasets/Eider_duck_labelstudio-export/images --data_root_slice=/home/m32patel/scratch/animal_patches/eider_duck_patches --ann_file=/home/m32patel/projects/rrg-dclausi/wildlife/datasets/Eider_duck_labelstudio-export/coco_eider_ducks_v4.json --img_dir=''  --slice_height=1024 --slice_width=1024 --overlap_height_ratio=0 --overlap_width_ratio=0 --save_only_positive_slices=True 
+
+
 '''
 
 

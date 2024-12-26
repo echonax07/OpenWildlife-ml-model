@@ -44,6 +44,6 @@ val_dataloader = dict(
 test_dataloader = val_dataloader
 
 val_evaluator = dict(ann_file=data_root + '/' + ann_file,
-                    outfile_prefix=f'./work_dir_grounding_dino/{{fileBasenameNoExtension}}/prediction_mm_grounding_dino_sparse_synth_finetune')
+                    outfile_prefix=f'./work_dir_grounding_dino/{{fileBasenameNoExtension}}/prediction_mm_grounding_dino_real_finetune')
 test_evaluator = val_evaluator
 pickle_file = f'./work_dir_grounding_dino/{{fileBasenameNoExtension}}/prediction_mm_grounding_dino_finetune'

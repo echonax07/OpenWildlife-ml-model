@@ -42,3 +42,7 @@ python slice_img.py --enable=True --data_root_whole=/home/m32patel/projects/def-
 
 
 python slice_img.py --enable=True --data_root_whole=/home/m32patel/projects/rrg-dclausi/wildlife/datasets/NOAA_arctic_seals/ --data_root_slice=/home/m32patel/scratch/animal_patches/NOAA_arctic_seal --ann_file=train.json --img_dir=''  --slice_height=1024 --slice_width=1024 --overlap_height_ratio=0 --overlap_width_ratio=0 --save_only_positive_slices=True 
+
+
+
+python slice_img.py --enable=True --data_root_whole=/home/m32patel/projects/rrg-dclausi/wildlife/datasets/Eider_duck_labelstudio-export/images --data_root_slice=/home/m32patel/scratch/animal_patches/eider_duck_patches --ann_file=/home/m32patel/projects/rrg-dclausi/wildlife/datasets/Eider_duck_labelstudio-export/images/coco_annotations.json --img_dir=''  --slice_height=1024 --slice_width=1024 --overlap_height_ratio=0 --overlap_width_ratio=0 --save_only_positive_slices=True 
