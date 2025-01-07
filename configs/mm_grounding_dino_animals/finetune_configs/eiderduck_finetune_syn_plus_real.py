@@ -3,13 +3,14 @@ _base_ = '../../mm_grounding_dino/grounding_dino_swin-t_pretrain_obj365.py'
 
 # data_root = '/home/m32patel/projects/rrg-dclausi/wildlife/datasets/Eider_survey_project'
 data_root = '/home/m32patel/scratch/animal_patches/eider_duck_patches/train'
-# data_root = ''
+# data_root = '/home/m32patel/projects/rrg-dclausi/wildlife/datasets/Eider_duck_labelstudio-export/eider_duck_synth_images/aerial-duck-counting/synthesized_combined/dense'
 
 
 class_name = ('female duck', 'male duck', 'Ice', 'Juvenile', 'Unknown',)
 # train_ann_file = ''
 # test_ann_file = 'coco_test.json'
 test_ann_file='train_slice_filtered.json_coco.json'
+# test_ann_file = 'annotations.json'
 
 num_classes = len(class_name)
 metainfo = dict(classes=class_name, palette=[
@@ -22,7 +23,7 @@ metainfo = dict(classes=class_name, palette=[
 
 backend_args = None
 model = dict(bbox_head=dict(num_classes=num_classes),
-    num_queries=900,
+    num_queries=2000,
     test_cfg=dict(max_per_img=2000),
     )
 

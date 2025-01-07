@@ -207,9 +207,15 @@ GT_json = [
     # '/home/m32patel/projects/def-dclausi/whale/merged/test/test_2015.json',
     # '/home/m32patel/projects/def-dclausi/whale/merged/test/test_ES_2016.json',
     # '/home/m32patel/projects/def-dclausi/whale/merged/test/test_2017.json',
-    '/home/m32patel/projects/rrg-dclausi/wildlife/datasets/SAVMAP_test/images/coco_split_val.json'
+    # '/home/m32patel/projects/rrg-dclausi/wildlife/datasets/SAVMAP_test/images/coco_split_val.json'
     # '/home/m32patel/projects/rrg-dclausi/wildlife/datasets/polar_bear_annotated/test_filtered.json',
     # '/home/m32patel/projects/rrg-dclausi/wildlife/datasets/Virunga_Garamba/groundtruth/json/big_size/test_big_size_A_B_E_K_WH_WB_grounded.json'
+    '/home/m32patel/projects/rrg-dclausi/whale/dataset/2023_Survey_DFO/Elements/DFO_2023_Survey_annotation/High_Arctic_Survey/Plane1/corrected_tasks/mscoco_completed_test_iter1.json',
+     '/home/m32patel/projects/rrg-dclausi/whale/dataset/2023_Survey_DFO/Elements/DFO_2023_Survey_annotation/High_Arctic_Survey/Plane1/corrected_tasks/mscoco_completed_test_iter2.json',
+      '/home/m32patel/projects/rrg-dclausi/whale/dataset/2023_Survey_DFO/Elements/DFO_2023_Survey_annotation/High_Arctic_Survey/Plane1/corrected_tasks/mscoco_completed_test_iter3.json',
+       '/home/m32patel/projects/rrg-dclausi/whale/dataset/2023_Survey_DFO/Elements/DFO_2023_Survey_annotation/High_Arctic_Survey/Plane1/corrected_tasks/mscoco_completed_test_iter4.json',
+        '/home/m32patel/projects/rrg-dclausi/whale/dataset/2023_Survey_DFO/Elements/DFO_2023_Survey_annotation/High_Arctic_Survey/Plane1/corrected_tasks/mscoco_completed_test_iter5.json',
+        '/home/m32patel/projects/rrg-dclausi/whale/dataset/2023_Survey_DFO/Elements/DFO_2023_Survey_annotation/High_Arctic_Survey/Plane1/corrected_tasks/mscoco_completed_test_iter6.json',
 ]
 
 # # List of prediction JSON file paths
@@ -244,7 +250,14 @@ pred_json = [
 
 
 # # List of prediction JSON file paths
-# pred_json = [
+pred_json = [
+    '/home/m32patel/projects/rrg-dclausi/whale/dataset/2023_Survey_DFO/Elements/DFO_2023_Survey_annotation/High_Arctic_Survey/Plane1/mscoco_jsons/test_prediction_iter1.bbox.json',
+    '/home/m32patel/projects/rrg-dclausi/whale/dataset/2023_Survey_DFO/Elements/DFO_2023_Survey_annotation/High_Arctic_Survey/Plane1/mscoco_jsons/test_prediction_iter2.bbox.json',
+    '/home/m32patel/projects/rrg-dclausi/whale/dataset/2023_Survey_DFO/Elements/DFO_2023_Survey_annotation/High_Arctic_Survey/Plane1/mscoco_jsons/test_prediction_iter3.bbox.json',
+    '/home/m32patel/projects/rrg-dclausi/whale/dataset/2023_Survey_DFO/Elements/DFO_2023_Survey_annotation/High_Arctic_Survey/Plane1/mscoco_jsons/test_prediction_iter4.bbox.json',
+    '/home/m32patel/projects/rrg-dclausi/whale/dataset/2023_Survey_DFO/Elements/DFO_2023_Survey_annotation/High_Arctic_Survey/Plane1/mscoco_jsons/test_prediction_iter5.bbox.json',
+    '/home/m32patel/projects/rrg-dclausi/whale/dataset/2023_Survey_DFO/Elements/DFO_2023_Survey_annotation/High_Arctic_Survey/Plane1/mscoco_jsons/test_prediction_iter6.bbox.json',
+    # '/home/m32patel/projects/def-dclausi/whale/mmwhale2/work_dir_grounding_dino/finetune/eiderduck_finetune_syn_plus_real/prediction_mm_grounding_dino_finetune_test.bbox.json'
     # "/home/m32patel/projects/def-dclausi/whale/mmwhale2/work_dir_grounding_dino/AED_dataset/prediction_mm_grounding_dino_caption.bbox.json",
 #     "/home/m32patel/projects/def-dclausi/whale/mmwhale2/work_dir_grounding_dino/Aerial_seabird_westafrica_od_dataset/prediction_mm_grounding_dino_caption.bbox.json",
 #     "/home/m32patel/projects/def-dclausi/whale/mmwhale2/work_dir_grounding_dino/aerial_livestock_dataset/prediction_mm_grounding_dino_caption.bbox.json",
@@ -269,10 +282,17 @@ pred_json = [
 #     "/home/m32patel/projects/def-dclausi/whale/mmwhale2/work_dir_grounding_dino/SAVMAP/prediction_mm_grounding_dino_caption.bbox.json",
 #     "/home/m32patel/projects/def-dclausi/whale/mmwhale2/work_dir_grounding_dino/polar_bear/prediction_mm_grounding_dino_caption.bbox.json",
 #     "/home/m32patel/projects/def-dclausi/whale/mmwhale2/work_dir_grounding_dino/Virunga_garamba_dataset/prediction_mm_grounding_dino_caption.bbox.json"
-# ]
+]
 
 # Extract the names of the runs
-names = [os.path.basename(os.path.dirname(path)) for path in pred_json]
+# names = [os.path.basename(os.path.dirname(path)) for path in pred_json]
+names = ['iter1',
+         'iter2',
+         'iter3',
+         'iter4',
+         'iter5',
+         'iter6',]
+
 
 fig = make_subplots(rows=1, cols=1, subplot_titles=[
     'Precision-Recall'])
@@ -375,10 +395,10 @@ experiment_json = {
     "experiments": experiments
 }
 
-with open("/home/m32patel/projects/def-dclausi/whale/mmwhale2/result_viz/SAVMAP.json", "w") as outfile:
+with open("/home/m32patel/projects/def-dclausi/whale/mmwhale2/result_viz/eider_duck.json", "w") as outfile:
     json.dump(experiment_json, outfile)
 fig.write_image('pr_curve_plotly.png')
 fig.show()
 fig.write_html(
-    "/home/m32patel/projects/def-dclausi/whale/mmwhale2/result_viz/SAVMAP.html")
+    "/home/m32patel/projects/def-dclausi/whale/mmwhale2/result_viz/eider_duck.html")
 print("file dumped sucessfully")

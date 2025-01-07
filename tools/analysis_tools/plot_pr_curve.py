@@ -97,7 +97,7 @@ pred_json = [
     # 'work_dirs/DFO_whale_faster_rcnn_512_convnext_T/prediction.bbox.json',
     # 'work_dirs/DFO_whale_faster_rcnn_1024_convnext_T/prediction.bbox.json',
     # 'work_dirs/DFO_whale_faster_rcnn_2048_convnext_T/prediction.bbox.json',
-    'work_dirs/DFO_whale_faster_rcnn_4096_convnext_T/prediction.bbox.json',
+    # 'work_dirs/DFO_whale_faster_rcnn_4096_convnext_T/prediction.bbox.json',
     # 'work_dirs/DFO_whale_faster_rcnn_resize_0.5_convnext_T/prediction.bbox.json',
 
     # 'work_dirs/DFO_whale_faster_rcnn_256_mamba/prediction.bbox.json',
@@ -141,6 +141,7 @@ pred_json = [
     #  '../../work_dirs/DFO_whale_faster_rcnn_512_lr_0.0002/prediction.bbox.json',
     #  '../../work_dirs/DFO_whale_faster_rcnn_512_lr_0.02/prediction.bbox.json',
     #  '../../work_dirs/DFO_whale_faster_rcnn_512/prediction.bbox.json',
+    
 ]
 names = [os.path.basename(os.path.dirname(path)) for path in pred_json]
 
