@@ -27,9 +27,6 @@ slice_configuration = dict(enable=True,
          slice_height=1024, slice_width=1024, overlap_height_ratio=0, overlap_width_ratio=0, save_only_positive_slices=True)
 
 
-
-
-
 albu_train_transforms = [
     dict(
         type='ShiftScaleRotate',

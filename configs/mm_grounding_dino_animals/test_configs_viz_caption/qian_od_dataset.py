@@ -7,7 +7,8 @@ class_name = ('penguin', )
 num_classes = len(class_name)
 metainfo = dict(classes=class_name, palette=[(220, 20, 60)])
 
-model = dict(bbox_head=dict(num_classes=num_classes))
+model = dict(bbox_head=dict(num_classes=num_classes),
+             test_cfg=dict(max_per_img=900),)
 
 test_pipeline = [
     dict(

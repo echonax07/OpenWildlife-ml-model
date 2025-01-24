@@ -5,10 +5,10 @@ import argparse
 import os
 
 ''' Example
-python merge_coco_files.py \
+python tools/merge_coco_files.py \
 --inputs /home/m32patel/scratch/animal_patches/eider_duck_patches/train/train_slice_filtered.json_coco.json /home/m32patel/projects/rrg-dclausi/wildlife/datasets/Eider_duck_labelstudio-export/eider_duck_synth_images/aerial-duck-counting/synthesized_combined/dense/annotations.json /home/m32patel/projects/rrg-dclausi/wildlife/datasets/Eider_duck_labelstudio-export/eider_duck_synth_images/aerial-duck-counting/synthesized_combined/sparse/annotations.json \
 --folders /home/m32patel/scratch/animal_patches/eider_duck_patches/train/ /home/m32patel/projects/rrg-dclausi/wildlife/datasets/Eider_duck_labelstudio-export/eider_duck_synth_images/aerial-duck-counting/synthesized_combined/dense/ /home/m32patel/projects/rrg-dclausi/wildlife/datasets/Eider_duck_labelstudio-export/eider_duck_synth_images/aerial-duck-counting/synthesized_combined/sparse/ \
---output merged_coco.json
+--output /home/m32patel/projects/rrg-dclausi/wildlife/datasets/Eider_duck_labelstudio-export/real_sparse_dense.json
 '''
 
 
