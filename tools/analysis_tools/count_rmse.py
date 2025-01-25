@@ -46,7 +46,7 @@ def calculate_count_rmse_with_threshold(ground_truth_file, prediction_file, scor
 
 # Usage
 ground_truth_file = '/home/m32patel/projects/rrg-dclausi/wildlife/datasets/birds_qian_penguin/coco/test_viz_grounded.json'  # Replace with your ground truth COCO file path
-prediction_file = '/home/m32patel/projects/def-dclausi/whale/mmwhale2/work_dir_grounding_dino/qian_od_dataset/prediction_mm_grounding_dino_viz_caption.bbox.json'  # Replace with your prediction COCO file path
+prediction_file = '/home/m32patel/projects/def-dclausi/whale/mmwhale2/work_dir_grounding_dino/finetune/qian_finetune/prediction_mm_grounding_dino_finetune_test.bbox.json'  # Replace with your prediction COCO file path
 
 rmse, image_details = calculate_count_rmse_with_threshold(ground_truth_file, prediction_file, score_threshold=0.4)
 
