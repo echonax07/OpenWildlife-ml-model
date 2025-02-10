@@ -1,12 +1,12 @@
 #!/bin/bash
-#SBATCH --nodes 2
+#SBATCH --nodes 1
 #SBATCH --gpus-per-node=4 # request a GPU
 #SBATCH --tasks-per-node=4
 #SBATCH --cpus-per-task=12 # change this parameter to 2,4,6,... and increase "--num_workers" accordingly to see the effect on performance
 #SBATCH --mem=400G
-#SBATCH --time=29:59:00
+#SBATCH --time=8:59:00
 #SBATCH --output=../output3/%j.out
-#SBATCH --account=def-y2863che
+#SBATCH --account=rrg-dclausi
 #SBATCH --mail-user=muhammed.computecanada@gmail.com
 #SBATCH --mail-type=BEGIN
 #SBATCH --mail-type=END
@@ -14,12 +14,12 @@
 #SBATCH --mail-type=REQUEUE
 set -e
 
-module purge
-module load python/3.10
+module --force purge
 echo "Loading module done"
-module load StdEnv/2020 gcc/9.3.0 opencv/4.8.0 cuda/11.7
+module load python/3.10 StdEnv/2023 opencv/4.10.0 cuda/12.2 rust/1.76.0 git-lfs
+export WANDB_DATA_DIR='/home/m32patel/scratch/wandb'
 
-source ~/env_grounding_dino/bin/activate
+source ~/env_mmgrounding_dino3/bin/activate
 
 echo "Activating virtual environment done"
 
@@ -41,13 +41,13 @@ random_number=$(( RANDOM % (max - min + 1) + min ))
 echo "Config file: $1"
 # srun --ntasks=2 --gres=gpu:2  --kill-on-bad-exit=1 --cpus-per-task=12 python tools/train.py $1 --launcher slurm --resume
 # srun --ntasks=2 --gres=gpu:2  --kill-on-bad-exit=1 --cpus-per-task=12 python tools/train.py $1 --launcher slurm
-srun --ntasks=8 --gres=gpu:4 --kill-on-bad-exit=1 --cpus-per-task=12 --nodes=2 python tools/train.py $1 --launcher slurm --cfg-options env_cfg.dist_cfg.port=${random_number}
+srun --ntasks=4 --gres=gpu:4 --kill-on-bad-exit=1 --cpus-per-task=12 --nodes=1 python tools/train.py $1 --launcher slurm --cfg-options env_cfg.dist_cfg.port=${random_number}
 
-# # Extract the base name without extension
-base_name=$(basename "$1" .py)
-CHECKPOINT=$(cat work_dir_grounding_dino/finetune/$base_name/last_checkpoint)
+# # # Extract the base name without extension
+# base_name=$(basename "$1" .py)
+# CHECKPOINT=$(cat work_dir_grounding_dino/finetune/$base_name/last_checkpoint)
 
-echo "$CHECKPOINT"
+# echo "$CHECKPOINT"
 
 
 # srun --ntasks=4 --gres=gpu:4 --kill-on-bad-exit=1 --cpus-per-task=12 --nodes=1 python tools/train.py $1 --launcher slurm --cfg-options env_cfg.dist_cfg.port=${random_number}

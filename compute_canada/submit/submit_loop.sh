@@ -9,7 +9,8 @@ array=(
 # configs/mm_grounding_dino_animals/finetune_configs/penguins_od_finetune.py
 # configs/mm_grounding_dino_animals/finetune_configs/DFO_whale_17.py
 # /home/m32patel/projects/def-dclausi/whale/mmwhale2/configs/mm_grounding_dino_animals/finetune_configs/virunga_garamba_all_patches.py
-/home/m32patel/projects/def-dclausi/whale/mmwhale2/configs/mm_grounding_dino_animals/grouding_dino_swin-t_vis_caption.py
+# /home/m32patel/projects/def-dclausi/whale/mmwhale2/configs/mm_grounding_dino_animals/grouding_dino_swin-t_vis_caption.py
+configs/mm_grounding_dino_animals/finetune_configs/virunga_garamba_try3.py
 )
 for i in "${!array[@]}"; do
    # bash test_echo.sh ${array[i]} ${array2[i]}
