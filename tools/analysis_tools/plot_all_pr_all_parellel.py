@@ -223,7 +223,7 @@ def plot_confusion_matrix(gt_path, prediction_path, threshold_iou=0.5):
     else:
         cocoGt = COCO(prepared_coco_in_dict)
         cocoDt = cocoGt.loadRes(prepared_anns)
-        cur = Curves(cocoGt, cocoDt, iou_tresh=threshold_iou, iouType='bbox')
+        cur = Curves(cocoGt, cocoDt, iou_tresh=threshold_iou, iouType='bbox', useCats=False)
         fig, recall, precision, scores, names = cur.plot_pre_rec(
             plotly_backend=True)
     # cur.display_matrix(score_threshold=score_threshold)
@@ -234,9 +234,9 @@ threshold_iou = 0.5
 bbox_distance_threshold = 200
 GT_json = [
     # '/home/m32patel/projects/rrg-dclausi/wildlife/datasets/AED/test.json',
-    # '/home/m32patel/projects/rrg-dclausi/wildlife/datasets/Aerial_Seabirds_West_Africa/test.json',
+    '/home/m32patel/projects/rrg-dclausi/wildlife/datasets/Aerial_Seabirds_West_Africa/test.json',
     # '/home/m32patel/projects/rrg-dclausi/wildlife/datasets/Aerial-livestock-dataset/test/test.json',
-    '/home/m32patel/projects/rrg-dclausi/wildlife/datasets/birds_Izembek_Lagoon_Waterfowl/test.json',
+    # '/home/m32patel/projects/rrg-dclausi/wildlife/datasets/birds_Izembek_Lagoon_Waterfowl/test.json',
     # '/home/m32patel/projects/rrg-dclausi/wildlife/datasets/birds_michigan/test.json',
     # '/home/m32patel/projects/rrg-dclausi/wildlife/datasets/birds_monash/test.json',
     # '/home/m32patel/projects/rrg-dclausi/wildlife/datasets/birds_newmexico/test.json',
@@ -255,14 +255,15 @@ GT_json = [
     # '/home/m32patel/projects/def-dclausi/whale/merged/test/test_ES_2016.json',
     # '/home/m32patel/projects/rrg-dclausi/wildlife/datasets/savmap_dataset_v2/test.json',
     # '/home/m32patel/projects/rrg-dclausi/wildlife/datasets/polar_bear_annotated/test_filtered.json',
-    # '/home/m32patel/projects/rrg-dclausi/wildlife/datasets/Virunga_Garamba/groundtruth/json/big_size/test_big_size_A_B_E_K_WH_WB_grounded.json'
+    # '/home/m32patel/projects/rrg-dclausi/wildlife/datasets/Virunga_Garamba/groundtruth/json/big_size/test_big_size_A_B_E_K_WH_WB_grounded.json',
+    # '/home/m32patel/projects/rrg-dclausi/wildlife/datasets/birds_terns_(Already_processed_Hayes)/test.json'
 ]
 # List of prediction JSON file paths
 pred_json = [
     # "/home/m32patel/projects/def-dclausi/whale/mmwhale2/work_dir_grounding_dino/AED_dataset/prediction_mm_grounding_dino_nocaption.bbox.json",
-    # "/home/m32patel/projects/def-dclausi/whale/mmwhale2/work_dir_grounding_dino/Aerial_seabird_westafrica_od_dataset/prediction_mm_grounding_dino_nocaption.bbox.json",
+    "/home/m32patel/projects/def-dclausi/whale/mmwhale2/work_dir_grounding_dino/Aerial_seabird_westafrica_od_dataset/prediction_mm_grounding_dino_nocaption.bbox.json",
     # "/home/m32patel/projects/def-dclausi/whale/mmwhale2/work_dir_grounding_dino/aerial_livestock_dataset/prediction_mm_grounding_dino_nocaption.bbox.json",
-    "/home/m32patel/projects/def-dclausi/whale/mmwhale2/work_dir_grounding_dino/birds_izembek_lagoon_od_dataset/prediction_mm_grounding_dino_nocaption.bbox.json",
+    # "/home/m32patel/projects/def-dclausi/whale/mmwhale2/work_dir_grounding_dino/birds_izembek_lagoon_od_dataset/prediction_mm_grounding_dino_nocaption.bbox.json",
     # "/home/m32patel/projects/def-dclausi/whale/mmwhale2/work_dir_grounding_dino/michigan_od_dataset/prediction_mm_grounding_dino_nocaption.bbox.json",
     # "/home/m32patel/projects/def-dclausi/whale/mmwhale2/work_dir_grounding_dino/monash_od_dataset/prediction_mm_grounding_dino_nocaption.bbox.json",
     # "/home/m32patel/projects/def-dclausi/whale/mmwhale2/work_dir_grounding_dino/new_mexico_od_dataset/prediction_mm_grounding_dino_nocaption.bbox.json",
@@ -281,7 +282,8 @@ pred_json = [
     # "/home/m32patel/projects/def-dclausi/whale/mmwhale2/work_dir_grounding_dino/Narwhal_2016_dataset/prediction_mm_grounding_dino_nocaption.bbox.json",
     # "/home/m32patel/projects/def-dclausi/whale/mmwhale2/work_dir_grounding_dino/SAVMAP/prediction_mm_grounding_dino_nocaption.bbox.json",
     # "/home/m32patel/projects/def-dclausi/whale/mmwhale2/work_dir_grounding_dino/polar_bear/prediction_mm_grounding_dino_nocaption.bbox.json",
-    # "/home/m32patel/projects/def-dclausi/whale/mmwhale2/work_dir_grounding_dino/Virunga_garamba_dataset/prediction_mm_grounding_dino_nocaption.bbox.json"
+    # "/home/m32patel/projects/def-dclausi/whale/mmwhale2/work_dir_grounding_dino/Virunga_garamba_dataset/prediction_mm_grounding_dino_nocaption.bbox.json",
+    '/home/m32patel/projects/def-dclausi/whale/mmwhale2/work_dir_grounding_dino/finetune/tern_finetune/prediction_mm_grounding_dino_finetune_test.bbox.json'
 ]
 
 # Extract the names of the runs
@@ -339,6 +341,17 @@ for GT, pred, name in zip(GT_json, pred_json, names):
         if len_anns == 0:
             pass
         else:
+            from icecream import ic
+            ic(len(f1))
+            ic(len(tp))
+            ic(len(fp))
+            ic(len(fn))
+            ic(len(p2))
+            ic(len(r2))
+            ic(len(images_with_predictions_only_list))
+            ic(len(fp_in_images_with_predictions_only_list))
+            
+            
             # f1, tp, fp, fn, p2, r2, no_GT_only_pred, fp_in_images_with_predictions_only
             customdata_stack = np.stack((f1, tp, fp, fn, p2, r2, np.array(
                 images_with_predictions_only_list), np.array(fp_in_images_with_predictions_only_list)), axis=1)

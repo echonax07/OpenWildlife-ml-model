@@ -142,12 +142,45 @@ class BaseDetector(BaseModel, metaclass=ABCMeta):
                     batch_results = self.predict(
                         batch_slices, batch_data_samples)
                     slice_results.extend(batch_results)
+                    
+                
+                # # Set scores to zero for boxes with centers within 200px of edges
+                # patch_size = self.sliding_window_inference['patch_size']
+                # margin = 200  # Fixed 200 pixel margin
+                # for data_sample in slice_results:
+                #     pred_instances = data_sample.pred_instances
+                #     if len(pred_instances) == 0:
+                #         continue
+                    
+                #     bboxes = pred_instances.bboxes
+                #     scores = pred_instances.scores
+                    
+                #     # Calculate box centers
+                #     cx = (bboxes[:, 0] + bboxes[:, 2]) / 2  # X centers
+                #     cy = (bboxes[:, 1] + bboxes[:, 3]) / 2  # Y centers
+                    
+                #     # Create masks for centers near edges
+                #     left_mask = cx < margin
+                #     right_mask = cx > (patch_size - margin)
+                #     top_mask = cy < margin
+                #     bottom_mask = cy > (patch_size - margin)
+                #     edge_mask = left_mask | right_mask | top_mask | bottom_mask
+                    
+                #     # Clone scores and zero out edge-center boxes
+                #     modified_scores = scores.clone()
+                #     modified_scores[edge_mask] = 0.0
+                    
+                #     # if edge_mask.any():
+                #     #     print("found prediction within margin")
+                    
+                #     # Update the scores in InstanceData
+                #     pred_instances.scores = modified_scores
 
-                shifted_instances = shift_predictions(
-                    slice_results,
-                    sliced_image_object.starting_pixels,
-                    src_image_shape=(height, width)
-                )
+                # # shifted_instances = shift_predictions(
+                # #     slice_results,
+                # #     sliced_image_object.starting_pixels,
+                # #     src_image_shape=(height, width)
+                # # )
 
                 found_object = any(len(result.pred_instances)
                                    for result in slice_results)

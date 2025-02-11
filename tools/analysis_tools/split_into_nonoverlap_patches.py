@@ -111,7 +111,7 @@ def split_coco_into_patches(coco_annotation_path, img_root_dir, output_dir, patc
     print(f"Patches and annotations have been saved to {output_dir}")
     
 # Example usage
-coco_annotation_file = "/home/m32patel/projects/rrg-dclausi/wildlife/datasets/Eider_survey_project/coco_test_all_categories.json"
-image_root_directory = "/home/m32patel/projects/rrg-dclausi/wildlife/datasets/Eider_survey_project"
-output_directory = "/home/m32patel/projects/rrg-dclausi/wildlife/datasets/Eider_survey_project/non_overlapping_slices"
+coco_annotation_file = "/home/m32patel/projects/rrg-dclausi/wildlife/datasets/Virunga_Garamba/groundtruth/json/big_size/test_big_size_A_B_E_K_WH_WB.json"
+image_root_directory = "/home/m32patel/projects/rrg-dclausi/wildlife/datasets/Virunga_Garamba/test"
+output_directory = "/home/m32patel/scratch/animal_patches/Virunga_Garamba/test_patches_non_overlapping"
 split_coco_into_patches(coco_annotation_file, image_root_directory, output_directory)

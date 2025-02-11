@@ -1,7 +1,7 @@
 import json
 import numpy as np
 
-def calculate_count_rmse_with_threshold(ground_truth_file, prediction_file, score_threshold=0.3):
+def calculate_count_rmse_and_mae_with_threshold(ground_truth_file, prediction_file, score_threshold=0.3):
     # Load the COCO annotation and prediction files
     with open(ground_truth_file, 'r') as f:
         gt_data = json.load(f)
@@ -24,14 +24,16 @@ def calculate_count_rmse_with_threshold(ground_truth_file, prediction_file, scor
             image_id = pred['image_id']
             pred_counts[image_id] = pred_counts.get(image_id, 0) + 1
 
-    # Calculate RMSE based on counts and store details
-    errors = []
+    # Calculate RMSE and MAE based on counts and store details
+    squared_errors = []
+    absolute_errors = []
     image_details = []
     all_image_ids = set(gt_counts.keys()).union(set(pred_counts.keys()))
     for image_id in all_image_ids:
         gt_count = gt_counts.get(image_id, 0)
         pred_count = pred_counts.get(image_id, 0)
-        errors.append((pred_count - gt_count) ** 2)
+        squared_errors.append((pred_count - gt_count) ** 2)
+        absolute_errors.append(abs(pred_count - gt_count))
 
         # Get image name
         image_name = image_id_to_name.get(image_id, f"Unknown_ID_{image_id}")
@@ -41,16 +43,20 @@ def calculate_count_rmse_with_threshold(ground_truth_file, prediction_file, scor
             'pred_count': pred_count
         })
 
-    rmse = np.sqrt(np.mean(errors))
-    return rmse, image_details
+    rmse = np.sqrt(np.mean(squared_errors))
+    mae = np.mean(absolute_errors)
+    return rmse, mae, image_details
 
 # Usage
-ground_truth_file = '/home/m32patel/projects/rrg-dclausi/wildlife/datasets/birds_qian_penguin/coco/test_viz_grounded.json'  # Replace with your ground truth COCO file path
-prediction_file = '/home/m32patel/projects/def-dclausi/whale/mmwhale2/work_dir_grounding_dino/finetune/qian_finetune/prediction_mm_grounding_dino_finetune_test.bbox.json'  # Replace with your prediction COCO file path
+ground_truth_file = '/home/m32patel/projects/rrg-dclausi/wildlife/datasets/Virunga_Garamba/groundtruth/json/big_size/test_big_size_A_B_E_K_WH_WB_grounded.json'  # Replace with your ground truth COCO file path
+prediction_file = '/home/m32patel/projects/def-dclausi/whale/mmwhale2/work_dir_grounding_dino/finetune/virunga_garamba/prediction_mm_grounding_dino_finetune_test.bbox.json'  # Replace with your prediction COCO file path
 
-rmse, image_details = calculate_count_rmse_with_threshold(ground_truth_file, prediction_file, score_threshold=0.4)
+rmse, mae, image_details = calculate_count_rmse_and_mae_with_threshold(ground_truth_file, prediction_file, score_threshold=0.4)
 
-print(f"Count-based RMSE: {rmse}")
+
 print("Details for each image:")
 for detail in image_details:
     print(f"Image: {detail['image_name']}, GT Count: {detail['gt_count']}, Pred Count: {detail['pred_count']}")
+
+print(f"Count-based RMSE: {rmse}")
+print(f"Count-based MAE: {mae}")

@@ -2,7 +2,7 @@
 _base_ = '../grouding_dino_swin-t_finetune_all.py'
 
 data_root = '/home/m32patel/projects/rrg-dclausi/wildlife/datasets/SAVMAP_test/images'
-ann_file = 'test.json'
+ann_file = 'coco_split_val.json'
 class_name = ('animal',)
 num_classes = len(class_name)
 metainfo = dict(classes=class_name, palette=[(220, 20, 60)])

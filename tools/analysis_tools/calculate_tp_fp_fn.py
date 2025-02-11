@@ -6,6 +6,7 @@ from collections import defaultdict
 from icecream import ic
 from tqdm import tqdm
 import csv
+import matplotlib.pyplot as plt
 
 def load_json(file_path):
     with open(file_path, 'r') as f:
@@ -35,7 +36,7 @@ def draw_bbox(img, bbox, color, label, show_text, thickness=2):
     if show_text:
         cv2.putText(img, label, (x, y-10), cv2.FONT_HERSHEY_SIMPLEX, 0.6, color, 2)
 
-def plot_coco_image(gt_path, pred_path, img_folder, save_folder, mode='file', image_name=None, score_threshold=0.5, iou_threshold=0.5, show_text=True):
+def plot_coco_image(gt_path, pred_path, img_folder, save_folder, mode='file', image_name=None, score_threshold=0.5, iou_threshold=0.5, show_text=True, plot_images=True):
     # Load JSON files
     gt_data = load_json(gt_path)
     pred_data = load_json(pred_path)
@@ -45,6 +46,12 @@ def plot_coco_image(gt_path, pred_path, img_folder, save_folder, mode='file', im
 
     # Process images
     images_to_process = [image_name] if mode == 'file' and image_name else [img['file_name'] for img in gt_data['images']]
+
+    # Initialize a list to store results
+    results = []
+    score_of_tp_without_class_confusion = []
+    score_of_fp_without_class_confusion = []
+    
 
     for img_name in tqdm(images_to_process):
         # Find image ID
@@ -66,74 +73,184 @@ def plot_coco_image(gt_path, pred_path, img_folder, save_folder, mode='file', im
             print(f"Failed to load image: {img_path}")
             continue
 
-        # Group GT annotations by category
-        gt_anns = defaultdict(list)
-        for ann in gt_data['annotations']:
-            if ann['image_id'] == image_id:
-                gt_anns[ann['category_id']].append(ann)
+        # Get all ground truth annotations for this image
+        gt_anns = [ann for ann in gt_data['annotations'] if ann['image_id'] == image_id]
 
-        # Sort predictions by score
+        # Get all predictions for this image (filtered by score threshold)
         predictions = [pred for pred in pred_data if pred['image_id'] == image_id and pred['score'] >= score_threshold]
         predictions.sort(key=lambda x: x['score'], reverse=True)
 
-        # Draw predictions and ground truth
+        # Initialize counters for TP, FP, FN (with and without class confusion)
+        tp_with_class = 0
+        fp_with_class = 0
+        fn_with_class = 0
+
+        tp_without_class = 0
+        fp_without_class = 0
+        fn_without_class = 0
+
+        # Track which ground truth boxes have been matched (with and without class confusion)
+        matched_gt_indices_with_class = set()
+        matched_gt_indices_without_class = set()
+
+        # Calculate TP, FP, FN WITH class confusion
         for pred in predictions:
-            category_id = pred['category_id']
             pred_bbox = pred['bbox']
-            pred_category_name = category_id_to_name.get(category_id, "Unknown")
+            pred_category_id = pred['category_id']
+            max_iou = 0
+            best_gt_index = -1
 
-            if category_id in gt_anns:
-                max_iou = 0
-                max_gt = None
-                for gt in gt_anns[category_id]:
-                    iou = compute_iou(pred_bbox, gt['bbox'])
-                    if iou > max_iou:
-                        max_iou = iou
-                        max_gt = gt
-                if max_iou >= iou_threshold:
-                    # True Positive
-                    color = (0, 255, 0)  # Green
-                    label = f"TP: {pred_category_name}"
-                    gt_anns[category_id].remove(max_gt)
-                else:
-                    # False Positive
-                    color = (0, 0, 255)  # Red
-                    label = f"FP: {pred_category_name}"
+            # Find the ground truth box with the highest IoU (same class only)
+            for i, gt in enumerate(gt_anns):
+                if i in matched_gt_indices_with_class:
+                    continue  # Skip already matched ground truth boxes
+                if gt['category_id'] != pred_category_id:
+                    continue  # Skip if class labels don't match
+                iou = compute_iou(pred_bbox, gt['bbox'])
+                if iou > max_iou:
+                    max_iou = iou
+                    best_gt_index = i
+
+            # Check if the best IoU meets the threshold
+            if max_iou >= iou_threshold:
+                tp_with_class += 1
+                matched_gt_indices_with_class.add(best_gt_index)  # Mark this ground truth box as matched
             else:
-                # False Positive
-                color = (0, 0, 255)  # Red
-                label = f"FP: {pred_category_name}"
-            draw_bbox(img, pred_bbox, color, label, show_text)
+                fp_with_class += 1
 
-        # Draw remaining GT boxes
-        for category_id, anns in gt_anns.items():
-            gt_category_name = category_id_to_name.get(category_id, "Unknown")
-            for ann in anns:
-                label = f"FN: {gt_category_name}"
-                draw_bbox(img, ann['bbox'], (255, 0, 0), label, show_text)
+        # Calculate FN WITH class confusion
+        fn_with_class = len(gt_anns) - len(matched_gt_indices_with_class)
 
-        # Calculate total ground truths and predictions
-        original_gt_count = sum(1 for ann in gt_data['annotations'] if ann['image_id'] == image_id)
-        pred_count = len(predictions)
+        # Calculate TP, FP, FN WITHOUT class confusion
+        for pred in predictions:
+            pred_bbox = pred['bbox']
+            score = pred['score']
+            max_iou = 0
+            best_gt_index = -1
 
-        # Add the total number of predictions and ground truths
-        summary_text = f"GT: {original_gt_count}, Pred: {pred_count}"
-        text_size = cv2.getTextSize(summary_text, cv2.FONT_HERSHEY_SIMPLEX, 0.8, 2)[0]
-        text_x = img.shape[1] - text_size[0] - 10
-        text_y = text_size[1] + 10
+            # Find the ground truth box with the highest IoU (regardless of class)
+            for i, gt in enumerate(gt_anns):
+                if i in matched_gt_indices_without_class:
+                    continue  # Skip already matched ground truth boxes
+                iou = compute_iou(pred_bbox, gt['bbox'])
+                if iou > max_iou:
+                    max_iou = iou
+                    best_gt_index = i
 
-        # Draw background rectangle for the text
-        rect_start = (text_x - 5, text_y - text_size[1] - 5)  # Slight padding
-        rect_end = (text_x + text_size[0] + 5, text_y + 5)
-        cv2.rectangle(img, rect_start, rect_end, (0, 255, 255), -1)  # Yellow background
+            # Check if the best IoU meets the threshold
+            if max_iou >= iou_threshold:
+                tp_without_class += 1
+                score_of_tp_without_class_confusion.append(score)
+                matched_gt_indices_without_class.add(best_gt_index)  # Mark this ground truth box as matched
+            else:
+                fp_without_class += 1
+                score_of_fp_without_class_confusion.append(score)
 
-        # Add the text on top of the rectangle
-        cv2.putText(img, summary_text, (text_x, text_y), cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0, 0, 0), 2)  # Black text
+        # Calculate FN WITHOUT class confusion
+        fn_without_class = len(gt_anns) - len(matched_gt_indices_without_class)
 
-        # Save the image
-        os.makedirs(save_folder, exist_ok=True)
-        save_path = os.path.join(save_folder, os.path.basename(img_name))
-        cv2.imwrite(save_path, img)
+        # Draw predictions and ground truth (if plot_images is True)
+        if plot_images:
+            # Draw predictions
+            for pred in predictions:
+                pred_bbox = pred['bbox']
+                pred_category_name = category_id_to_name.get(pred['category_id'], "Unknown")
+                color = (0, 255, 0) if pred in matched_gt_indices_with_class else (0, 0, 255)  # Green for TP, Red for FP
+                label = f"TP: {pred_category_name}" if pred in matched_gt_indices_with_class else f"FP: {pred_category_name}"
+                draw_bbox(img, pred_bbox, color, label, show_text)
+
+            # Draw unmatched ground truth boxes (FN)
+            for i, gt in enumerate(gt_anns):
+                if i not in matched_gt_indices_with_class:
+                    gt_category_name = category_id_to_name.get(gt['category_id'], "Unknown")
+                    label = f"FN: {gt_category_name}"
+                    draw_bbox(img, gt['bbox'], (255, 0, 0), label, show_text)
+
+            # Add summary text
+            summary_text = f"GT: {len(gt_anns)}, Pred: {len(predictions)}"
+            text_size = cv2.getTextSize(summary_text, cv2.FONT_HERSHEY_SIMPLEX, 0.8, 2)[0]
+            text_x = img.shape[1] - text_size[0] - 10
+            text_y = text_size[1] + 10
+
+            # Draw background rectangle for the text
+            rect_start = (text_x - 5, text_y - text_size[1] - 5)  # Slight padding
+            rect_end = (text_x + text_size[0] + 5, text_y + 5)
+            cv2.rectangle(img, rect_start, rect_end, (0, 255, 255), -1)  # Yellow background
+
+            # Add the text on top of the rectangle
+            cv2.putText(img, summary_text, (text_x, text_y), cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0, 0, 0), 2)  # Black text
+
+            # Save the image
+            os.makedirs(save_folder, exist_ok=True)
+            save_path = os.path.join(save_folder, os.path.basename(img_name))
+            cv2.imwrite(save_path, img)
+
+        # Append the results for this image
+        results.append({
+            'filename': img_name,
+            'tp_with_class': tp_with_class,
+            'fp_with_class': fp_with_class,
+            'fn_with_class': fn_with_class,
+            'tp_without_class': tp_without_class,
+            'fp_without_class': fp_without_class,
+            'fn_without_class': fn_without_class
+        })
+
+    # Write results to CSV
+    os.makedirs(save_folder, exist_ok=True)
+    csv_path = os.path.join(save_folder, 'results.csv')
+    whisker_path = os.path.join(save_folder, 'whisker.png')
+    with open(csv_path, 'w', newline='') as csvfile:
+        fieldnames = [
+            'filename',
+            'tp_with_class', 'fp_with_class', 'fn_with_class',
+            'tp_without_class', 'fp_without_class', 'fn_without_class'
+        ]
+        writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
+        writer.writeheader()
+        for result in results:
+            writer.writerow(result)
+
+    # Calculate total TP, FP, FN (with and without class confusion)
+    total_tp_with_class = sum(result['tp_with_class'] for result in results)
+    total_fp_with_class = sum(result['fp_with_class'] for result in results)
+    total_fn_with_class = sum(result['fn_with_class'] for result in results)
+
+    total_tp_without_class = sum(result['tp_without_class'] for result in results)
+    total_fp_without_class = sum(result['fp_without_class'] for result in results)
+    total_fn_without_class = sum(result['fn_without_class'] for result in results)
+
+    # Append totals to the CSV file
+    with open(csv_path, 'a', newline='') as csvfile:
+        writer = csv.writer(csvfile)
+        writer.writerow([])  # Add an empty row for separation
+        writer.writerow(['Total (with class confusion)', total_tp_with_class, total_fp_with_class, total_fn_with_class])
+        writer.writerow(['Total (without class confusion)', total_tp_without_class, total_fp_without_class, total_fn_without_class])
+
+    print(f"Results saved to {csv_path}")
+    
+    # Create the box plot
+     # Create a single figure with two box plots
+    plt.figure(figsize=(2, 3))  # Adjust width to fit two plots
+    plt.boxplot([score_of_tp_without_class_confusion, score_of_fp_without_class_confusion], vert=True, patch_artist=True, 
+                boxprops=dict(facecolor='lightblue', color='blue'),
+                positions=[1, 2])  # Two positions for TP and FP
+    
+    # Customize the plot with larger fonts
+    plt.title("")  # Remove the title to save space
+    plt.xticks([1, 2], ["TP", "FP"], fontsize=14)  # Increased font size for x-axis labels
+    plt.yticks(np.linspace(0, 1, 6), fontsize=14)  # Increased font size for y-axis ticks
+    plt.ylim(0, 1)  # Ensure y-axis range is fixed from 0 to 1
+    plt.ylabel("Score", fontsize=12)  # Larger font size for y-axis label
+    plt.tight_layout()
+
+    # plt.boxplot(score_of_tp_without_class_confusion, showfliers=False, vert='False')
+    # # Add title and labels
+    # plt.title('Box and Whisker Plot')
+    # plt.ylabel('Values')
+
+    # Show the plot
+    plt.savefig(whisker_path)
 
 def calculate_rmse(gt_counts, pred_counts):
     """
@@ -200,78 +317,6 @@ def analyze_coco_and_predictions(coco_file, pred_file, score_threshold=0.5):
     print(f"\nTotal GT: {sum(gt_counts):.2f}")
     print(f"\nTotal pred: {sum(pred_counts):.2f}")
     print(f"\nPercentage error: {100 *(sum(gt_counts)-sum(pred_counts))/sum(gt_counts):.2f}")
-
-
-def calculate_tp_fp_fn_ignore_category(coco_file, pred_file, score_threshold=0.5, iou_threshold=0.5, output_csv='results.csv'):
-    """
-    Calculate TP, FP, FN for each image and save the results in a CSV file.
-    """
-    # Load COCO annotations and predictions
-    with open(coco_file, 'r') as f:
-        coco_data = json.load(f)
-    with open(pred_file, 'r') as f:
-        pred_data = json.load(f)
-
-    # Map image IDs to filenames
-    image_id_to_filename = {img['id']: img['file_name'] for img in coco_data['images']}
-
-    # Prepare results storage
-    results = []
-
-    for img_id, filename in image_id_to_filename.items():
-        # Get GT annotations for the current image
-        gt_anns = [ann for ann in coco_data['annotations'] if ann['image_id'] == img_id]
-        gt_bboxes = [ann['bbox'] for ann in gt_anns]
-        gt_matched = [False] * len(gt_bboxes)  # Track matched GT boxes
-
-        # Get predictions for the current image
-        preds = [pred for pred in pred_data if pred['image_id'] == img_id and pred.get('score', 0) >= score_threshold]
-        preds.sort(key=lambda x: x['score'], reverse=True)  # Sort predictions by score
-
-        # Calculate TP, FP, FN
-        tp = 0
-        fp = 0
-
-        for pred in preds:
-            pred_bbox = pred['bbox']
-            max_iou = 0
-            max_idx = -1
-
-            # Compare prediction with GT boxes
-            for idx, gt_bbox in enumerate(gt_bboxes):
-                if not gt_matched[idx]:  # Only compare with unmatched GT boxes
-                    iou = compute_iou(pred_bbox, gt_bbox)
-                    if iou > max_iou:
-                        max_iou = iou
-                        max_idx = idx
-
-            if max_iou >= iou_threshold:
-                tp += 1
-                gt_matched[max_idx] = True  # Mark GT as matched
-            else:
-                fp += 1
-
-        # Count remaining unmatched GT boxes as FN
-        fn = gt_matched.count(False)
-
-        # Append results for this image
-        results.append({
-            'filename': filename,
-            'tp': tp,
-            'fp': fp,
-            'fn': fn
-        })
-
-    # Save results to CSV
-    with open(output_csv, 'w', newline='') as csvfile:
-        fieldnames = ['filename', 'tp', 'fp', 'fn']
-        writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
-        writer.writeheader()
-        writer.writerows(results)
-
-    print(f"Results saved to {output_csv}")
-
-
 
 # # # Example usage
 # gt_json_path = '/home/m32patel/projects/def-dclausi/whale/merged/test/test.json'
@@ -356,11 +401,14 @@ def calculate_tp_fp_fn_ignore_category(coco_file, pred_file, score_threshold=0.5
 
 
 # # polar bear
-# gt_json_path = '/home/m32patel/projects/rrg-dclausi/wildlife/datasets/polar_bear_annotated/test_filtered.json'
-# pred_json_path = '/home/m32patel/projects/def-dclausi/whale/mmwhale2/work_dir_grounding_dino/polar_bear/prediction_mm_grounding_dino_caption.bbox.json'
+# gt_json_path =    '/home/m32patel/projects/rrg-dclausi/wildlife/datasets/polar_bear_annotated/test_15.json'
+# pred_json_path = '/home/m32patel/projects/def-dclausi/whale/mmwhale2/work_dir_grounding_dino/finetune/polar_bear_finetune/prediction_mm_grounding_dino_finetune_val.bbox.json'
+# # pred_json_path = '/home/m32patel/projects/def-dclausi/whale/mmwhale2/work_dir_grounding_dino/polar_bear/prediction_mm_grounding_dino_nocaption.bbox.json'
+
 # img_folder = '/home/m32patel/projects/rrg-dclausi/wildlife/datasets/polar_bear_annotated/'
-# save_folder = "/home/m32patel/projects/def-dclausi/whale/mmwhale2/result_viz/polar_bear/viz/"
-# score_threshold = 0.25
+# save_folder = "/home/m32patel/projects/def-dclausi/whale/mmwhale2/result_viz/polar_bear/finetune_nocaption/"
+# # save_folder = "/home/m32patel/projects/def-dclausi/whale/mmwhale2/result_viz/polar_bear/nocaption/"
+# score_threshold = 0.1
 
 
 # # sea lion
@@ -373,10 +421,10 @@ def calculate_tp_fp_fn_ignore_category(coco_file, pred_file, score_threshold=0.5
 
 # # penguin
 # gt_json_path = '/home/m32patel/projects/rrg-dclausi/wildlife/datasets/birds_penguins/test_viz_grounded.json'
-# pred_json_path = '/home/m32patel/projects/def-dclausi/whale/mmwhale2/work_dir_grounding_dino/penguins_od_dataset/prediction_mm_grounding_dino_viz_caption.bbox.json'
+# pred_json_path = '//home/m32patel/projects/def-dclausi/whale/mmwhale2/work_dir_grounding_dino/finetune/penguins_od_finetune/prediction_mm_grounding_dino_finetune_test.bbox.json'
 # img_folder = '/home/m32patel/projects/rrg-dclausi/wildlife/datasets/birds_penguins/'
-# save_folder = "/home/m32patel/projects/def-dclausi/whale/mmwhale2/result_viz/birds_penguins/viz/"
-# score_threshold = 0.3
+# save_folder = "/home/m32patel/projects/def-dclausi/whale/mmwhale2/result_viz/birds_penguins/finetune_nocaption/"
+# score_threshold = 0.1
 
 # # turtle
 # gt_json_path = '/home/m32patel/projects/rrg-dclausi/wildlife/datasets/turtle/test_viz_grounded.json'
@@ -392,6 +440,28 @@ def calculate_tp_fp_fn_ignore_category(coco_file, pred_file, score_threshold=0.5
 # save_folder = "/home/m32patel/projects/def-dclausi/whale/mmwhale2/result_viz/Beluga_2015_dataset/viz/"
 # score_threshold = 0.3
 
+
+# DFOW17
+# gt_json_path = '/home/m32patel/projects/def-dclausi/whale/merged/test/test_2017.json'
+# pred_json_path = '/home/m32patel/projects/def-dclausi/whale/mmwhale2/work_dir_grounding_dino/finetune/DFO_whale_17/prediction_mm_grounding_dino_finetune_test.bbox.json'
+# # pred_json_path = '/home/m32patel/projects/def-dclausi/whale/mmwhale2/work_dir_grounding_dino/Beluga_2017_dataset/prediction_mm_grounding_dino_nocaption.bbox.json'
+# img_folder = '/home/m32patel/projects/def-dclausi/whale/merged/test'
+# save_folder = "/home/m32patel/projects/def-dclausi/whale/mmwhale2/result_viz/Beluga_2017_dataset/finetune_nocaption/"
+# # save_folder = "/home/m32patel/projects/def-dclausi/whale/mmwhale2/result_viz/Beluga_2017_dataset/nocaption/"
+# score_threshold = 0.1
+
+
+# # # DFOW23
+# gt_json_path = '/home/m32patel/projects/rrg-dclausi/whale/dataset/2023_Survey_DFO/Elements/DFO_2023_Survey_annotation/High_Arctic_Survey/Plane1/corrected_tasks/coco_iter12345_val.json'
+# # pred_json_path = '/home/m32patel/projects/def-dclausi/whale/mmwhale2/work_dir_grounding_dino/finetune/DFO_whale_23/prediction_mm_grounding_dino_finetune_val.bbox.json'
+# pred_json_path = '/home/m32patel/projects/def-dclausi/whale/mmwhale2/wo rk_dir_grounding_dino/DFO_Whale23/prediction_mm_grounding_dino_nocaption.bbox.json'
+# img_folder = ''
+# # save_folder = "/home/m32patel/projects/def-dclausi/whale/mmwhale2/result_viz/DFO_Whale23/nocaption_finetune/"
+
+# save_folder = "/home/m32patel/projects/def-dclausi/whale/mmwhale2/result_viz/DFO_Whale23/nocaption/"
+# score_threshold = 0.1
+
+
 # # birds_monash
 # gt_json_path = '/home/m32patel/projects/rrg-dclausi/wildlife/datasets/birds_monash/test_viz_grounded.json'
 # pred_json_path = '/home/m32patel/projects/def-dclausi/whale/mmwhale2/work_dir_grounding_dino/monash_od_dataset/prediction_mm_grounding_dino_viz_caption.bbox.json'
@@ -405,14 +475,6 @@ def calculate_tp_fp_fn_ignore_category(coco_file, pred_file, score_threshold=0.5
 # img_folder = '/home/m32patel/projects/rrg-dclausi/wildlife/datasets/Aerial-livestock-dataset/test/'
 # save_folder = "/home/m32patel/projects/def-dclausi/whale/mmwhale2/result_viz/aerial_livestock/viz/"
 # score_threshold = 0.3
-
-# savmap
-gt_json_path =  '/home/m32patel/projects/rrg-dclausi/wildlife/datasets/SAVMAP_test/images/coco_split_val.json'
-pred_json_path = "/home/m32patel/projects/def-dclausi/whale/mmwhale2/work_dir_grounding_dino/finetune/SAVMAP/prediction_mm_grounding_dino_finetune_val.bbox.json"
-
-img_folder = '/home/m32patel/projects/rrg-dclausi/wildlife/datasets/SAVMAP_test/images/'
-save_folder = "/home/m32patel/projects/def-dclausi/whale/mmwhale2/result_viz/SAVMAP_test/finetune_nocaption/"
-score_threshold = 0.1
 
 
 
@@ -433,13 +495,27 @@ score_threshold = 0.1
 
 
 
-# virunga garamba
-gt_json_path = '/home/m32patel/projects/rrg-dclausi/wildlife/datasets/Virunga_Garamba/groundtruth/json/big_size/test_big_size_A_B_E_K_WH_WB_grounded.json'
-pred_json_path = '/home/m32patel/projects/def-dclausi/whale/mmwhale2/work_dir_grounding_dino/finetune/virunga_garamba/prediction_mm_grounding_dino_finetune_test.bbox.json'
-img_folder = '/home/m32patel/projects/rrg-dclausi/wildlife/datasets/Virunga_Garamba/test'
-save_folder = "/home/m32patel/projects/def-dclausi/whale/mmwhale2/result_viz/Virunga_Garamba/nocaption_finetune/"
-# save_folder = "/home/m32patel/projects/def-dclausi/whale/mmwhale2/result_viz/Virunga_Garamba/nocaption/"
+# # savmap
+# gt_json_path =  '/home/m32patel/projects/rrg-dclausi/wildlife/datasets/SAVMAP_test/images/coco_split_val.json'
+# pred_json_path = "/home/m32patel/projects/def-dclausi/whale/mmwhale2/work_dir_grounding_dino/SAVMAP/prediction_mm_grounding_dino_nocaption.bbox.json"
+# # pred_json_path = "/home/m32patel/projects/def-dclausi/whale/mmwhale2/work_dir_grounding_dino/finetune/SAVMAP/prediction_mm_grounding_dino_finetune_val.bbox.json"
 
+
+# img_folder = '/home/m32patel/projects/rrg-dclausi/wildlife/datasets/SAVMAP_test/images/'
+# save_folder = "/home/m32patel/projects/def-dclausi/whale/mmwhale2/result_viz/SAVMAP_test/nocaption/"
+# # save_folder = "/home/m32patel/projects/def-dclausi/whale/mmwhale2/result_viz/SAVMAP_test/finetune_nocaption/"
+
+# score_threshold = 0.1
+
+
+# # virunga garamba
+gt_json_path = '/home/m32patel/projects/rrg-dclausi/wildlife/datasets/Virunga_Garamba/groundtruth/json/big_size/test_big_size_A_B_E_K_WH_WB_grounded.json'
+# pred_json_path = '/home/m32patel/projects/def-dclausi/whale/mmwhale2/work_dir_grounding_dino/finetune/virunga_garamba/prediction_mm_grounding_dino_finetune_test.bbox.json'
+pred_json_path = '/home/m32patel/projects/def-dclausi/whale/mmwhale2/work_dir_grounding_dino/Virunga_garamba_dataset/prediction_mm_grounding_dino_nocaption.bbox.json'
+
+img_folder = '/home/m32patel/projects/rrg-dclausi/wildlife/datasets/Virunga_Garamba/test'
+save_folder = "/home/m32patel/projects/def-dclausi/whale/mmwhale2/result_viz/Virunga_Garamba/nocaption/"
+# save_folder = "/home/m32patel/projects/def-dclausi/whale/mmwhale2/result_viz/Virunga_Garamba/nocaption_finetune/"
 score_threshold = 0.1
 
 
@@ -449,11 +525,4 @@ score_threshold = 0.1
 
 # # # For all images
 # analyze_coco_and_predictions(gt_json_path, pred_json_path, score_threshold)
-plot_coco_image(gt_json_path, pred_json_path, img_folder, save_folder, mode='all', score_threshold=score_threshold, iou_threshold=0.5, show_text=True)
-# calculate_tp_fp_fn_ignore_category(
-#     gt_json_path,
-#     pred_json_path, 
-#    score_threshold,
-#     iou_threshold=0.5,
-#     output_csv='tp_fp_fn_results.csv'
-# )
+plot_coco_image(gt_json_path, pred_json_path, img_folder, save_folder, mode='all', score_threshold=score_threshold, iou_threshold=0.5, show_text=True, plot_images=False)

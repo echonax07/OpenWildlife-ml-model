@@ -87,33 +87,47 @@ albu_train_transforms = [
 
 
 train_pipeline = [
-    dict(type='LoadImageFromFile', backend_args=_base_.backend_args),
+    dict(type='LoadImageFromFile'),
     dict(type='LoadAnnotations', with_bbox=True),
-    dict(type='RandomCrop', crop_size=patch_size, crop_type='absolute',
-         allow_negative_crop=True, recompute_bbox=True, bbox_clip_border=True),
-    # dict(
-    #     type='Albu',
-    #     transforms=albu_train_transforms,
-    #     bbox_params=dict(
-    #         type='BboxParams',
-    #         format='pascal_voc',
-    #         label_fields=['gt_bboxes_labels', 'gt_ignore_flags'],
-    #         min_visibility=0.0,
-    #         filter_lost_elements=True),
-    #     keymap={
-    #         'img': 'image',
-    #         'gt_masks': 'masks',
-    #         'gt_bboxes': 'bboxes'
-    #     },
-    #     # update_pad_shape=False,
-    #     skip_img_without_anno=False),
     dict(type='RandomFlip', prob=0.5),
+    dict(
+        type='RandomChoice',
+        transforms=[
+            [
+                dict(
+                    type='RandomChoiceResize',
+                    scales=[(480, 1333), (512, 1333), (544, 1333), (576, 1333),
+                            (608, 1333), (640, 1333), (672, 1333), (704, 1333),
+                            (736, 1333), (768, 1333), (800, 1333)],
+                    keep_ratio=True)
+            ],
+            [
+                dict(
+                    type='RandomChoiceResize',
+                    # The radio of all image in train dataset < 7
+                    # follow the original implement
+                    scales=[(400, 4200), (500, 4200), (600, 4200)],
+                    keep_ratio=True),
+                dict(
+                    type='RandomCrop',
+                    crop_type='absolute_range',
+                    crop_size=(384, 600),
+                    allow_negative_crop=True),
+                dict(
+                    type='RandomChoiceResize',
+                    scales=[(480, 1333), (512, 1333), (544, 1333), (576, 1333),
+                            (608, 1333), (640, 1333), (672, 1333), (704, 1333),
+                            (736, 1333), (768, 1333), (800, 1333)],
+                    keep_ratio=True)
+            ]
+        ]),
     dict(
         type='PackDetInputs',
         meta_keys=('img_id', 'img_path', 'ori_shape', 'img_shape',
                    'scale_factor', 'flip', 'flip_direction', 'text',
                    'custom_entities'))
 ]
+
 
 train_dataloader = dict(
     dataset=dict(
@@ -173,9 +187,9 @@ test_evaluator = dict(ann_file=data_root + '/' +
 max_epoch = 20
 
 default_hooks = dict(
-    checkpoint=dict(interval=1, max_keep_ckpts=1, save_best='auto'),
+    checkpoint=dict(interval=10, max_keep_ckpts=1, save_best='auto'),
     logger=dict(type='LoggerHook', interval=50))
-train_cfg = dict(max_epochs=max_epoch, val_interval=1)
+train_cfg = dict(max_epochs=max_epoch, val_interval=10)
 
 param_scheduler = [
     dict(
@@ -205,4 +219,4 @@ test_evaluator = dict(ann_file=data_root + '/' + test_ann_file,
 pickle_file = f'./work_dir_grounding_dino/finetune/{{fileBasenameNoExtension}}/prediction_mm_grounding_dino_finetune_val'
 
 work_dir = 'work_dir_grounding_dino/finetune/{{fileBasenameNoExtension}}'
-load_from = '/home/m32patel/projects/def-dclausi/whale/mmwhale2/t/grouding_dino_swin-t_no_caption/epoch_20.pth'  # noqa
+load_from = '/home/m32patel/projects/def-dclausi/whale/mmwhale2/work_dir_grounding_dino/grouding_dino_swin-t_no_caption/epoch_10.pth'  # noqa 

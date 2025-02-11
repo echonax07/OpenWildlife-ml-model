@@ -149,3 +149,11 @@ def main():
 
 if __name__ == '__main__':
     main()
+
+
+
+'''
+python demo/image_demo.py /home/m32patel/projects/rrg-dclausi/wildlife/datasets/SAVMAP_test/images/fbbc6ac32c084a6daaf91fd4ef881479.JPG  --weights /home/m32patel/projects/def-dclausi/whale/mmwhale2/work_dir_grounding_dino/grouding_dino_swin-t_no_caption/epoch_20.pth --texts 'animal' --pred-score-thr 0.1
+
+--tokens-positive "[[[21,31]], [[45,59]]]"
+'''
