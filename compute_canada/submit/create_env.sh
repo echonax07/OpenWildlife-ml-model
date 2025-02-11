@@ -23,7 +23,7 @@ pip install matplotlib
 pip install torch
 pip install torchvision
 pip install tqdm
-pip install sklearn
+pip install scikit-learn
 # pip install # ipywidgets==8.0.2
 pip install jupyterlab
 pip install ipywidgets
