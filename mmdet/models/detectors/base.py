@@ -100,125 +100,115 @@ class BaseDetector(BaseModel, metaclass=ABCMeta):
             return self.loss(inputs, data_samples)
         elif mode == 'predict':
             if self.sliding_window_inference.get('enable'):
-                # inputs dim (B, 3, H, W)
+                from icecream import ic
+                print('*'*10)
+                ic('sliding window inference')
+                print('*'*10)
                 _, _, height, width = inputs.shape
+                img_np = inputs[0].permute(1, 2, 0).cpu().numpy()
+                
+                # Create sliced image object
+                slice_params = self.sliding_window_inference
                 sliced_image_object = slice_image(
-                    inputs[0].cpu().numpy().transpose(1, 2, 0),
-                    slice_height=self.sliding_window_inference['patch_size'],
-                    slice_width=self.sliding_window_inference['patch_size'],
+                    img_np,
+                    slice_height=slice_params['patch_size'],
+                    slice_width=slice_params['patch_size'],
                     auto_slice_resolution=False,
-                    overlap_height_ratio=self.sliding_window_inference['patch_overlap_ratio'],
-                    overlap_width_ratio=self.sliding_window_inference['patch_overlap_ratio'],
+                    overlap_height_ratio=slice_params['patch_overlap_ratio'],
+                    overlap_width_ratio=slice_params['patch_overlap_ratio'],
                 )
-                stacked_image_slice = np.stack(
-                    sliced_image_object.images, axis=0)
-                stacked_image_slice = stacked_image_slice.transpose(0, 3, 1, 2)
-                stacked_image_slice = torch.tensor(
-                    stacked_image_slice, dtype=inputs.dtype, device=inputs.device)
 
-                clone_data_sample = data_samples[0].clone()
-                patch_size = self.sliding_window_inference['patch_size']
-                clone_data_sample.set_metainfo(dict(batch_input_shape=(patch_size, patch_size), pad_shape=(
-                    patch_size, patch_size), ori_shape=(patch_size, patch_size), img_shape=(patch_size, patch_size), img_id=None, img_path=None))
-                gt_instances = clone_data_sample.ignored_instances.clone()
-                clone_data_sample.set_data(dict(gt_instances=gt_instances))
-                data_samples_sliced = [
-                    clone_data_sample.clone() for _ in range(len(sliced_image_object))]
+                # Create template data sample once
+                template_ds = self._create_template_data_sample(
+                    data_samples[0], 
+                    slice_params['patch_size']
+                ) if data_samples else None
 
-                # Determine the batch size for slices
-                slice_batch_size = self.sliding_window_inference.get(
-                    'slice_batch_size', -1)
-                num_slices = stacked_image_slice.shape[0]
-
-                if slice_batch_size == -1:
-                    slice_batch_size = num_slices
+                # Prepare slices on CPU
+                slices_np = np.stack(sliced_image_object.images).transpose(0, 3, 1, 2)
+                slices_cpu = torch.from_numpy(slices_np).to(dtype=inputs.dtype)
 
                 slice_results = []
-                # print(f'Doing sliding window inference with {num_slices} slices')
-                for i in range(0, num_slices, slice_batch_size):
-                    batch_slices = stacked_image_slice[i:i+slice_batch_size]
-                    batch_data_samples = data_samples_sliced[i:i +
-                                                             slice_batch_size]
-                    batch_results = self.predict(
-                        batch_slices, batch_data_samples)
+                batch_size = slice_params.get('slice_batch_size', 1)
+                
+                # Process in batches
+                for i in range(0, len(slices_cpu), batch_size):
+                    batch_end = i + batch_size
+                    current_batch = slices_cpu[i:batch_end]
+                    
+                    # Move only this batch to GPU
+                    current_batch_gpu = current_batch.to(device=inputs.device)
+                    
+                    # Prepare batch data samples
+                    batch_ds = [template_ds.clone() for _ in range(len(current_batch))] if template_ds else None
+                    
+                    # Process batch
+                    batch_results = self.predict(current_batch_gpu, batch_ds)
+                    
+                    # Move results to CPU and store
+                    for ds in batch_results:
+                        if hasattr(ds, 'pred_instances'):
+                            ds.pred_instances = ds.pred_instances.to('cpu')
                     slice_results.extend(batch_results)
                     
+                    # Cleanup GPU resources
+                    del current_batch_gpu
+                    torch.cuda.empty_cache()
+
+                # Merge results
+                merged_instances = self._merge_slice_results(
+                    slice_results, 
+                    sliced_image_object.starting_pixels,
+                    (height, width)
+                )
                 
-                # # Set scores to zero for boxes with centers within 200px of edges
-                # patch_size = self.sliding_window_inference['patch_size']
-                # margin = 200  # Fixed 200 pixel margin
-                # for data_sample in slice_results:
-                #     pred_instances = data_sample.pred_instances
-                #     if len(pred_instances) == 0:
-                #         continue
-                    
-                #     bboxes = pred_instances.bboxes
-                #     scores = pred_instances.scores
-                    
-                #     # Calculate box centers
-                #     cx = (bboxes[:, 0] + bboxes[:, 2]) / 2  # X centers
-                #     cy = (bboxes[:, 1] + bboxes[:, 3]) / 2  # Y centers
-                    
-                #     # Create masks for centers near edges
-                #     left_mask = cx < margin
-                #     right_mask = cx > (patch_size - margin)
-                #     top_mask = cy < margin
-                #     bottom_mask = cy > (patch_size - margin)
-                #     edge_mask = left_mask | right_mask | top_mask | bottom_mask
-                    
-                #     # Clone scores and zero out edge-center boxes
-                #     modified_scores = scores.clone()
-                #     modified_scores[edge_mask] = 0.0
-                    
-                #     # if edge_mask.any():
-                #     #     print("found prediction within margin")
-                    
-                #     # Update the scores in InstanceData
-                #     pred_instances.scores = modified_scores
-
-                # # shifted_instances = shift_predictions(
-                # #     slice_results,
-                # #     sliced_image_object.starting_pixels,
-                # #     src_image_shape=(height, width)
-                # # )
-
-                found_object = any(len(result.pred_instances)
-                                   for result in slice_results)
-
-                if found_object:
-                    image_result = merge_results_by_nms(
-                        slice_results,
-                        sliced_image_object.starting_pixels,
-                        src_image_shape=(height, width),
-                        nms_cfg={
-                            'type': self.sliding_window_inference['merge_nms_type'],
-                            'iou_threshold': self.sliding_window_inference['merge_iou_thr']
-                        })
-                    instance_data = InstanceData()
-                    instance_data.labels = image_result.pred_instances.labels
-                    instance_data.bboxes = image_result.pred_instances.bboxes
-                    instance_data.scores = image_result.pred_instances.scores
-                else:
-                    instance_data = InstanceData()
-                    instance_data.labels = slice_results[0].pred_instances.labels
-                    instance_data.bboxes = slice_results[0].pred_instances.bboxes
-                    instance_data.scores = slice_results[0].pred_instances.scores
-
-                final_data_sample_sliced = slice_results[0].clone()
-                # Put back original shape and size
-                final_data_sample_sliced.set_metainfo(dict(batch_input_shape=(height, width), pad_shape=(
-                    height, width), ori_shape=(height, width), img_shape=(height, width)))
-                final_data_sample_sliced.set_data(
-                    dict(pred_instances=instance_data))
-                data_samples[0].set_data(dict(pred_instances=instance_data))
-                return data_samples
+                # Create final data sample
+                final_result = data_samples[0].clone() if data_samples else DetDataSample()
+                final_result.pred_instances = merged_instances
+                return [final_result]
             else:
                 return self.predict(inputs, data_samples)
+
         elif mode == 'tensor':
             return self._forward(inputs, data_samples)
         else:
             raise RuntimeError(f'Invalid mode "{mode}". '
                                'Only supports loss, predict and tensor mode')
+
+    def _create_template_data_sample(self, original_ds, patch_size):
+        """Create a template data sample for slices."""
+        template_ds = original_ds.clone()
+        meta = {
+            'batch_input_shape': (patch_size, patch_size),
+            'pad_shape': (patch_size, patch_size),
+            'ori_shape': (patch_size, patch_size),
+            'img_shape': (patch_size, patch_size),
+            'img_id': None,
+            'img_path': None
+        }
+        template_ds.set_metainfo(meta)
+        return template_ds
+
+    def _merge_slice_results(self, slice_results, starting_pixels, img_shape):
+        """Merge slice results with NMS."""
+        if not any(len(r.pred_instances) for r in slice_results):
+            return InstanceData()
+
+        shifted_instances = shift_predictions(
+            slice_results,
+            starting_pixels,
+            src_image_shape=img_shape
+        )
+
+        return merge_results_by_nms(
+            slice_results,
+            starting_pixels,
+            src_image_shape=img_shape,
+            nms_cfg={
+                'type': self.sliding_window_inference['merge_nms_type'],
+                'iou_threshold': self.sliding_window_inference['merge_iou_thr']
+            }
+        ).pred_instances
 
     @abstractmethod
     def loss(self, batch_inputs: Tensor,
@@ -275,4 +265,4 @@ class BaseDetector(BaseModel, metaclass=ABCMeta):
         for data_sample, pred_instances in zip(data_samples, results_list):
             data_sample.pred_instances = pred_instances
         samplelist_boxtype2tensor(data_samples)
-        return data_samples
+    return data_samples

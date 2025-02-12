@@ -5,6 +5,7 @@ import logging
 import logging.config
 import os
 
+
 logging.config.dictConfig({
     'version': 1,
     'formatters': {
@@ -136,6 +137,9 @@ if __name__ == '__main__':
     app.run(host=args.host, port=args.port, debug=args.debug)
 
 else:
+    
+    from label_studio_ml.api import init_app
+    from projects.LabelStudio.backend_template.mmdetection import MMDetection
     # for uWSGI use
     app = init_app(
         model_class=MMDetection,
