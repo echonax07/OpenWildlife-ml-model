@@ -265,4 +265,4 @@ class BaseDetector(BaseModel, metaclass=ABCMeta):
         for data_sample, pred_instances in zip(data_samples, results_list):
             data_sample.pred_instances = pred_instances
         samplelist_boxtype2tensor(data_samples)
-    return data_samples
+        return data_samples

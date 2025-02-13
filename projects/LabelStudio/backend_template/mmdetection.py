@@ -29,7 +29,7 @@ class MMDetection(LabelStudioMLBase):
                  checkpoint_file=None,
                  image_dir=None,
                  labels_file=None,
-                 score_threshold=0.5,
+                 score_threshold=0.3,
                  device='cpu',
                  **kwargs):
 
@@ -43,7 +43,7 @@ class MMDetection(LabelStudioMLBase):
         checkpoint_file = checkpoint_file or os.environ['checkpoint_file']
         self.config_file = config_file
         self.checkpoint_file = checkpoint_file
-        self.labels_file = labels_file
+        self.labels_file = labels_file or os.environ.get('labels_file')
         # default Label Studio image upload folder
         upload_dir = os.path.join(get_data_dir(), 'media', 'upload')
         self.image_dir = image_dir or upload_dir
@@ -53,6 +53,7 @@ class MMDetection(LabelStudioMLBase):
             self.label_map = json_load(self.labels_file)
         else:
             self.label_map = {}
+        ic(self.label_map)
 
         self.from_name, self.to_name, self.value, self.labels_in_config = get_single_tag_keys(  # noqa E501
             self.parsed_label_config, 'RectangleLabels', 'Image')
@@ -61,11 +62,22 @@ class MMDetection(LabelStudioMLBase):
 
         # Collect label maps from `predicted_values="airplane,car"` attribute in <Label> tag # noqa E501
         self.labels_attrs = schema.get('labels_attrs')
+        ic(self.labels_attrs)
+                # if labeling config has Label tags
         if self.labels_attrs:
-            for label_name, label_attrs in self.labels_attrs.items():
-                for predicted_value in label_attrs.get('predicted_values',
-                                                       '').split(','):
-                    self.label_map[predicted_value] = label_name
+            # try to find something like <Label value="Vehicle" predicted_values="airplane,car">
+            for ls_label, label_attrs in self.labels_attrs.items():
+                predicted_values = label_attrs.get("predicted_values", "").split(",")
+                for predicted_value in predicted_values:
+                    predicted_value = predicted_value.strip()  # remove spaces at the beginning and at the end
+                    if predicted_value:  # it shouldn't be empty (like '')
+                        # if predicted_value not in mmdet_labels:
+                        #     print(
+                        #         f'Predicted value "{predicted_value}" is not in mmdet labels'
+                        #     )
+                        self.label_map[predicted_value] = ls_label
+
+        ic(self.label_map)
 
         print('Load new model from: ', config_file, checkpoint_file)
         self.model = init_detector(config_file, checkpoint_file, device=device)
@@ -99,26 +111,26 @@ class MMDetection(LabelStudioMLBase):
             image_url = self._get_image_url(task)
             image_path = self.get_local_path(image_url)
             model_results = inference_detector(self.model,
-                                            image_path).pred_instances
+                                            image_path, text_prompt='female duck. male duck. Ice. Juvenile duck. duck. ', custom_entities=True).pred_instances
             results = []
             all_scores = []
             img_width, img_height = get_image_size(image_path)
-            print(f'>>> model_results: {model_results}')
+            # print(f'>>> model_results: {model_results}')
             print(f'>>> label_map {self.label_map}')
             print(f'>>> self.model.dataset_meta: {self.model.dataset_meta}')
             classes = self.model.dataset_meta.get('classes')
             print(f'Classes >>> {classes}')
             for item in model_results:
-                print(f'item >>>>> {item}')
+                # print(f'item >>>>> {item}')
                 bboxes, label, scores = item['bboxes'], item['labels'], item[
                     'scores']
                 score = float(scores[-1])
                 if score < self.score_thresh:
                     continue
-                print(f'bboxes >>>>> {bboxes}')
-                print(f'label >>>>> {label}')
+                # print(f'bboxes >>>>> {bboxes}')
+                # print(f'label >>>>> {label}')
                 output_label = classes[list(self.label_map.get(label, label))[0]]
-                print(f'>>> output_label: {output_label}')
+                # print(f'>>> output_label: {output_label}')
                 if output_label not in self.labels_in_config:
                     print(output_label + ' label not found in project config.')
                     continue
@@ -144,7 +156,7 @@ class MMDetection(LabelStudioMLBase):
                     })
                     all_scores.append(score)
             avg_score = sum(all_scores) / max(len(all_scores), 1)
-            print(f'>>> RESULTS: {results}')
+            # print(f'>>> RESULTS: {results}')
             label_studio_results.append({'result': results, 'score': avg_score})
         return label_studio_results
     
