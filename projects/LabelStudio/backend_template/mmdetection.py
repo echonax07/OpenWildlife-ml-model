@@ -55,21 +55,23 @@ class MMDetection(LabelStudioMLBase):
             self.label_map = {}
         ic(self.label_map)
 
-        self.from_name, self.to_name, self.value, self.labels_in_config = get_single_tag_keys(  # noqa E501
-            self.parsed_label_config, 'RectangleLabels', 'Image')
+        self.from_name, self.to_name, self.value, self.labels_in_config = get_single_tag_keys(
+            self.parsed_label_config, 'KeyPointLabels', 'Image')
         schema = list(self.parsed_label_config.values())[0]
         self.labels_in_config = set(self.labels_in_config)
 
         # Collect label maps from `predicted_values="airplane,car"` attribute in <Label> tag # noqa E501
         self.labels_attrs = schema.get('labels_attrs')
         ic(self.labels_attrs)
-                # if labeling config has Label tags
+        # if labeling config has Label tags
         if self.labels_attrs:
             # try to find something like <Label value="Vehicle" predicted_values="airplane,car">
             for ls_label, label_attrs in self.labels_attrs.items():
-                predicted_values = label_attrs.get("predicted_values", "").split(",")
+                predicted_values = label_attrs.get(
+                    "predicted_values", "").split(",")
                 for predicted_value in predicted_values:
-                    predicted_value = predicted_value.strip()  # remove spaces at the beginning and at the end
+                    # remove spaces at the beginning and at the end
+                    predicted_value = predicted_value.strip()
                     if predicted_value:  # it shouldn't be empty (like '')
                         # if predicted_value not in mmdet_labels:
                         #     print(
@@ -82,6 +84,7 @@ class MMDetection(LabelStudioMLBase):
         print('Load new model from: ', config_file, checkpoint_file)
         self.model = init_detector(config_file, checkpoint_file, device=device)
         self.score_thresh = score_threshold
+        ic("Model initialized successfully")
 
     def _get_image_url(self, task):
         image_url = task['data'].get(
@@ -111,7 +114,7 @@ class MMDetection(LabelStudioMLBase):
             image_url = self._get_image_url(task)
             image_path = self.get_local_path(image_url)
             model_results = inference_detector(self.model,
-                                            image_path, text_prompt='female duck. male duck. Ice. Juvenile duck. duck. ', custom_entities=True).pred_instances
+                                               image_path, text_prompt='female duck. male duck. Ice. Juvenile duck. duck. ', custom_entities=True).pred_instances
             results = []
             all_scores = []
             img_width, img_height = get_image_size(image_path)
@@ -129,7 +132,8 @@ class MMDetection(LabelStudioMLBase):
                     continue
                 # print(f'bboxes >>>>> {bboxes}')
                 # print(f'label >>>>> {label}')
-                output_label = classes[list(self.label_map.get(label, label))[0]]
+                output_label = classes[list(
+                    self.label_map.get(label, label))[0]]
                 # print(f'>>> output_label: {output_label}')
                 if output_label not in self.labels_in_config:
                     print(output_label + ' label not found in project config.')
@@ -140,26 +144,31 @@ class MMDetection(LabelStudioMLBase):
                     if not bbox:
                         continue
 
-                    x, y, xmax, ymax = bbox[:4]
+                    # Convert bbox to center point
+                    x_min, y_min, x_max, y_max = bbox[:4]
+                    x_center = (x_min + x_max) / 2
+                    y_center = (y_min + y_max) / 2
+
                     results.append({
                         'from_name': self.from_name,
                         'to_name': self.to_name,
-                        'type': 'rectanglelabels',
+                        'type': 'keypointlabels',  # Changed type
                         'value': {
-                            'rectanglelabels': [output_label],
-                            'x': float(x) / img_width * 100,
-                            'y': float(y) / img_height * 100,
-                            'width': (float(xmax) - float(x)) / img_width * 100,
-                            'height': (float(ymax) - float(y)) / img_height * 100
+                            'keypointlabels': [output_label],  # Changed key
+                            'x': float(x_center) / img_width * 100,
+                            'y': float(y_center) / img_height * 100,
+                            "width": 0.4054054054054053,
                         },
                         'score': score
                     })
                     all_scores.append(score)
             avg_score = sum(all_scores) / max(len(all_scores), 1)
             # print(f'>>> RESULTS: {results}')
-            label_studio_results.append({'result': results, 'score': avg_score})
+            label_studio_results.append(
+                {'result': results, 'score': avg_score})
+            ic("Prediction returned successfully")
         return label_studio_results
-    
+
     def fit(self, tasks, workdir=None, **kwargs):
         """Train the model using annotations from event.json"""
         import tempfile
@@ -167,11 +176,10 @@ class MMDetection(LabelStudioMLBase):
         from mmdet.registry import RUNNERS
         from mmengine.runner import Runner
 
-            
         # Set single-threaded environment
         os.environ['OMP_NUM_THREADS'] = '1'
         os.environ['MKL_NUM_THREADS'] = '1'
-            
+
         result = {
             'model_path': self.checkpoint_file,
             'checkpoints': [],
@@ -209,54 +217,65 @@ class MMDetection(LabelStudioMLBase):
 
                 # Load and modify config
                 cfg = Config.fromfile(self.config_file)
-                cfg.model.roi_head.bbox_head.num_classes = len(self.labels_in_config)
-                
+                cfg.model.roi_head.bbox_head.num_classes = len(
+                    self.labels_in_config)
+
                 # Modify train paths
                 cfg.data_root = ''
                 cfg.train_dataloader.dataset.data_root = ''
-                cfg.train_dataloader.dataset.ann_file = os.path.join(temp_dir,'train.json')
-                cfg.train_dataloader.num_workers = 0  # Disable multiprocessing to avoid interference with Label Studio which doesnt allow any child to spawn new processes
+                cfg.train_dataloader.dataset.ann_file = os.path.join(
+                    temp_dir, 'train.json')
+                # Disable multiprocessing to avoid interference with Label Studio which doesnt allow any child to spawn new processes
+                cfg.train_dataloader.num_workers = 0
                 cfg.train_dataloader.persistent_workers = False
                 cfg.train_dataloader.prefetch_factor = None
                 cfg.train_dataloader.batch_size = 2
-                
+
                 # Modify val paths
                 cfg.val_dataloader.dataset.data_root = ''
-                cfg.val_dataloader.dataset.ann_file = os.path.join(temp_dir,'train.json')
-                cfg.val_dataloader.num_workers = 0  # Disable multiprocessing to avoid interference with Label Studio which doesnt allow any child to spawn new processes
+                cfg.val_dataloader.dataset.ann_file = os.path.join(
+                    temp_dir, 'train.json')
+                # Disable multiprocessing to avoid interference with Label Studio which doesnt allow any child to spawn new processes
+                cfg.val_dataloader.num_workers = 0
                 cfg.val_dataloader.persistent_workers = False
                 cfg.val_dataloader.prefetch_factor = None
-                cfg.val_evaluator.ann_file = os.path.join(temp_dir, 'train.json')
-                cfg.val_evaluator.outfile_prefix = os.path.join(temp_dir, 'prediction_val')
-                
-                
+                cfg.val_evaluator.ann_file = os.path.join(
+                    temp_dir, 'train.json')
+                cfg.val_evaluator.outfile_prefix = os.path.join(
+                    temp_dir, 'prediction_val')
+
                 # Modify test paths
                 cfg.test_dataloader.dataset.data_root = ''
-                cfg.test_dataloader.dataset.ann_file = os.path.join(temp_dir,'train.json')
-                cfg.test_dataloader.num_workers = 0  # Disable multiprocessing to avoid interference with Label Studio which doesnt allow any child to spawn new processes
+                cfg.test_dataloader.dataset.ann_file = os.path.join(
+                    temp_dir, 'train.json')
+                # Disable multiprocessing to avoid interference with Label Studio which doesnt allow any child to spawn new processes
+                cfg.test_dataloader.num_workers = 0
                 cfg.test_dataloader.persistent_workers = False
                 cfg.test_dataloader.prefetch_factor = None
-                cfg.test_evaluator.ann_file = os.path.join(temp_dir, 'train.json')
-                cfg.test_evaluator.outfile_prefix = os.path.join(temp_dir, 'prediction_test')
-                
-                # Modify train slices path 
+                cfg.test_evaluator.ann_file = os.path.join(
+                    temp_dir, 'train.json')
+                cfg.test_evaluator.outfile_prefix = os.path.join(
+                    temp_dir, 'prediction_test')
+
+                # Modify train slices path
                 os.makedirs(os.path.join(temp_dir, 'slices'), exist_ok=True)
                 cfg.data_root_slice = os.path.join(temp_dir, 'slices')
                 # whole images data_root
                 cfg.data_root_whole = temp_dir
-                
+
                 # Training parameters
                 cfg.train_cfg.max_iters = 10
-                cfg.train_cfg.val_interval=1000000 # Disable validation
-                cfg.default_hooks.checkpoint.interval = 10 # Save checkpoint every 10 iterations
+                cfg.train_cfg.val_interval = 1000000  # Disable validation
+                # Save checkpoint every 10 iterations
+                cfg.default_hooks.checkpoint.interval = 10
                 # use cuda if available else cpu
                 cfg.device = 'cuda:0' if torch.cuda.is_available() else 'cpu'
                 cfg.work_dir = workdir or temp_dir
                 cfg.load_from = os.environ['checkpoint_file']
-                
+
                 slice_configuration = cfg.get('slice_configuration')
                 cfg = slice_train_images(cfg, **slice_configuration)
-                            
+
                 # Run training
                 runner = Runner.from_cfg(cfg)
                 runner.train()
@@ -271,14 +290,15 @@ class MMDetection(LabelStudioMLBase):
                     result['checkpoints'].append(latest_ckpt)
                     self.checkpoint_file = latest_ckpt
                     self.model = init_detector(
-                        self.config_file, 
-                        self.checkpoint_file, 
+                        self.config_file,
+                        self.checkpoint_file,
                         device=cfg.device
                     )
                     os.environ['checkpoint_file'] = latest_ckpt
-                    ic("Training completed successfully")     
+                    ic("Training completed successfully")
                 else:
-                    raise RuntimeError("Training failed - no checkpoint created")
+                    raise RuntimeError(
+                        "Training failed - no checkpoint created")
 
             return result
 
@@ -296,8 +316,10 @@ class MMDetection(LabelStudioMLBase):
         }
 
         # Create categories
-        categories = {label: idx+1 for idx, label in enumerate(sorted(self.labels_in_config))}
-        coco['categories'] = [{'id': v, 'name': k} for k, v in categories.items()]
+        categories = {label: idx+1 for idx,
+                      label in enumerate(sorted(self.labels_in_config))}
+        coco['categories'] = [{'id': v, 'name': k}
+                              for k, v in categories.items()]
 
         ann_id = 1
         for task_id, task in enumerate(tasks):
@@ -351,6 +373,8 @@ class MMDetection(LabelStudioMLBase):
                 continue
 
         return coco
+
+
 def json_load(file, int_keys=False):
     with io.open(file, encoding='utf8') as f:
         data = json.load(f)
