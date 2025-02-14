@@ -1,0 +1,42 @@
+#!/bin/bash
+
+set -e  # Exit immediately if a command exits with a non-zero status
+
+if [ -z "$1" ]; then
+    echo "Usage: $0 <env_name>"
+    exit 1
+fi
+
+ENV_NAME=$1
+VENV_DIR=~/$ENV_NAME
+
+echo "Creating new virtual environment: $ENV_NAME with Python 3.10"
+
+# Create virtual environment with Python 3.10
+virtualenv --python=python3.10 $VENV_DIR
+source $VENV_DIR/bin/activate
+
+echo "Virtual environment activated"
+
+# Upgrade pip
+pip install --upgrade pip
+
+# Install dependencies from requirements.txt
+pip install -r requirements.txt
+
+# Install mmcv 2.2.0 from the specified URL
+pip install mmcv==2.2.0 -f https://download.openmmlab.com/mmcv/dist/cu121/torch2.4/index.html
+
+cd ../../
+# Install additional dependencies from multimodal.txt
+pip install -r requirements/multimodal.txt
+
+# Install local package (-e .)
+pip install -v -e .
+
+# Install local package from faster_coco_eval_repo
+cd faster_coco_eval_repo
+pip install -v -e .
+cd ..
+
+echo "Environment setup complete!"

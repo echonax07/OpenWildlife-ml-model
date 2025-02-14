@@ -7,19 +7,27 @@ from urllib.parse import urlparse
 
 import boto3
 from botocore.exceptions import ClientError
-from label_studio_ml.model import LabelStudioMLBase
+from label_studio_ml.model import LabelStudioMLBase, ModelResponse
 from label_studio_ml.utils import (DATA_UNDEFINED_NAME, get_image_size,
                                    get_single_tag_keys)
-from label_studio_tools.core.utils.io import get_data_dir
+from label_studio_sdk._extensions.label_studio_tools.core.utils.io import get_data_dir, get_local_path
+
+from botocore.exceptions import ClientError
 
 from mmdet.apis import inference_detector, init_detector
 from tools.slice_train_imgs import slice_train_images
 import torch
 from icecream import ic
+from typing import List, Dict, Optional
 
 
 logger = logging.getLogger(__name__)
 
+config_file = os.environ['config_file']
+checkpoint_file = os.environ['checkpoint_file']
+device = os.environ.get("DEVICE", "cpu")
+logger.info(f"Load new model from: {config_file}, {checkpoint_file}")
+model = init_detector(config_file, checkpoint_file, device=device)
 
 class MMDetection(LabelStudioMLBase):
     """Object detector based on https://github.com/open-mmlab/mmdetection."""
@@ -34,15 +42,7 @@ class MMDetection(LabelStudioMLBase):
                  **kwargs):
 
         super(MMDetection, self).__init__(**kwargs)
-        from icecream import ic
-        ic(config_file)
-        ic(os.environ['config_file'])
-        ic(checkpoint_file)
-        ic(os.environ['checkpoint_file'])
-        config_file = config_file or os.environ['config_file']
-        checkpoint_file = checkpoint_file or os.environ['checkpoint_file']
-        self.config_file = config_file
-        self.checkpoint_file = checkpoint_file
+        
         self.labels_file = labels_file or os.environ.get('labels_file')
         # default Label Studio image upload folder
         upload_dir = os.path.join(get_data_dir(), 'media', 'upload')
@@ -53,16 +53,15 @@ class MMDetection(LabelStudioMLBase):
             self.label_map = json_load(self.labels_file)
         else:
             self.label_map = {}
-        ic(self.label_map)
-
+        # ic(self.label_map)
+        # ic(self.parsed_label_config)
         self.from_name, self.to_name, self.value, self.labels_in_config = get_single_tag_keys(
             self.parsed_label_config, 'KeyPointLabels', 'Image')
         schema = list(self.parsed_label_config.values())[0]
         self.labels_in_config = set(self.labels_in_config)
-
         # Collect label maps from `predicted_values="airplane,car"` attribute in <Label> tag # noqa E501
         self.labels_attrs = schema.get('labels_attrs')
-        ic(self.labels_attrs)
+        # ic(self.labels_attrs)
         # if labeling config has Label tags
         if self.labels_attrs:
             # try to find something like <Label value="Vehicle" predicted_values="airplane,car">
@@ -78,57 +77,86 @@ class MMDetection(LabelStudioMLBase):
                         #         f'Predicted value "{predicted_value}" is not in mmdet labels'
                         #     )
                         self.label_map[predicted_value] = ls_label
+        self.score_threshold = float(os.environ.get("SCORE_THRESHOLD", 0.3))
+    
+    def setup(self):
+        self.set("model_version", f'{self.__class__.__name__}-v0.0.1')
 
-        ic(self.label_map)
+    def _get_prompt(self, annotation: Optional[Dict] = None) -> Dict:
+        from_name_prompt, _, _ = self.get_first_tag_occurence('TextArea', 'Image')
+        
 
-        print('Load new model from: ', config_file, checkpoint_file)
-        self.model = init_detector(config_file, checkpoint_file, device=device)
-        self.score_thresh = score_threshold
-        ic("Model initialized successfully")
+        if annotation and 'result' in annotation:
+            prompt = next(r['value']['text'][0] for r in annotation['result'] if r['from_name'] == from_name_prompt)
+            logger.debug(f"Prompt: {prompt}")
+            return {
+                'prompt': prompt,
+                'from_name': from_name_prompt
+            }
 
-    def _get_image_url(self, task):
-        image_url = task['data'].get(
-            self.value) or task['data'].get(DATA_UNDEFINED_NAME)
-        if image_url.startswith('s3://'):
-            # presign s3 url
+        prompt = self.get('prompt')
+        logger.debug(f"Prompt saved in cache: {prompt}")
+        return {
+            'prompt': prompt,
+            'from_name': from_name_prompt
+    }
+    
+    def _get_image_url(self, task: Dict) -> str:
+        image_url = task["data"].get(self.value) or task["data"].get(
+            DATA_UNDEFINED_NAME
+        )
+        # retrieve image from s3 bucket,
+        # set env vars AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY
+        # and AWS_SESSION_TOKEN to allow boto3 to access the bucket
+        if image_url.startswith("s3://") and os.getenv('AWS_ACCESS_KEY_ID'):
+            # pre-sign s3 url
             r = urlparse(image_url, allow_fragments=False)
             bucket_name = r.netloc
-            key = r.path.lstrip('/')
-            client = boto3.client('s3')
+            key = r.path.lstrip("/")
+            client = boto3.client("s3")
             try:
                 image_url = client.generate_presigned_url(
-                    ClientMethod='get_object',
-                    Params={
-                        'Bucket': bucket_name,
-                        'Key': key
-                    })
+                    ClientMethod="get_object",
+                    Params={"Bucket": bucket_name, "Key": key},
+                )
             except ClientError as exc:
                 logger.warning(
-                    f'Can\'t generate presigned URL for {image_url}. Reason: {exc}'  # noqa E501
+                    f"Can't generate pre-signed URL for {image_url}. Reason: {exc}"
                 )
-        return image_url
 
-    def predict(self, tasks, **kwargs):
+        return image_url
+        
+    def predict(self, tasks, context: Optional[Dict] = None, **kwargs):
         label_studio_results = []
+        # ic(context)
         for task in tasks:
+            # prompt_control = self._get_prompt(context)
+            # prompt = prompt_control['prompt']
+            # ic(prompt)
+            # if not prompt:
+                # logger.warning("Prompt not found")
+                # ModelResponse(predictions=[])
             image_url = self._get_image_url(task)
             image_path = self.get_local_path(image_url)
-            model_results = inference_detector(self.model,
-                                               image_path, text_prompt='female duck. male duck. Ice. Juvenile duck. duck. ', custom_entities=True).pred_instances
+            model_results = inference_detector(model,
+                                               image_path, text_prompt="female duck. male duck. Ice. Juvenile duck. duck", custom_entities=True).pred_instances
             results = []
             all_scores = []
             img_width, img_height = get_image_size(image_path)
             # print(f'>>> model_results: {model_results}')
-            print(f'>>> label_map {self.label_map}')
-            print(f'>>> self.model.dataset_meta: {self.model.dataset_meta}')
-            classes = self.model.dataset_meta.get('classes')
-            print(f'Classes >>> {classes}')
+            # print(f'>>> label_map {self.label_map}')
+            # print(f'>>> model.dataset_meta: {model.dataset_meta}')
+            classes = model.dataset_meta.get('classes')
+            # classes = cfg.val_dataloader
+            
+            # ic(classes)
+            # print(f'Classes >>> {classes}')
             for item in model_results:
                 # print(f'item >>>>> {item}')
                 bboxes, label, scores = item['bboxes'], item['labels'], item[
                     'scores']
                 score = float(scores[-1])
-                if score < self.score_thresh:
+                if score < self.score_threshold:
                     continue
                 # print(f'bboxes >>>>> {bboxes}')
                 # print(f'label >>>>> {label}')
@@ -159,13 +187,13 @@ class MMDetection(LabelStudioMLBase):
                             'y': float(y_center) / img_height * 100,
                             "width": 0.4054054054054053,
                         },
-                        'score': score
+                        'score': score,
                     })
                     all_scores.append(score)
             avg_score = sum(all_scores) / max(len(all_scores), 1)
             # print(f'>>> RESULTS: {results}')
             label_studio_results.append(
-                {'result': results, 'score': avg_score})
+                {'result': results, 'score': avg_score, 'model_version': self.get("model_version")})
             ic("Prediction returned successfully")
         return label_studio_results
 
@@ -289,7 +317,7 @@ class MMDetection(LabelStudioMLBase):
                     result['model_path'] = latest_ckpt
                     result['checkpoints'].append(latest_ckpt)
                     self.checkpoint_file = latest_ckpt
-                    self.model = init_detector(
+                    model = init_detector(
                         self.config_file,
                         self.checkpoint_file,
                         device=cfg.device

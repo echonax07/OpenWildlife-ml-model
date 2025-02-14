@@ -1,33 +1,37 @@
-# Copyright (c) OpenMMLab. All rights reserved.
+import os
 import argparse
 import json
 import logging
 import logging.config
-import os
-
 
 logging.config.dictConfig({
-    'version': 1,
-    'formatters': {
-        'standard': {
-            'format':
-            '[%(asctime)s] [%(levelname)s] [%(name)s::%(funcName)s::%(lineno)d] %(message)s'  # noqa E501
-        }
-    },
-    'handlers': {
-        'console': {
-            'class': 'logging.StreamHandler',
-            'level': 'DEBUG',
-            'stream': 'ext://sys.stdout',
-            'formatter': 'standard'
-        }
-    },
-    'root': {
-        'level': 'ERROR',
-        'handlers': ['console'],
-        'propagate': True
+  "version": 1,
+  "disable_existing_loggers": False,
+  "formatters": {
+    "standard": {
+      "format": "[%(asctime)s] [%(levelname)s] [%(name)s::%(funcName)s::%(lineno)d] %(message)s"
     }
+  },
+  "handlers": {
+    "console": {
+      "class": "logging.StreamHandler",
+      "level": os.getenv('LOG_LEVEL'),
+      "stream": "ext://sys.stdout",
+      "formatter": "standard"
+    }
+  },
+  "root": {
+    "level": os.getenv('LOG_LEVEL'),
+    "handlers": [
+      "console"
+    ],
+    "propagate": True
+  }
 })
+
+from label_studio_ml.api import init_app
+from mmdetection import MMDetection
+
 
 _DEFAULT_CONFIG_PATH = os.path.join(os.path.dirname(__file__), 'config.json')
 
@@ -41,54 +45,37 @@ def get_kwargs_from_config(config_path=_DEFAULT_CONFIG_PATH):
     return config
 
 
-if __name__ == '__main__':
-
-    from label_studio_ml.api import init_app
-
-    from projects.LabelStudio.backend_template.mmdetection import MMDetection
-
+if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Label studio')
     parser.add_argument(
-        '-p',
-        '--port',
-        dest='port',
-        type=int,
-        default=9090,
+        '-p', '--port', dest='port', type=int, default=9090,
         help='Server port')
     parser.add_argument(
-        '--host', dest='host', type=str, default='0.0.0.0', help='Server host')
+        '--host', dest='host', type=str, default='0.0.0.0',
+        help='Server host')
     parser.add_argument(
-        '--kwargs',
-        '--with',
-        dest='kwargs',
-        metavar='KEY=VAL',
-        nargs='+',
-        type=lambda kv: kv.split('='),
+        '--kwargs', '--with', dest='kwargs', metavar='KEY=VAL', nargs='+', type=lambda kv: kv.split('='),
         help='Additional LabelStudioMLBase model initialization kwargs')
     parser.add_argument(
-        '-d',
-        '--debug',
-        dest='debug',
-        action='store_true',
+        '-d', '--debug', dest='debug', action='store_true',
         help='Switch debug mode')
     parser.add_argument(
-        '--log-level',
-        dest='log_level',
-        choices=['DEBUG', 'INFO', 'WARNING', 'ERROR'],
-        default=None,
+        '--log-level', dest='log_level', choices=['DEBUG', 'INFO', 'WARNING', 'ERROR'], default=None,
         help='Logging level')
     parser.add_argument(
-        '--model-dir',
-        dest='model_dir',
-        default=os.path.dirname(__file__),
-        help='Directory models are store',
-    )
+        '--model-dir', dest='model_dir', default=os.path.dirname(__file__),
+        help='Directory where models are stored (relative to the project directory)')
     parser.add_argument(
-        '--check',
-        dest='check',
-        action='store_true',
+        '--check', dest='check', action='store_true',
         help='Validate model instance before launching server')
-
+    parser.add_argument('--basic-auth-user',
+                        default=os.environ.get('ML_SERVER_BASIC_AUTH_USER', None),
+                        help='Basic auth user')
+    
+    parser.add_argument('--basic-auth-pass',
+                        default=os.environ.get('ML_SERVER_BASIC_AUTH_PASS', None),
+                        help='Basic auth pass')    
+    
     args = parser.parse_args()
 
     # setup logging level
@@ -109,7 +96,7 @@ if __name__ == '__main__':
                 param[k] = int(v)
             elif v == 'True' or v == 'true':
                 param[k] = True
-            elif v == 'False' or v == 'False':
+            elif v == 'False' or v == 'false':
                 param[k] = False
             elif isfloat(v):
                 param[k] = float(v)
@@ -126,24 +113,10 @@ if __name__ == '__main__':
         print('Check "' + MMDetection.__name__ + '" instance creation..')
         model = MMDetection(**kwargs)
 
-    app = init_app(
-        model_class=MMDetection,
-        model_dir=os.environ.get('MODEL_DIR', args.model_dir),
-        redis_queue=os.environ.get('RQ_QUEUE_NAME', 'default'),
-        redis_host=os.environ.get('REDIS_HOST', 'localhost'),
-        redis_port=os.environ.get('REDIS_PORT', 6379),
-        **kwargs)
+    app = init_app(model_class=MMDetection, basic_auth_user=args.basic_auth_user, basic_auth_pass=args.basic_auth_pass)
 
     app.run(host=args.host, port=args.port, debug=args.debug)
 
 else:
-    
-    from label_studio_ml.api import init_app
-    from projects.LabelStudio.backend_template.mmdetection import MMDetection
     # for uWSGI use
-    app = init_app(
-        model_class=MMDetection,
-        model_dir=os.environ.get('MODEL_DIR', os.path.dirname(__file__)),
-        redis_queue=os.environ.get('RQ_QUEUE_NAME', 'default'),
-        redis_host=os.environ.get('REDIS_HOST', 'localhost'),
-        redis_port=os.environ.get('REDIS_PORT', 6379))
+    app = init_app(model_class=MMDetection)
