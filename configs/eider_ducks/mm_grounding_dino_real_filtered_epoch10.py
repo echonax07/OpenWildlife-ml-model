@@ -33,7 +33,7 @@ model = dict(
         frozen_stages=-1,
         init_cfg=dict(
             checkpoint=
-            '/home/m32patel/projects/def-dclausi/whale/mmwhale2/checkpoints/swin_tiny_patch4_window7_224.pth',
+            'checkpoints/swin_tiny_patch4_window7_224.pth',
             type='Pretrained'),
         mlp_ratio=4,
         num_heads=[

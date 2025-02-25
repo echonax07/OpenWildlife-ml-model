@@ -30,7 +30,7 @@ logging.config.dictConfig({
 })
 
 from label_studio_ml.api import init_app
-from mmdetection import MMDetection
+from projects.LabelStudio.backend_template.mmdetection_eider_ducks import MMDetection
 
 
 _DEFAULT_CONFIG_PATH = os.path.join(os.path.dirname(__file__), 'config.json')
