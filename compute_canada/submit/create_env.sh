@@ -1,7 +1,8 @@
 set -e
-# deactivate
 
-
+module --force purge
+echo "Loading module done"
+module load python/3.10 StdEnv/2023 opencv/4.10.0 cuda/12.2 rust/1.76.0 git-lfs
 
 echo "Creating new virtualenv"
 

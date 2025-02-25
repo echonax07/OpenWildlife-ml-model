@@ -7,13 +7,17 @@ if [ -z "$1" ]; then
     exit 1
 fi
 
+module --force purge
+echo "Loading module done"
+module load python/3.10 StdEnv/2023 opencv/4.10.0 cuda/12.2 rust/1.76.0 git-lfs
+
 ENV_NAME=$1
 VENV_DIR=~/$ENV_NAME
 
 echo "Creating new virtual environment: $ENV_NAME with Python 3.10"
 
 # Create virtual environment with Python 3.10
-virtualenv --python=python3.10 $VENV_DIR
+virtualenv $VENV_DIR
 source $VENV_DIR/bin/activate
 
 echo "Virtual environment activated"
