@@ -139,7 +139,6 @@ result_viz_AL/
 t/
 outputs3/
 faster_coco_eval_repo/csrc/mask/pycocotools/_mask.c
-projects/LabelStudio/
 
 *.out
 *.swp
