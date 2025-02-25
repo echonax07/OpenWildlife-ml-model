@@ -156,7 +156,7 @@ jupyter_notebooks/gradcam/sliced_140803_cam2_00452_images/
 jupyter_notebooks/gradcam/sliced_140803_Cam2_00449_images/
 output/
 outputs/
-# work_dirs/
+work_dirs/
 work_dirs/**/*.py
 work_dirs/**/*.txt
 work_dirs/**/*.json
@@ -167,7 +167,7 @@ last_checkpoint
 # !*.bbox.json
 *.pkl
 projects/LabelStudio/backend_template/**/*.json
-
+work_dirs
 
 work_dirs/**/*.png
 # work_dirs/work_dirs/**/*.png
