@@ -28,7 +28,6 @@ logging.basicConfig(
 
 MAX_WORKERS = 20
 
-
 def get_slice_bboxes(
     image_height: int,
     image_width: int,
@@ -38,32 +37,6 @@ def get_slice_bboxes(
     overlap_height_ratio: float = 0.2,
     overlap_width_ratio: float = 0.2,
 ) -> List[List[int]]:
-    """Slices `image_pil` in crops.
-    Corner values of each slice will be generated using the `slice_height`,
-    `slice_width`, `overlap_height_ratio` and `overlap_width_ratio` arguments.
-
-    Args:
-        image_height (int): Height of the original image.
-        image_width (int): Width of the original image.
-        slice_height (int): Height of each slice. Default 512.
-        slice_width (int): Width of each slice. Default 512.
-        overlap_height_ratio(float): Fractional overlap in height of each
-            slice (e.g. an overlap of 0.2 for a slice of size 100 yields an
-            overlap of 20 pixels). Default 0.2.
-        overlap_width_ratio(float): Fractional overlap in width of each
-            slice (e.g. an overlap of 0.2 for a slice of size 100 yields an
-            overlap of 20 pixels). Default 0.2.
-        auto_slice_resolution (bool): if not set slice parameters such as slice_height and slice_width,
-            it enables automatically calculate these params from image resolution and orientation.
-
-    Returns:
-        List[List[int]]: List of 4 corner coordinates for each N slices.
-            [
-                [slice_0_left, slice_0_top, slice_0_right, slice_0_bottom],
-                ...
-                [slice_N_left, slice_N_top, slice_N_right, slice_N_bottom]
-            ]
-    """
     slice_bboxes = []
     y_max = y_min = 0
 
@@ -83,15 +56,21 @@ def get_slice_bboxes(
             if y_max > image_height or x_max > image_width:
                 xmax = min(image_width, x_max)
                 ymax = min(image_height, y_max)
-                xmin = max(0, xmax - slice_width)
-                ymin = max(0, ymax - slice_height)
+                # Calculate xmin and ymin based on overlap ratios
+                if overlap_width_ratio == 0:
+                    xmin = x_min
+                else:
+                    xmin = max(0, xmax - slice_width)
+                if overlap_height_ratio == 0:
+                    ymin = y_min
+                else:
+                    ymin = max(0, ymax - slice_height)
                 slice_bboxes.append([xmin, ymin, xmax, ymax])
             else:
                 slice_bboxes.append([x_min, y_min, x_max, y_max])
             x_min = x_max - x_overlap
         y_min = y_max - y_overlap
     return slice_bboxes
-
 
 def annotation_inside_slice(annotation: Dict, slice_bbox: List[int]) -> bool:
     """Check whether annotation coordinates lie inside slice coordinates.

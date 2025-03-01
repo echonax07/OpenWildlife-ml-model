@@ -82,8 +82,15 @@ def get_slice_bboxes(
             if y_max > image_height or x_max > image_width:
                 xmax = min(image_width, x_max)
                 ymax = min(image_height, y_max)
-                xmin = max(0, xmax - slice_width)
-                ymin = max(0, ymax - slice_height)
+                # Calculate xmin and ymin based on overlap ratios
+                if overlap_width_ratio == 0:
+                    xmin = x_min
+                else:
+                    xmin = max(0, xmax - slice_width)
+                if overlap_height_ratio == 0:
+                    ymin = y_min
+                else:
+                    ymin = max(0, ymax - slice_height)
                 slice_bboxes.append([xmin, ymin, xmax, ymax])
             else:
                 slice_bboxes.append([x_min, y_min, x_max, y_max])

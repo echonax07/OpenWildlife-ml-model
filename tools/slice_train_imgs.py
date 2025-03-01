@@ -5,31 +5,81 @@ from mmengine.config import Config
 from sahi.slicing import slice_coco
 from typing import Any, Dict, Optional
 
-def slice_train_images(cfg, enable, slice_height, slice_width, overlap_height_ratio=0, overlap_width_ratio=0, save_only_positive_slices=False):
+def slice_train_images(
+    cfg,
+    enable,
+    slice_height,
+    slice_width,
+    overlap_height_ratio=0,
+    overlap_width_ratio=0,
+    save_only_positive_slices=False,
+    mix_slices_with_full_images=True  # Added parameter
+):
     """Perform slicing of training images and save the patches."""
     if enable:
         print(f'Doing slicing with patch size: {slice_height}, {slice_width}!')
-        
-        if is_directory_empty(os.path.join(cfg['data_root_slice'], 'train')):
-            do_slicing_and_merge_annotation(cfg, slice_height, slice_width, overlap_height_ratio, overlap_width_ratio, save_only_positive_slices)
+        output_dir = os.path.join(cfg['data_root_slice'], 'train')
+        expected_ann_file = os.path.join(
+            output_dir, 
+            'train.json' if mix_slices_with_full_images else 'train_slice.json'
+        )
+
+        if is_directory_empty(output_dir):
+            final_output_file = do_slicing_and_merge_annotation(
+                cfg, slice_height, slice_width, overlap_height_ratio, 
+                overlap_width_ratio, save_only_positive_slices, 
+                mix_slices_with_full_images
+            )
         else:
-            print(f'Folder: {os.path.join(cfg["data_root_slice"], "train")} found with sliced images and annotation')
-            print('Skipping slicing...')
-        
+            if check_file_exists(expected_ann_file):
+                print(f'Found existing annotations: {expected_ann_file}')
+                final_output_file = expected_ann_file
+            else:
+                print(f'Existing directory {output_dir} does not contain expected annotations. Re-doing slicing.')
+                final_output_file = do_slicing_and_merge_annotation(
+                    cfg, slice_height, slice_width, overlap_height_ratio,
+                    overlap_width_ratio, save_only_positive_slices,
+                    mix_slices_with_full_images
+                )
+
+        # Update dataset configuration paths
         cfg['train_dataloader']['dataset']['data_root'] = ''
-        cfg['train_dataloader']['dataset']['ann_file'] = os.path.abspath(os.path.join(cfg['data_root_slice'], 'train', 'train.json'))
-        cfg['train_dataloader']['dataset']['data_prefix']['img'] = ''
+        cfg['train_dataloader']['dataset']['ann_file'] = os.path.abspath(final_output_file)
+        
+        if mix_slices_with_full_images:
+            # Merged annotations have absolute paths
+            cfg['train_dataloader']['dataset']['data_prefix']['img'] = ''
+        else:
+            # Sliced annotations use relative paths from output_dir
+            cfg['train_dataloader']['dataset']['data_prefix']['img'] = os.path.abspath(output_dir)
+        
         return cfg
     else:
         return cfg
 
-def do_slicing_and_merge_annotation(cfg, slice_height, slice_width, overlap_height_ratio, overlap_width_ratio, save_only_positive_slices):
-    coco_annotation_file_path = os.path.abspath(os.path.join(cfg['data_root_whole'], cfg['train_dataloader']['dataset']['ann_file']))
-    image_dir = os.path.abspath(os.path.join(cfg['data_root_whole'], cfg['train_dataloader']['dataset']['data_prefix']['img']))
-    output_coco_annotation_file_name = os.path.abspath(os.path.join(cfg['data_root_slice'], 'train', 'train_slice.json'))
+def do_slicing_and_merge_annotation(
+    cfg, 
+    slice_height, 
+    slice_width, 
+    overlap_height_ratio, 
+    overlap_width_ratio, 
+    save_only_positive_slices,
+    mix_slices_with_full_images  # Added parameter
+):
+    coco_annotation_file_path = os.path.abspath(os.path.join(
+        cfg['data_root_whole'], 
+        cfg['train_dataloader']['dataset']['ann_file']
+    ))
+    image_dir = os.path.abspath(os.path.join(
+        cfg['data_root_whole'], 
+        cfg['train_dataloader']['dataset']['data_prefix']['img']
+    ))
+    output_coco_annotation_file_name = os.path.abspath(os.path.join(
+        cfg['data_root_slice'], 'train', 'train_slice.json'
+    ))
     output_dir = os.path.join(cfg['data_root_slice'], 'train')
 
-    # Do slicing
+    # Perform slicing
     coco_dict, coco_path = slice_coco(
         coco_annotation_file_path=coco_annotation_file_path,
         image_dir=image_dir,
@@ -45,20 +95,24 @@ def do_slicing_and_merge_annotation(cfg, slice_height, slice_width, overlap_heig
         save_only_positive_slices=save_only_positive_slices
     )
 
-    # Merge annotations with saving the paths in both the files
-    full_img_dir =  os.path.abspath(os.path.join(cfg['data_root_whole'], cfg['train_dataloader']['dataset']['data_prefix']['img']))
-    slice_img_dir = os.path.abspath(os.path.join(cfg['data_root_slice'], 'train'))
-    output_coco_annotation_file_name = output_coco_annotation_file_name.replace('train_slice.json', 'train_slice.json_coco.json')
-    final_output_file = output_coco_annotation_file_name.replace('train_slice.json_coco.json', 'train.json')
-
-    final_output_file = coco_merge(
-        input_extend=coco_annotation_file_path,
-        input_add=output_coco_annotation_file_name,
-        extend_dir_path=full_img_dir,
-        add_dir_path=slice_img_dir,
-        output_file=final_output_file
-    )
-    return final_output_file
+    if mix_slices_with_full_images:
+        # Merge with original annotations
+        full_img_dir = os.path.abspath(os.path.join(
+            cfg['data_root_whole'], 
+            cfg['train_dataloader']['dataset']['data_prefix']['img']
+        ))
+        slice_img_dir = os.path.abspath(output_dir)
+        merged_output = coco_merge(
+            input_extend=coco_annotation_file_path,
+            input_add=output_coco_annotation_file_name,
+            extend_dir_path=full_img_dir,
+            add_dir_path=slice_img_dir,
+            output_file=os.path.join(output_dir, 'train.json')
+        )
+        return merged_output
+    else:
+        # Return sliced annotations directly
+        return coco_path
 
 def coco_merge(
     input_extend: str,
