@@ -98,6 +98,29 @@ def run_ner(caption: str) -> Tuple[list, list]:
             print('caption:', caption.lower())
     return tokens_positive, noun_phrases
 
+def create_positive_map_clip(
+    tokenized_output: dict,
+    tokens_positive: list,
+    max_num_entities: int = 256
+) -> Tensor:
+    positive_map = torch.zeros((len(tokens_positive), max_num_entities), dtype=torch.float)
+    offset_mapping = tokenized_output['offset_mapping'][0].cpu().numpy()
+
+    # Rest of your existing logic using offset_mapping...
+    for j, tok_list in enumerate(tokens_positive):
+        for (beg, end) in tok_list:
+            token_indices = []
+            for token_idx, (token_start, token_end) in enumerate(offset_mapping):
+                if not (token_end <= beg or token_start >= end):
+                    token_indices.append(token_idx)
+            
+            if token_indices:
+                start_idx = min(token_indices)
+                end_idx = max(token_indices)
+                positive_map[j, start_idx:end_idx + 1].fill_(1)
+
+    return positive_map / (positive_map.sum(-1)[:, None] + 1e-6)
+
 
 def create_positive_map(tokenized,
                         tokens_positive: list,

@@ -16,8 +16,11 @@ from ..layers import SinePositionalEncoding
 from ..layers.transformer.grounding_dino_layers import (
     GroundingDinoTransformerDecoder, GroundingDinoTransformerEncoder)
 from .dino import DINO
-from .glip import (create_positive_map, create_positive_map_label_to_token,
+from .glip import (create_positive_map_label_to_token,
                    run_ner)
+
+# from .glip import create_positive_map as create_positive_map
+from .glip import create_positive_map_clip as create_positive_map
 
 
 def clean_label_name(name: str) -> str:
@@ -162,6 +165,7 @@ class GroundingDINO(DINO):
                 [caption_string],
                 padding='max_length'
                 if self.language_model.pad_to_max else 'longest',
+                return_offsets_mapping=True,
                 return_tensors='pt')
             entities = original_caption
         else:
@@ -175,6 +179,7 @@ class GroundingDINO(DINO):
                 [original_caption],
                 padding='max_length'
                 if self.language_model.pad_to_max else 'longest',
+                return_offsets_mapping=True,
                 return_tensors='pt')
             tokens_positive, noun_phrases = run_ner(original_caption)
             entities = noun_phrases
@@ -183,7 +188,12 @@ class GroundingDINO(DINO):
         return tokenized, caption_string, tokens_positive, entities
 
     def get_positive_map(self, tokenized, tokens_positive):
-        positive_map = create_positive_map(
+        # positive_map = create_positive_map(
+        #     tokenized,
+        #     tokens_positive,
+        #     max_num_entities=self.bbox_head.cls_branches[
+        #         self.decoder.num_layers].max_text_len)
+        positive_map =create_positive_map(
             tokenized,
             tokens_positive,
             max_num_entities=self.bbox_head.cls_branches[
@@ -224,6 +234,7 @@ class GroundingDINO(DINO):
                     [original_caption],
                     padding='max_length'
                     if self.language_model.pad_to_max else 'longest',
+                    return_offsets_mapping=True,
                     return_tensors='pt')
                 positive_map_label_to_token, positive_map = \
                     self.get_positive_map(tokenized, tokens_positive)
@@ -281,6 +292,7 @@ class GroundingDINO(DINO):
                 caption_string, tokens_positive = self.to_plain_text_prompts(
                     original_caption_chunked[i])
             tokenized = self.language_model.tokenizer([caption_string],
+                                                      return_offsets_mapping=True,
                                                       return_tensors='pt')
             if tokenized.input_ids.shape[1] > self.language_model.max_tokens:
                 warnings.warn('Inputting a text that is too long will result '
@@ -324,7 +336,9 @@ class GroundingDINO(DINO):
                         feat_pos: Tensor, spatial_shapes: Tensor,
                         level_start_index: Tensor, valid_ratios: Tensor,
                         text_dict: Dict) -> Dict:
+        # text_token_mask = text_dict['masks']
         text_token_mask = text_dict['text_token_mask']
+        
         memory, memory_text = self.encoder(
             query=feat,
             query_pos=feat_pos,
@@ -439,19 +453,20 @@ class GroundingDINO(DINO):
                     [text_prompt],
                     padding='max_length'
                     if self.language_model.pad_to_max else 'longest',
+                    return_offsets_mapping=True,
                     return_tensors='pt')
                 new_tokens_positive = [
                     token_positive[label.item()] for label in gt_label
                 ]
-                try:
-                    _, positive_map = self.get_positive_map(
-                        tokenized, new_tokens_positive)
-                    positive_maps.append(positive_map)
-                except:
-                    from icecream import ic
-                    ic(token_positive)
-                    ic(text_prompt)
-                    ic(gt_label)
+                # try:
+                _, positive_map = self.get_positive_map(
+                    tokenized, new_tokens_positive)
+                positive_maps.append(positive_map)
+                # except:
+                #     from icecream import ic
+                #     ic(token_positive)
+                #     ic(text_prompt)
+                #     ic(gt_label)
                     
             new_text_prompts = text_prompts
         else:
