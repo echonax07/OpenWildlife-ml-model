@@ -16,7 +16,7 @@ metainfo = dict(classes=class_name, palette=[
     (0, 191, 255),   # duck
 ])
 
-patch_size = (512, 512)
+patch_size = (1024, 1024)
 patch_overlap_ratio = 0
 merge_iou_thr = 1
 

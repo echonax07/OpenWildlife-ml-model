@@ -18,7 +18,9 @@ from mmdet.apis import inference_detector, init_detector
 from tools.slice_train_imgs import slice_train_images
 from icecream import ic
 from typing import List, Dict, Optional
-
+from PIL import Image, ImageDraw
+import numpy as np
+import tempfile
 
 ## fit() related import
 import tempfile
@@ -29,6 +31,12 @@ from mmdet.registry import RUNNERS
 from mmengine.runner import Runner
 from mmdet.apis import init_detector
 import label_studio_sdk
+
+
+from PIL import Image, ImageDraw
+import numpy as np
+import os
+import tempfile
 
 logger = logging.getLogger(__name__)
 
@@ -272,7 +280,7 @@ class MMDetection(LabelStudioMLBase):
                 cfg.model.bbox_head.num_classes = len(self.labels_in_config)
                 cfg.num_queries = 2000
                 cfg.test_cfg.max_per_img = 2000
-                # TODO : Each project should have its own 
+                # TODO : Each project should have its own workdir
                 cfg.work_dir = os.path.join('mmdet_workdir_eider')
                 os.makedirs(cfg.work_dir, exist_ok=True)
 
@@ -330,10 +338,16 @@ class MMDetection(LabelStudioMLBase):
                 slice_configuration = cfg.get('slice_configuration')
                 cfg = slice_train_images(cfg, **slice_configuration)
                 runner = Runner.from_cfg(cfg)
-                runner.train()
-                
-                gc.collect()
-                torch.cuda.empty_cache()
+                try: 
+                    runner.train()
+                    # gc.collect()
+                    # torch.cuda.empty_cache()
+                    # model = init_detector(cfg, os.environ['checkpoint_file'], device=cfg.device)
+                except Exception as e:
+                    logger.error(f"Training failed: {str(e)}", exc_info=True)    
+                    gc.collect()
+                    result['error'] = str(e)
+                    torch.cuda.empty_cache()
 
                 # Handle checkpoints
                 with open(os.path.join(cfg.work_dir, 'last_checkpoint'), 'r') as f:
@@ -346,6 +360,8 @@ class MMDetection(LabelStudioMLBase):
                     # set the environment variable to use the new model
                     os.environ['checkpoint_file'] = latest_ckpt
                     ic("Training completed successfully")
+                    gc.collect()
+                    torch.cuda.empty_cache()
                 else:
                     raise RuntimeError("Training failed - no checkpoint created")
 
@@ -360,10 +376,10 @@ class MMDetection(LabelStudioMLBase):
         
         return result
 
+
     def _tasks_to_coco(self, tasks):
         """Convert Label Studio tasks to COCO format"""
-        
-        #labelstudio -> mmdetection
+        # Invert label map
         self.label_map_inverted = {v: k for k, v in self.label_map.items()}
         self.label_index = {l: i for i, l in enumerate(self.label_map_inverted.values())}
         
@@ -383,14 +399,72 @@ class MMDetection(LabelStudioMLBase):
                     
                 height, width = get_image_size(img_path)
                 
+                # Load the image
+                img = Image.open(img_path).convert("RGB")
+                
+                # Check the user's choice for training region
+                train_on_whole_image = True  # Default to whole image
+                for ann in task.get('annotations', []):
+                    for result in ann.get('result', []):
+                        if result['type'] == 'choices' and result['from_name'] == 'train_region_choice':
+                            if result['value']['choices'][0] == 'Train only on train region':
+                                train_on_whole_image = False
+                            break
+                    if not train_on_whole_image:
+                        break
+                
+                if train_on_whole_image:
+                    # Use the whole image
+                    cropped_img = img
+                    cropped_img_path = img_path
+                else:
+                    # Extract polygon coordinates for "Train region"
+                    train_region_polygon = None
+                    for ann in task.get('annotations', []):
+                        for result in ann.get('result', []):
+                            if result['type'] == 'polygonlabels' and 'Train region' in result['value'].get('polygonlabels', []):
+                                train_region_polygon = result['value']['points']
+                                break
+                        if train_region_polygon:
+                            break
+                    
+                    if not train_region_polygon:
+                        continue  # Skip if no train region is defined
+                    
+                    # Convert polygon coordinates to a mask
+                    mask = Image.new('L', (width, height), 0)
+                    ImageDraw.Draw(mask).polygon([(int(x * width / 100), int(y * height / 100)) for x, y in train_region_polygon], outline=1, fill=1)
+                    mask = np.array(mask)
+                    
+                    # Apply the mask to the image to extract the polygon region
+                    img_array = np.array(img)
+                    masked_img_array = np.zeros_like(img_array)
+                    masked_img_array[mask > 0] = img_array[mask > 0]
+                    
+                    # Find the bounding box of the polygon to crop the image
+                    coords = np.column_stack(np.where(mask > 0))
+                    if coords.size == 0:
+                        continue  # Skip if the polygon is invalid or empty
+                    min_y, min_x = coords.min(axis=0)
+                    max_y, max_x = coords.max(axis=0)
+                    
+                    # Crop the masked image to the polygon region
+                    cropped_img_array = masked_img_array[min_y:max_y, min_x:max_x]
+                    cropped_img = Image.fromarray(cropped_img_array)
+                    
+                    # Save the cropped image to a temporary directory
+                    cropped_img_path = os.path.join(tempfile.gettempdir(), f'cropped_{task_id}.jpg')
+                    cropped_img.save(cropped_img_path)
+                
+                # Update COCO image entry
                 coco['images'].append({
                     'id': task_id,
-                    'file_name': img_path,
-                    'width': width,
-                    'height': height
+                    'file_name': cropped_img_path,
+                    'width': cropped_img.width,
+                    'height': cropped_img.height
                 })
                 
-                # Process annotations
+                # Process annotations (same as before)
                 for ann in task.get('annotations', []):
                     height_bbox = float(ann.get('result', [])[-2].get('value')['text'][0])
                     width_bbox = float(ann.get('result', [])[-1].get('value')['text'][0])
@@ -399,9 +473,7 @@ class MMDetection(LabelStudioMLBase):
                         if result['type'] != 'keypointlabels':
                             continue
 
-
                         label = result['value']['keypointlabels'][0]
-                        # 
                         if label not in self.label_map_inverted.keys():
                             continue
                         
@@ -411,20 +483,46 @@ class MMDetection(LabelStudioMLBase):
                         w_pct = height_bbox / 100
                         h_pct = width_bbox / 100
                         
-                        coco['annotations'].append({
-                            'id': ann_id,
-                            'image_id': task_id,
-                            'category_id': self.label_index.get(label),
-                            'bbox': [
-                                x_pct * width - w_pct * width / 2,
-                                y_pct * height - h_pct * height / 2,
-                                w_pct * width,
-                                h_pct * height
-                            ],
-                            'area': (w_pct * width) * (h_pct * height),
-                            'iscrowd': 0
-                        })
-                        ann_id += 1
+                        bbox = [
+                            x_pct * width - w_pct * width / 2,
+                            y_pct * height - h_pct * height / 2,
+                            w_pct * width,
+                            h_pct * height
+                        ]
+                        
+                        # Check if the bbox is within the polygon (if applicable)
+                        if not train_on_whole_image:
+                            bbox_mask = Image.new('L', (width, height), 0)
+                            ImageDraw.Draw(bbox_mask).rectangle([
+                                int(bbox[0]), int(bbox[1]),
+                                int(bbox[0] + bbox[2]), int(bbox[1] + bbox[3])
+                            ], outline=1, fill=1)
+                            bbox_mask = np.array(bbox_mask)
+                            
+                            if not np.any(mask & bbox_mask):
+                                continue  # Skip if the bbox is outside the train region
+                        
+                        # Adjust bbox coordinates to the cropped image
+                        adjusted_bbox = [
+                            bbox[0] - (min_x if not train_on_whole_image else 0),
+                            bbox[1] - (min_y if not train_on_whole_image else 0),
+                            bbox[2],
+                            bbox[3]
+                        ]
+                        
+                        # Check if the adjusted bbox is within the cropped image
+                        if (adjusted_bbox[0] >= 0 and adjusted_bbox[1] >= 0 and
+                            adjusted_bbox[0] + adjusted_bbox[2] <= cropped_img.width and
+                            adjusted_bbox[1] + adjusted_bbox[3] <= cropped_img.height):
+                            coco['annotations'].append({
+                                'id': ann_id,
+                                'image_id': task_id,
+                                'category_id': self.label_index.get(label),
+                                'bbox': adjusted_bbox,
+                                'area': (w_pct * width) * (h_pct * height),
+                                'iscrowd': 0
+                            })
+                            ann_id += 1
 
             except Exception as e:
                 logger.error(f"Error processing task {task_id}: {str(e)}")
