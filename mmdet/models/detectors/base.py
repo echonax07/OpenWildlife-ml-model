@@ -100,10 +100,6 @@ class BaseDetector(BaseModel, metaclass=ABCMeta):
             return self.loss(inputs, data_samples)
         elif mode == 'predict':
             if self.sliding_window_inference.get('enable'):
-                from icecream import ic
-                print('*'*10)
-                ic('sliding window inference')
-                print('*'*10)
                 _, _, height, width = inputs.shape
                 img_np = inputs[0].permute(1, 2, 0).cpu().numpy()
                 
@@ -142,6 +138,8 @@ class BaseDetector(BaseModel, metaclass=ABCMeta):
 
                 slice_results = []
                 batch_size = slice_params.get('slice_batch_size', 1)
+                if batch_size==-1:
+                    batch_size = len(slices_np)
                 
                 # Process in batches
                 

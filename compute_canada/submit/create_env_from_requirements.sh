@@ -9,8 +9,7 @@ fi
 
 module --force purge
 echo "Loading module done"
-module load python/3.10 StdEnv/2023 opencv/4.10.0 cuda/12.2 rust/1.76.0 git-lfs
-
+module load python/3.10 StdEnv/2023 opencv/4.10.0 cuda/12.2 rust/1.76.0 git-lfs postgresql/16.0
 ENV_NAME=$1
 VENV_DIR=~/$ENV_NAME
 

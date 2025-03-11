@@ -240,3 +240,5 @@ configs/DFO_whale_different_backbones/plot.html
 mmdet_workdir_eider/
 postgresql
 cache.db
+tp_fp_comparision/
+labelstudio_database/

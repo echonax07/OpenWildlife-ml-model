@@ -47,9 +47,16 @@ def calculate_count_rmse_and_mae_with_threshold(ground_truth_file, prediction_fi
     mae = np.mean(absolute_errors)
     return rmse, mae, image_details
 
+    
+
 # Usage
-ground_truth_file = '/home/m32patel/projects/rrg-dclausi/wildlife/datasets/Virunga_Garamba/groundtruth/json/big_size/test_big_size_A_B_E_K_WH_WB_grounded.json'  # Replace with your ground truth COCO file path
-prediction_file = '/home/m32patel/projects/def-dclausi/whale/mmwhale2/work_dir_grounding_dino/finetune/virunga_garamba/prediction_mm_grounding_dino_finetune_test.bbox.json'  # Replace with your prediction COCO file path
+# ground_truth_file = '/home/m32patel/projects/rrg-dclausi/wildlife/datasets/birds_qian_penguin/test.json'   # Replace with your ground truth COCO file path
+# prediction_file = "/home/m32patel/projects/def-dclausi/whale/mmwhale2/work_dir_grounding_dino/finetune/qian_finetune/prediction_mm_grounding_dino_finetune_test_no_caption_new_split.bbox.json" # Replace with your prediction COCO file path
+
+ground_truth_file ='/home/m32patel/projects/rrg-dclausi/wildlife/datasets/NOAA_sea_lion_blackout/test.json'
+prediction_file = "/home/m32patel/projects/def-dclausi/whale/mmwhale2/work_dir_grounding_dino/NOAA_sealion_dataset/prediction_mm_grounding_dino_nocaption_new_split.bbox.json"
+
+# prediction_file = "/home/m32patel/projects/rrg-dclausi/whale/m32patel/work_dir_grounding_dino/finetune/qian_finetune/prediction_mm_grounding_dino_finetune_test.bbox.json"
 
 rmse, mae, image_details = calculate_count_rmse_and_mae_with_threshold(ground_truth_file, prediction_file, score_threshold=0.4)
 

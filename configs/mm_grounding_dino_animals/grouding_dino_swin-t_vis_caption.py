@@ -444,6 +444,8 @@ train_dataloader = dict(
         _delete_=True,
         type='CustomSampleSizeSampler',
         dataset_size=[-1, 10000, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1]),
+        # dataset_size=[-1])
+        
     dataset=dict(datasets=[
         Aerial_seabird_westafrica_od_dataset,
         birds_izembek_lagoon_od_dataset,
@@ -467,7 +469,6 @@ train_dataloader = dict(
         Beluga_2015_dataset,
         Narwhal_2016_dataset
     ]))
-
 class_name = ('penguin', )
 num_classes = len(class_name)
 metainfo = dict(classes=class_name, palette=[(220, 20, 60)])

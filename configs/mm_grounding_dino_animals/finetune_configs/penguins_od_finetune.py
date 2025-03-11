@@ -52,6 +52,7 @@ train_pipeline = [
 ]
 
 train_dataloader = dict(
+    batch_size = 8,
     dataset=dict(
         _delete_=True,
         type='CocoDataset',
@@ -65,6 +66,7 @@ train_dataloader = dict(
         data_prefix=dict(img='')))
 
 val_dataloader = dict(
+    batch_size = 4,
     dataset=dict(
         metainfo=metainfo,
         data_root=data_root,
@@ -82,9 +84,9 @@ test_evaluator = dict(ann_file=data_root + '/' + test_ann_file,
 max_epoch = 20
 
 default_hooks = dict(
-    checkpoint=dict(interval=1, max_keep_ckpts=1, save_best='auto'),
+    checkpoint=dict(interval=5, max_keep_ckpts=1, save_best='auto'),
     logger=dict(type='LoggerHook', interval=5))
-train_cfg = dict(max_epochs=max_epoch, val_interval=1)
+train_cfg = dict(max_epochs=max_epoch, val_interval=5)
 
 param_scheduler = [
     dict(

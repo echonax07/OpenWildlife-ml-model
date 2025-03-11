@@ -93,16 +93,24 @@ def plot_coco_image(gt_path, pred_path, img_folder, save_folder, mode='file', im
                 if max_iou >= iou_threshold:
                     # True Positive
                     color = (0, 255, 0)  # Green
-                    label = f"TP: {pred_category_name}"
+                    # label = f"TP: {pred_category_name}"
+                    label = f"TP: {pred_category_name} ({pred['score']:.2f})"
+                    
+                    # label = f"{pred_category_name} ({pred['score']:.2f})"
+                    
                     gt_anns[category_id].remove(max_gt)
                 else:
                     # False Positive
                     color = (0, 0, 255)  # Red
-                    label = f"FP: {pred_category_name}"
+                    # label = f"FP: {pred_category_name}"
+                    label = f"FP: {pred_category_name} ({pred['score']:.2f})"
+                    
             else:
                 # False Positive
                 color = (0, 0, 255)  # Red
-                label = f"FP: {pred_category_name}"
+                # label = f"FP: {pred_category_name}"
+                label = f"FP: {pred_category_name} ({pred['score']:.2f})"
+                
             draw_bbox(img, pred_bbox, color, label, show_text)
 
         # Draw remaining GT boxes
@@ -330,12 +338,13 @@ def calculate_tp_fp_fn_ignore_category(coco_file, pred_file, score_threshold=0.5
 # score_threshold = 0.3
 
 
-# # AED
-# gt_json_path = '/home/m32patel/projects/rrg-dclausi/wildlife/datasets/AED/test/test.json'
+# AED
+gt_json_path = '/home/m32patel/projects/rrg-dclausi/wildlife/datasets/AED/test/test.json'
 # pred_json_path = '/home/m32patel/projects/def-dclausi/whale/mmwhale2/work_dir_grounding_dino/AED_dataset/prediction_mm_grounding_dino_viz_caption.bbox.json'
-# img_folder = '/home/m32patel/projects/rrg-dclausi/wildlife/datasets/AED/test/'
-# save_folder = "/home/m32patel/projects/def-dclausi/whale/mmwhale2/result_viz/AED/viz/"
-# score_threshold = 0.3
+pred_json_path = '/home/m32patel/projects/def-dclausi/whale/mmwhale2/work_dir_grounding_dino/AED_dataset/prediction_mm_grounding_dino_nocaption_new_split.bbox.json'
+img_folder = '/home/m32patel/projects/rrg-dclausi/wildlife/datasets/AED/test/'
+save_folder = "/home/m32patel/projects/def-dclausi/whale/mmwhale2/result_viz/AED/no_caption_new_split/"
+score_threshold = 0.3
 
 # # aerial seabird westafrica
 # gt_json_path = '/home/m32patel/projects/rrg-dclausi/wildlife/datasets/Aerial_Seabirds_West_Africa/test.json'
@@ -348,18 +357,29 @@ def calculate_tp_fp_fn_ignore_category(coco_file, pred_file, score_threshold=0.5
 
 # # Eikelboom
 # gt_json_path = '/home/m32patel/projects/rrg-dclausi/wildlife/datasets/Eikelboom/test/test.json'
-# pred_json_path = '/home/m32patel/projects/def-dclausi/whale/mmwhale2/work_dir_grounding_dino/Eikelboom_dataset/prediction_mm_grounding_dino_viz_caption.bbox.json'
+# # pred_json_path = '/home/m32patel/projects/def-dclausi/whale/mmwhale2/work_dir_grounding_dino/finetune_no_caption_new_split/Eikelboom_dataset/prediction_mm_grounding_dino_finetune_val.bbox.json'
+# pred_json_path = '/home/m32patel/projects/def-dclausi/whale/mmwhale2/work_dir_grounding_dino/Eikelboom_dataset/prediction_mm_grounding_dino_nocaption_new_split.bbox.json'
 # img_folder = '/home/m32patel/projects/rrg-dclausi/wildlife/datasets/Eikelboom/test/'
-# save_folder = "/home/m32patel/projects/def-dclausi/whale/mmwhale2/result_viz/Eikelboom/viz/"
+# save_folder = "/home/m32patel/projects/def-dclausi/whale/mmwhale2/result_viz/Eikelboom/zeroshot_new_split_bert/"
+# score_threshold = 0.3
+
+# # WAID
+# gt_json_path = '/home/m32patel/projects/rrg-dclausi/wildlife/datasets/WAID/test/test.json'
+# # pred_json_path = '/home/m32patel/projects/def-dclausi/whale/mmwhale2/work_dir_grounding_dino/finetune_no_caption_new_split/WAID_dataset/prediction_mm_grounding_dino_finetune_val.bbox.json'
+# pred_json_path = '/home/m32patel/projects/def-dclausi/whale/mmwhale2/work_dir_grounding_dino/WAID_livestock_dataset/prediction_mm_grounding_dino_nocaption_new_split.bbox.json'
+# img_folder = '/home/m32patel/projects/rrg-dclausi/wildlife/datasets/WAID/test/'
+# save_folder = "/home/m32patel/projects/def-dclausi/whale/mmwhale2/result_viz/WAID/zeroshot_new_split_bert/"
 # score_threshold = 0.3
 
 
 
 # # polar bear
-# gt_json_path = '/home/m32patel/projects/rrg-dclausi/wildlife/datasets/polar_bear_annotated/test_filtered.json'
-# pred_json_path = '/home/m32patel/projects/def-dclausi/whale/mmwhale2/work_dir_grounding_dino/polar_bear/prediction_mm_grounding_dino_caption.bbox.json'
+# gt_json_path = '/home/m32patel/projects/rrg-dclausi/wildlife/datasets/polar_bear_annotated/test_15.json'
+# pred_json_path = '/home/m32patel/projects/def-dclausi/whale/mmwhale2/work_dir_grounding_dino/polar_bear/prediction_mm_grounding_dino_nocaption_new_split.bbox.json'
+# # pred_json_path = '/home/m32patel/projects/def-dclausi/whale/mmwhale2/work_dir_grounding_dino/finetune/polar_bear_finetune/prediction_mm_grounding_dino_finetune_val.bbox.json
+# # '
 # img_folder = '/home/m32patel/projects/rrg-dclausi/wildlife/datasets/polar_bear_annotated/'
-# save_folder = "/home/m32patel/projects/def-dclausi/whale/mmwhale2/result_viz/polar_bear/viz/"
+# save_folder = "/home/m32patel/projects/def-dclausi/whale/mmwhale2/result_viz/polar_bear/zeroshot_new_split_bert/"
 # score_threshold = 0.25
 
 
@@ -392,6 +412,53 @@ def calculate_tp_fp_fn_ignore_category(coco_file, pred_file, score_threshold=0.5
 # save_folder = "/home/m32patel/projects/def-dclausi/whale/mmwhale2/result_viz/Beluga_2015_dataset/viz/"
 # score_threshold = 0.3
 
+
+# # Narval
+# gt_json_path = '/home/m32patel/projects/def-dclausi/whale/merged/test/test_ES_2016.json'
+# pred_json_path = '/home/m32patel/projects/def-dclausi/whale/mmwhale2/work_dir_grounding_dino/Narwhal_2016_dataset/prediction_mm_grounding_dino_nocaption_new_split.bbox.json'
+# img_folder = '/home/m32patel/projects/def-dclausi/whale/merged/test'
+# save_folder = "/home/m32patel/projects/def-dclausi/whale/mmwhale2/result_viz/Narwhal_2016_dataset/zeroshot_new_split_bert/"
+# score_threshold = 0.3
+
+
+# # DFOW23
+# gt_json_path = '/home/m32patel/projects/rrg-dclausi/whale/dataset/2023_Survey_DFO/Elements/DFO_2023_Survey_annotation/High_Arctic_Survey/Plane1/corrected_tasks/coco_iter12345_val_viz_grounded.json'
+# # pred_json_path = '/home/m32patel/projects/def-dclausi/whale/mmwhale2/work_dir_grounding_dino/DFO_Whale23/prediction_mm_grounding_dino_viz_caption_new_split.bbox.json'
+# pred_json_path = '/home/m32patel/projects/def-dclausi/whale/mmwhale2/work_dir_grounding_dino/DFO_Whale23/prediction_mm_grounding_dino_nocaption_new_split.bbox.json'
+
+# img_folder = ''
+# save_folder = "/home/m32patel/projects/def-dclausi/whale/mmwhale2/result_viz/DFOW23/nocaption/zeroshot_new_split_bert/"
+# score_threshold = 0.3
+
+
+
+# # NOAA Seal
+# gt_json_path = '/home/m32patel/projects/rrg-dclausi/wildlife/datasets/NOAA_arctic_seals/test.json'
+# pred_json_path = '/home/m32patel/projects/def-dclausi/whale/mmwhale2/work_dir_grounding_dino/NOAA_artic_seal_dataset/prediction_mm_grounding_dino_nocaption_new_split.bbox.json'
+# img_folder = '/home/m32patel/projects/rrg-dclausi/wildlife/datasets/NOAA_arctic_seals'
+# save_folder = "/home/m32patel/projects/def-dclausi/whale/mmwhale2/result_viz/NOAA_arctic_seals/zeroshot_new_split_bert/"
+# score_threshold = 0.3
+
+
+
+# # tern bioarxiv
+# gt_json_path = '/home/m32patel/projects/rrg-dclausi/wildlife/datasets/birds_terns_(Already_processed_Hayes)/test.json'
+# pred_json_path = '/home/m32patel/projects/def-dclausi/whale/mmwhale2/work_dir_grounding_dino/tern_bioarxiv/prediction_mm_grounding_dino_nocaption_new_split.bbox.json'
+# img_folder = '/home/m32patel/projects/rrg-dclausi/wildlife/datasets/birds_terns_(Already_processed_Hayes)/'
+# save_folder = "/home/m32patel/projects/def-dclausi/whale/mmwhale2/result_viz/terns_bioarxiv/zeroshot_new_split_bert/"
+# score_threshold = 0.3
+
+
+# Michigan gull
+gt_json_path = '/home/m32patel/projects/rrg-dclausi/wildlife/datasets/birds_michigan/test.json'
+# pred_json_path = '/home/m32patel/projects/def-dclausi/whale/mmwhale2/work_dir_grounding_dino/finetune_no_caption_new_split/michigan_od_dataset/prediction_mm_grounding_dino_finetune_test.bbox.json'
+pred_json_path = '/home/m32patel/projects/def-dclausi/whale/mmwhale2/work_dir_grounding_dino/michigan_od_dataset/prediction_mm_grounding_dino_nocaption_new_split.bbox.json'
+img_folder = '/home/m32patel/projects/rrg-dclausi/wildlife/datasets/birds_michigan/'
+# save_folder = "/home/m32patel/projects/def-dclausi/whale/mmwhale2/result_viz/birds_michigan/finetune_new_split_bert/"
+save_folder = "/home/m32patel/projects/def-dclausi/whale/mmwhale2/result_viz/birds_michigan/zeroshot_new_split_bert/"
+score_threshold = 0.1
+
+
 # # birds_monash
 # gt_json_path = '/home/m32patel/projects/rrg-dclausi/wildlife/datasets/birds_monash/test_viz_grounded.json'
 # pred_json_path = '/home/m32patel/projects/def-dclausi/whale/mmwhale2/work_dir_grounding_dino/monash_od_dataset/prediction_mm_grounding_dino_viz_caption.bbox.json'
@@ -400,19 +467,21 @@ def calculate_tp_fp_fn_ignore_category(coco_file, pred_file, score_threshold=0.5
 # score_threshold = 0.25
 
 # # aerial livestock
-# gt_json_path = '/home/m32patel/projects/rrg-dclausi/wildlife/datasets/Aerial-livestock-dataset/test/test_viz_grounded.json'
-# pred_json_path = '/home/m32patel/projects/def-dclausi/whale/mmwhale2/work_dir_grounding_dino/aerial_livestock_dataset/prediction_mm_grounding_dino_viz_caption.bbox.json'
+# gt_json_path = '/home/m32patel/projects/rrg-dclausi/wildlife/datasets/Aerial-livestock-dataset/test/test.json'
+# # pred_json_path = '/home/m32patel/projects/def-dclausi/whale/mmwhale2/work_dir_grounding_dino/aerial_livestock_dataset/prediction_mm_grounding_dino_nocaption_new_split.bbox.json'
+# pred_json_path = '/home/m32patel/projects/def-dclausi/whale/mmwhale2/work_dir_grounding_dino/aerial_livestock_dataset/prediction_mm_grounding_dino_viz_caption_new_split.bbox.json'
 # img_folder = '/home/m32patel/projects/rrg-dclausi/wildlife/datasets/Aerial-livestock-dataset/test/'
-# save_folder = "/home/m32patel/projects/def-dclausi/whale/mmwhale2/result_viz/aerial_livestock/viz/"
-# score_threshold = 0.3
+# # save_folder = "/home/m32patel/projects/def-dclausi/whale/mmwhale2/result_viz/aerial_livestock/zeroshot_new_split_bert/"
+# save_folder = "/home/m32patel/projects/def-dclausi/whale/mmwhale2/result_viz/aerial_livestock/zeroshot_new_split_bert_viz/"
+# score_threshold = 0.1
 
-# savmap
-gt_json_path =  '/home/m32patel/projects/rrg-dclausi/wildlife/datasets/SAVMAP_test/images/coco_split_val.json'
-pred_json_path = "/home/m32patel/projects/def-dclausi/whale/mmwhale2/work_dir_grounding_dino/finetune/SAVMAP/prediction_mm_grounding_dino_finetune_val.bbox.json"
+# # savmap
+# gt_json_path =  '/home/m32patel/projects/rrg-dclausi/wildlife/datasets/SAVMAP_test/images/coco_split_val.json'
+# pred_json_path = "/home/m32patel/projects/def-dclausi/whale/mmwhale2/work_dir_grounding_dino/finetune/SAVMAP/prediction_mm_grounding_dino_finetune_val.bbox.json"
 
-img_folder = '/home/m32patel/projects/rrg-dclausi/wildlife/datasets/SAVMAP_test/images/'
-save_folder = "/home/m32patel/projects/def-dclausi/whale/mmwhale2/result_viz/SAVMAP_test/finetune_nocaption/"
-score_threshold = 0.1
+# img_folder = '/home/m32patel/projects/rrg-dclausi/wildlife/datasets/SAVMAP_test/images/'
+# save_folder = "/home/m32patel/projects/def-dclausi/whale/mmwhale2/result_viz/SAVMAP_test/finetune_nocaption/"
+# score_threshold = 0.1
 
 
 
@@ -433,14 +502,14 @@ score_threshold = 0.1
 
 
 
-# virunga garamba
-gt_json_path = '/home/m32patel/projects/rrg-dclausi/wildlife/datasets/Virunga_Garamba/groundtruth/json/big_size/test_big_size_A_B_E_K_WH_WB_grounded.json'
-pred_json_path = '/home/m32patel/projects/def-dclausi/whale/mmwhale2/work_dir_grounding_dino/finetune/virunga_garamba/prediction_mm_grounding_dino_finetune_test.bbox.json'
-img_folder = '/home/m32patel/projects/rrg-dclausi/wildlife/datasets/Virunga_Garamba/test'
-save_folder = "/home/m32patel/projects/def-dclausi/whale/mmwhale2/result_viz/Virunga_Garamba/nocaption_finetune/"
-# save_folder = "/home/m32patel/projects/def-dclausi/whale/mmwhale2/result_viz/Virunga_Garamba/nocaption/"
+# # virunga garamba
+# gt_json_path = '/home/m32patel/projects/rrg-dclausi/wildlife/datasets/Virunga_Garamba/groundtruth/json/big_size/test_big_size_A_B_E_K_WH_WB_grounded.json'
+# pred_json_path = '/home/m32patel/projects/def-dclausi/whale/mmwhale2/work_dir_grounding_dino/finetune/virunga_garamba/prediction_mm_grounding_dino_finetune_test.bbox.json'
+# img_folder = '/home/m32patel/projects/rrg-dclausi/wildlife/datasets/Virunga_Garamba/test'
+# save_folder = "/home/m32patel/projects/def-dclausi/whale/mmwhale2/result_viz/Virunga_Garamba/nocaption_finetune/"
+# # save_folder = "/home/m32patel/projects/def-dclausi/whale/mmwhale2/result_viz/Virunga_Garamba/nocaption/"
 
-score_threshold = 0.1
+# score_threshold = 0.1
 
 
 # /home/m32patel/projects/rrg-dclausi/wildlife/datasets/Aerial-livestock-dataset/test/120.jpg
@@ -449,7 +518,8 @@ score_threshold = 0.1
 
 # # # For all images
 # analyze_coco_and_predictions(gt_json_path, pred_json_path, score_threshold)
-plot_coco_image(gt_json_path, pred_json_path, img_folder, save_folder, mode='all', score_threshold=score_threshold, iou_threshold=0.5, show_text=True)
+iou_threshold = 0.2
+plot_coco_image(gt_json_path, pred_json_path, img_folder, save_folder, mode='all', score_threshold=score_threshold, iou_threshold=iou_threshold, show_text=True)
 # calculate_tp_fp_fn_ignore_category(
 #     gt_json_path,
 #     pred_json_path, 
