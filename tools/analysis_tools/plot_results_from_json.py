@@ -36,9 +36,13 @@ def draw_bbox(img, bbox, color, label, show_text, thickness=2):
         cv2.putText(img, label, (x, y-10), cv2.FONT_HERSHEY_SIMPLEX, 0.6, color, 2)
 
 def plot_coco_image(gt_path, pred_path, img_folder, save_folder, mode='file', image_name=None, score_threshold=0.5, iou_threshold=0.5, show_text=True):
-    # Load JSON files
+    # Load ground truth JSON file
     gt_data = load_json(gt_path)
-    pred_data = load_json(pred_path)
+
+    # Load prediction JSON file if provided
+    pred_data = None
+    if pred_path:
+        pred_data = load_json(pred_path)
 
     # Create a category ID to name mapping
     category_id_to_name = {cat['id']: cat['name'] for cat in gt_data['categories']}
@@ -72,9 +76,11 @@ def plot_coco_image(gt_path, pred_path, img_folder, save_folder, mode='file', im
             if ann['image_id'] == image_id:
                 gt_anns[ann['category_id']].append(ann)
 
-        # Sort predictions by score
-        predictions = [pred for pred in pred_data if pred['image_id'] == image_id and pred['score'] >= score_threshold]
-        predictions.sort(key=lambda x: x['score'], reverse=True)
+        # Sort predictions by score if prediction data is provided
+        predictions = []
+        if pred_data:
+            predictions = [pred for pred in pred_data if pred['image_id'] == image_id and pred['score'] >= score_threshold]
+            predictions.sort(key=lambda x: x['score'], reverse=True)
 
         # Draw predictions and ground truth
         for pred in predictions:
@@ -93,22 +99,15 @@ def plot_coco_image(gt_path, pred_path, img_folder, save_folder, mode='file', im
                 if max_iou >= iou_threshold:
                     # True Positive
                     color = (0, 255, 0)  # Green
-                    # label = f"TP: {pred_category_name}"
                     label = f"TP: {pred_category_name} ({pred['score']:.2f})"
-                    
-                    # label = f"{pred_category_name} ({pred['score']:.2f})"
-                    
                     gt_anns[category_id].remove(max_gt)
                 else:
                     # False Positive
                     color = (0, 0, 255)  # Red
-                    # label = f"FP: {pred_category_name}"
                     label = f"FP: {pred_category_name} ({pred['score']:.2f})"
-                    
             else:
                 # False Positive
                 color = (0, 0, 255)  # Red
-                # label = f"FP: {pred_category_name}"
                 label = f"FP: {pred_category_name} ({pred['score']:.2f})"
                 
             draw_bbox(img, pred_bbox, color, label, show_text)
@@ -338,13 +337,13 @@ def calculate_tp_fp_fn_ignore_category(coco_file, pred_file, score_threshold=0.5
 # score_threshold = 0.3
 
 
-# AED
-gt_json_path = '/home/m32patel/projects/rrg-dclausi/wildlife/datasets/AED/test/test.json'
-# pred_json_path = '/home/m32patel/projects/def-dclausi/whale/mmwhale2/work_dir_grounding_dino/AED_dataset/prediction_mm_grounding_dino_viz_caption.bbox.json'
-pred_json_path = '/home/m32patel/projects/def-dclausi/whale/mmwhale2/work_dir_grounding_dino/AED_dataset/prediction_mm_grounding_dino_nocaption_new_split.bbox.json'
-img_folder = '/home/m32patel/projects/rrg-dclausi/wildlife/datasets/AED/test/'
-save_folder = "/home/m32patel/projects/def-dclausi/whale/mmwhale2/result_viz/AED/no_caption_new_split/"
-score_threshold = 0.3
+# # AED
+# gt_json_path = '/home/m32patel/projects/rrg-dclausi/wildlife/datasets/AED/test/test.json'
+# # pred_json_path = '/home/m32patel/projects/def-dclausi/whale/mmwhale2/work_dir_grounding_dino/AED_dataset/prediction_mm_grounding_dino_viz_caption.bbox.json'
+# pred_json_path = '/home/m32patel/projects/def-dclausi/whale/mmwhale2/work_dir_grounding_dino/AED_dataset/prediction_mm_grounding_dino_nocaption_new_split.bbox.json'
+# img_folder = '/home/m32patel/projects/rrg-dclausi/wildlife/datasets/AED/test/'
+# save_folder = "/home/m32patel/projects/def-dclausi/whale/mmwhale2/result_viz/AED/no_caption_new_split/"
+# score_threshold = 0.3
 
 # # aerial seabird westafrica
 # gt_json_path = '/home/m32patel/projects/rrg-dclausi/wildlife/datasets/Aerial_Seabirds_West_Africa/test.json'
@@ -518,6 +517,15 @@ score_threshold = 0.1
 
 # # # For all images
 # analyze_coco_and_predictions(gt_json_path, pred_json_path, score_threshold)
+
+# AED
+gt_json_path = '/home/pc2041/VIP_lab/mmwhale2/data.json'
+# pred_json_path = '/home/m32patel/projects/def-dclausi/whale/mmwhale2/work_dir_grounding_dino/AED_dataset/prediction_mm_grounding_dino_viz_caption.bbox.json'
+pred_json_path = ''
+img_folder = ''
+save_folder = "resutl_viz/"
+score_threshold = 0.3
+
 iou_threshold = 0.2
 plot_coco_image(gt_json_path, pred_json_path, img_folder, save_folder, mode='all', score_threshold=score_threshold, iou_threshold=iou_threshold, show_text=True)
 # calculate_tp_fp_fn_ignore_category(
