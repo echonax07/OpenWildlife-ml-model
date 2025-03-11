@@ -131,30 +131,79 @@ train_pipeline2 = [
 ]
 
 
+train_pipeline3_keyword_caption = [
+    dict(type='LoadImageFromFile', backend_args=_base_.backend_args),
+    dict(type='LoadAnnotations', with_bbox=True),
+    dict(type='RandomCrop', crop_size=patch_size, crop_type='absolute',
+         allow_negative_crop=True, recompute_bbox=True, bbox_clip_border=True),
+    dict(
+        type='Albu',
+        transforms=albu_train_transforms,
+        bbox_params=dict(
+            type='BboxParams',
+            format='pascal_voc',
+            label_fields=['gt_bboxes_labels', 'gt_ignore_flags'],
+            min_visibility=0.0,
+            filter_lost_elements=True),
+        keymap={
+            'img': 'image',
+            'gt_masks': 'masks',
+            'gt_bboxes': 'bboxes'
+        },
+        # update_pad_shape=False,
+        skip_img_without_anno=False),
+    dict(type='RandomFlip', prob=0.5),
+    dict(type='FilterAnnotations', min_gt_bbox_wh=(1e-2, 1e-2)),
+    dict(
+        type='RandomSamplingNegPos',
+        tokenizer_name=lang_model_name,
+        num_sample_negative=85,
+        max_tokens=256),
+    dict(
+        type='PackDetInputs',
+        meta_keys=('img_id', 'img_path', 'ori_shape', 'img_shape',
+                   'scale_factor', 'flip', 'flip_direction', 'text',
+                   'custom_entities', 'tokens_positive', 'dataset_mode'))
+]
+
+
 # BIRDS
 # B1
 # Big pipeline
-Aerial_seabird_westafrica_od_dataset = dict(
+Aerial_seabird_westafrica_known_split_od_dataset = dict(
     type='ODVGCaptionDataset',
-    data_root='/home/m32patel/scratch/animal_patches/Aerial_Seabirds_West_Africa/train',
+    data_root='/home/m32patel/projects/rrg-dclausi/wildlife/datasets/birds_terns_(Already_processed_Hayes)/',
     ann_file='train_od_vis_desc_grounded.json',
     label_map_file='o365v1_label_map.json',
     data_prefix=dict(img=''),
     filter_cfg=dict(filter_empty_gt=False),
-    pipeline=train_pipeline,
+    pipeline=train_pipeline2,
     return_classes=True,
     backend_args=None,
 )
+
+# Aerial_seabird_westafrica_od_dataset = dict(
+#     type='ODVGCaptionDataset',
+#     data_root='/home/m32patel/scratch/animal_patches/Aerial_Seabirds_West_Africa/train',
+#     ann_file='train_od_vis_desc_grounded.json',
+#     label_map_file='o365v1_label_map.json',
+#     data_prefix=dict(img=''),
+#     filter_cfg=dict(filter_empty_gt=False),
+#     pipeline=train_pipeline,
+#     return_classes=True,
+#     backend_args=None,
+# )
+
 # B2
 # Big pipeline
 birds_izembek_lagoon_od_dataset = dict(
-    type='ODVGCaptionDataset',
+    type='ODVGDataset',
     data_root='/home/m32patel/scratch/animal_patches/birds_Izembek_Lagoon_Waterfowl/train',
-    ann_file='train_od_vis_desc_grounded.json',
+    ann_file='train_no_gull_od.json',
     label_map_file='o365v1_label_map.json',
     data_prefix=dict(img=''),
     filter_cfg=dict(filter_empty_gt=False),
-    pipeline=train_pipeline,
+    pipeline=train_pipeline3_keyword_caption,
     return_classes=True,
     backend_args=None,
 )
@@ -172,7 +221,7 @@ michigan_od_dataset = dict(
     backend_args=None,
 )
 # B4
-# Big pipeline
+# Big pipeline # bird
 monash_od_dataset = dict(
     type='ODVGCaptionDataset',
     data_root='/home/m32patel/projects/rrg-dclausi/wildlife/datasets/birds_monash',
@@ -295,11 +344,11 @@ aerial_livestock_dataset = dict(
 # SAVMAP_dataset = dict(
 #     type='ODVGCaptionDataset',
 #     data_root='/home/m32patel/projects/rrg-dclausi/wildlife/datasets/birds_qian_penguin',
-#     ann_file='.json',
+#     ann_file='train_od_vis_desc_grounded.json',
 #     label_map_file='o365v1_label_map.json',
 #     data_prefix=dict(img=''),
 #     filter_cfg=dict(filter_empty_gt=False),
-#     pipeline=_base_.train_pipeline,
+#     pipeline=train_pipeline2,
 #     return_classes=True,
 #     backend_args=None,
 # )
@@ -345,6 +394,33 @@ Eikelboom_dataset = dict(
     backend_args=None,
 )
 
+# L5
+# Big pipeline
+SAVMAP_dataset = dict(
+    type='ODVGDataset',
+    data_root='/home/m32patel/scratch/animal_patches/SAVMAP/train',
+    ann_file='train_full_patch_od.json',
+    label_map_file='o365v1_label_map.json',
+    data_prefix=dict(img=''),
+    filter_cfg=dict(filter_empty_gt=False),
+    pipeline=train_pipeline3_keyword_caption,
+    return_classes=True,
+    backend_args=None,
+)
+
+# L6
+# Big pipeline
+Virunga_Garamba_dataset = dict(
+    type='ODVGDataset',
+    data_root='/home/m32patel/scratch/animal_patches/Virunga_Garamba/train',
+    ann_file='train_full_patch_od.json',
+    label_map_file='o365v1_label_map.json',
+    data_prefix=dict(img=''),
+    filter_cfg=dict(filter_empty_gt=False),
+    pipeline=train_pipeline3_keyword_caption,
+    return_classes=True,
+    backend_args=None,
+)
 # Ocean Animals
 # O1
 # Big pipeline
@@ -390,7 +466,7 @@ NOAA_artic_seal_dataset = dict(
 Beluga_2014_dataset = dict(
     type='ODVGCaptionDataset',
     data_root='/home/m32patel/scratch/animal_patches/2014_Beluga/train',
-    ann_file='train_od_vis_desc_grounded.json',
+    ann_file='train_od_vis_desc_grounded_modified.json',
     label_map_file='o365v1_label_map.json',
     data_prefix=dict(img=''),
     filter_cfg=dict(filter_empty_gt=False),
@@ -404,7 +480,7 @@ Beluga_2014_dataset = dict(
 Beluga_2015_dataset = dict(
     type='ODVGCaptionDataset',
     data_root='/home/m32patel/scratch/animal_patches/2015_Beluga/train',
-    ann_file='train_od_vis_desc_grounded.json',
+    ann_file='train_od_vis_desc_grounded_modified.json',
     label_map_file='o365v1_label_map.json',
     data_prefix=dict(img=''),
     filter_cfg=dict(filter_empty_gt=False),
@@ -412,6 +488,7 @@ Beluga_2015_dataset = dict(
     return_classes=True,
     backend_args=None,
 )
+
 # O6
 # Big pipeline
 Narwhal_2016_dataset = dict(
@@ -425,12 +502,11 @@ Narwhal_2016_dataset = dict(
     return_classes=True,
     backend_args=None,
 )
-# O7
-# Big pipeline
+
 Beluga_2017_dataset = dict(
     type='ODVGCaptionDataset',
     data_root='/home/m32patel/scratch/animal_patches/2017_Beluga/train',
-    ann_file='train_od_vis_desc_grounded.json',
+    ann_file='train_od_vis_desc_grounded_modified.json',
     label_map_file='o365v1_label_map.json',
     data_prefix=dict(img=''),
     filter_cfg=dict(filter_empty_gt=False),
@@ -438,37 +514,50 @@ Beluga_2017_dataset = dict(
     return_classes=True,
     backend_args=None,
 )
+
 train_dataloader = dict(
     batch_size=2,
     sampler=dict(
         _delete_=True,
         type='CustomSampleSizeSampler',
-        dataset_size=[-1, 10000, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1]),
-        # dataset_size=[-1])
-        
+        dataset_size=[-1, 10000, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1]),
+        # dataset_size=[-1]),
+    
+    # these datasets will use keyword captions due to caption unavailability
+    # birds_izembek_lagoon_od_dataset
+    # SAVMAP_dataset
+    # Virunga_Garamba_dataset
+    
+    
     dataset=dict(datasets=[
-        Aerial_seabird_westafrica_od_dataset,
-        birds_izembek_lagoon_od_dataset,
-        michigan_od_dataset,
-        # monash_od_dataset,
-        # new_mexico_od_dataset,
-        # palmyra_od_dataset,
+        monash_od_dataset, # indOcean bird
+        birds_izembek_lagoon_od_dataset, # goose (need to remove gull images) -> regenerate odvg -> Done# 
+        new_mexico_od_dataset, # bird
+        palmyra_od_dataset, # bird
+        # birds_poland_od_dataset, # Ducks, Swans, Herons, Terns, Gulls -> bird
+        seabirdwatch_od_dataset, # bird
+        pfeifer_od_dataset, # penguin
+        qian_od_dataset, # Penguin # needs finetuning with updated queries
+        # michigan_od_dataset, # Michigan Gull
+        # Aerial_seabird_westafrica_od_dataset,  WAfrica (terns)
         # penguins_od_dataset,
-        pfeifer_od_dataset,
-        # seabirdwatch_od_dataset,
-        birds_poland_od_dataset,
-        qian_od_dataset,
-        aerial_livestock_dataset,
-        WAID_livestock_dataset,
-        AED_dataset,
-        Eikelboom_dataset,
-        NOAA_sealion_dataset,
-        turtle_dataset,
-        NOAA_artic_seal_dataset,
-        Beluga_2014_dataset,
-        Beluga_2015_dataset,
-        Narwhal_2016_dataset
+        AED_dataset, # Elephant
+        SAVMAP_dataset, # (Black rhino, Zebra)-> Animal # Include SAVMAP -> Do patching -> Generate ODVG json -> Done
+        Virunga_Garamba_dataset, # (Alcelaphinae Buffalo Kob Warthog Waterbuck Elephant) #  Include Vir-Garamba -> Do patching -> Generate ODVG json -> Done
+        
+        # aerial_livestock_dataset, # HAN
+        # WAID_livestock_dataset, # WAID
+        # Eikelboom_dataset, # Kenya
+        NOAA_sealion_dataset, # Sea lion
+        turtle_dataset, # Turtle
+        Beluga_2014_dataset, # Beluga
+        Beluga_2015_dataset, # Beluga
+        Beluga_2017_dataset # Beluga -> Do patching -> Generate ODVG json -> Done
+        # Narwhal_2016_dataset # Narwhal
+        # NOAA_artic_seal_dataset, # 
+        # DFO whale 23
     ]))
+
 class_name = ('penguin', )
 num_classes = len(class_name)
 metainfo = dict(classes=class_name, palette=[(220, 20, 60)])
@@ -512,24 +601,6 @@ optim_wrapper = dict(
     type='OptimWrapper')
 
 train_cfg = dict(max_epochs=20, type='EpochBasedTrainLoop', val_interval=1)
-
-vis_backends = [
-    dict(
-        type='LocalVisBackend'
-    ),
-    dict(
-        type='WandbVisBackend',
-        init_kwargs=dict(
-            entity='mmwhale',
-            project='MM_grounding_DINO',
-            name='{{fileBasenameNoExtension}}',
-        ),
-        define_metric_cfg=None,
-        commit=True,
-        log_code_name=None,
-        watch_kwargs=None
-    ),
-]
 
 vis_backends = [
     dict(

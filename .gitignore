@@ -237,3 +237,6 @@ spider_plot2.png
 whale_pr_curve_plotly.png
 wandb/settings
 configs/DFO_whale_different_backbones/plot.html
+tp_fp_comparision/
+mmdet_workdir_eider/
+labelstudio_database/

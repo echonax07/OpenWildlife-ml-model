@@ -1,7 +1,7 @@
 _base_ = '../../mm_grounding_dino/grounding_dino_swin-t_pretrain_obj365.py'
 
-data_root = '/home/m32patel/projects/rrg-dclausi/wildlife/datasets/birds_penguins'
-class_name = ('penguin', )
+data_root = '/home/m32patel/projects/rrg-dclausi/wildlife/datasets/birds_terns_(Already_processed_Hayes)'
+class_name = ('tern', )
 train_ann_file = 'train.json'
 test_ann_file = 'test.json'
 num_classes = len(class_name)
@@ -52,7 +52,7 @@ train_pipeline = [
 ]
 
 train_dataloader = dict(
-    batch_size = 8,
+    batch_size = 4,
     dataset=dict(
         _delete_=True,
         type='CocoDataset',
@@ -75,13 +75,14 @@ val_dataloader = dict(
 
 test_dataloader = val_dataloader
 
-val_evaluator = dict(ann_file=data_root + '/' + test_ann_file)
+val_evaluator = dict(ann_file=data_root + '/' + test_ann_file,
+                    outfile_prefix=f'./work_dir_grounding_dino/finetune_no_caption_new_split/{{fileBasenameNoExtension}}/prediction_mm_grounding_dino_finetune_test')
 test_evaluator = val_evaluator
 
 test_evaluator = dict(ann_file=data_root + '/' + test_ann_file,
-                     outfile_prefix=f'./work_dir_grounding_dino/finetune/{{fileBasenameNoExtension}}/prediction_mm_grounding_dino_finetune_test')
+                     outfile_prefix=f'./work_dir_grounding_dino/finetune_no_caption_new_split/{{fileBasenameNoExtension}}/prediction_mm_grounding_dino_finetune_test')
 
-max_epoch = 20
+max_epoch = 10
 
 default_hooks = dict(
     checkpoint=dict(interval=5, max_keep_ckpts=1, save_best='auto'),
@@ -107,5 +108,5 @@ optim_wrapper = dict(
             'language_model': dict(lr_mult=0.0)
         }))
 
-work_dir = 'work_dir_grounding_dino/finetune/{{fileBasenameNoExtension}}'
-load_from = '/home/m32patel/projects/def-dclausi/whale/mmwhale2/t/grouding_dino_swin-t_no_caption/epoch_20.pth'  # noqa
+work_dir='work_dir_grounding_dino/finetune_no_caption_new_split/{{fileBasenameNoExtension}}'
+load_from = 'work_dir_grounding_dino/grouding_dino_swin-t_no_caption_new_split/epoch_20.pth'  # noqa

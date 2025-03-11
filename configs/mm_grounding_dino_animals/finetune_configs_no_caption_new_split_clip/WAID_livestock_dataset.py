@@ -1,11 +1,18 @@
 _base_ = '../../mm_grounding_dino/grounding_dino_swin-t_pretrain_obj365.py'
 
-data_root = '/home/m32patel/projects/rrg-dclausi/wildlife/datasets/birds_penguins'
-class_name = ('penguin', )
-train_ann_file = 'train.json'
-test_ann_file = 'test.json'
+data_root = '/home/m32patel/projects/rrg-dclausi/wildlife/datasets/WAID'
+train_ann_file = 'train/train.json'
+test_ann_file = 'test/test.json'
+class_name = ('sheep', 'cattle', 'seal', 'camelus', 'kiang', 'zebra')
 num_classes = len(class_name)
-metainfo = dict(classes=class_name, palette=[(220, 20, 60)])
+metainfo = dict(classes=class_name, palette=[
+    (255, 0, 0),      # sheep - Red
+    (0, 255, 0),      # cattle - Green
+    (0, 0, 255),      # seal - Blue
+    (255, 165, 0),    # camelus - Orange
+    (128, 0, 128),    # kiang - Purple
+    (0, 255, 255)     # zebra - Cyan
+])
 
 model = dict(bbox_head=dict(num_classes=num_classes))
 
@@ -63,7 +70,7 @@ train_dataloader = dict(
         pipeline=train_pipeline,
         filter_cfg=dict(filter_empty_gt=False, min_size=32),
         ann_file=train_ann_file,
-        data_prefix=dict(img='')))
+        data_prefix=dict(img='train/')))
 
 val_dataloader = dict(
     batch_size = 4,
@@ -71,17 +78,18 @@ val_dataloader = dict(
         metainfo=metainfo,
         data_root=data_root,
         ann_file=test_ann_file,
-        data_prefix=dict(img='')))
+        data_prefix=dict(img='test/')))
 
 test_dataloader = val_dataloader
 
-val_evaluator = dict(ann_file=data_root + '/' + test_ann_file)
+val_evaluator = dict(ann_file=data_root + '/' + test_ann_file,
+                    outfile_prefix=f'./work_dir_grounding_dino/finetune_no_caption_new_split/{{fileBasenameNoExtension}}/prediction_mm_grounding_dino_finetune_test')
 test_evaluator = val_evaluator
 
 test_evaluator = dict(ann_file=data_root + '/' + test_ann_file,
-                     outfile_prefix=f'./work_dir_grounding_dino/finetune/{{fileBasenameNoExtension}}/prediction_mm_grounding_dino_finetune_test')
+                     outfile_prefix=f'./work_dir_grounding_dino/finetune_no_caption_new_split/{{fileBasenameNoExtension}}/prediction_mm_grounding_dino_finetune_test')
 
-max_epoch = 20
+max_epoch = 10
 
 default_hooks = dict(
     checkpoint=dict(interval=5, max_keep_ckpts=1, save_best='auto'),
@@ -107,5 +115,5 @@ optim_wrapper = dict(
             'language_model': dict(lr_mult=0.0)
         }))
 
-work_dir = 'work_dir_grounding_dino/finetune/{{fileBasenameNoExtension}}'
-load_from = '/home/m32patel/projects/def-dclausi/whale/mmwhale2/t/grouding_dino_swin-t_no_caption/epoch_20.pth'  # noqa
+work_dir='work_dir_grounding_dino/finetune_no_caption_new_split/{{fileBasenameNoExtension}}'
+load_from = 'work_dir_grounding_dino/grouding_dino_swin-t_no_caption_new_split/epoch_20.pth'  # noqa

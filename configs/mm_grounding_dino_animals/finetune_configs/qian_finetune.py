@@ -74,18 +74,19 @@ val_dataloader = dict(
 
 test_dataloader = val_dataloader
 
-val_evaluator = dict(ann_file=data_root + '/' + test_ann_file)
+val_evaluator = dict(ann_file=data_root + '/' + test_ann_file,
+                    outfile_prefix=f'./work_dir_grounding_dino/finetune/{{fileBasenameNoExtension}}/prediction_mm_grounding_dino_finetune_test_no_caption_new_split')
 test_evaluator = val_evaluator
 
 test_evaluator = dict(ann_file=data_root + '/' + test_ann_file,
-                     outfile_prefix=f'./work_dir_grounding_dino/finetune/{{fileBasenameNoExtension}}/prediction_mm_grounding_dino_finetune_test')
+                     outfile_prefix=f'./work_dir_grounding_dino/finetune/{{fileBasenameNoExtension}}/prediction_mm_grounding_dino_finetune_test_no_caption_new_split')
 
 max_epoch = 20
 
 default_hooks = dict(
-    checkpoint=dict(interval=1, max_keep_ckpts=1, save_best='auto'),
+    checkpoint=dict(interval=20, max_keep_ckpts=1, save_best='auto'),
     logger=dict(type='LoggerHook', interval=5))
-train_cfg = dict(max_epochs=max_epoch, val_interval=20)
+train_cfg = dict(max_epochs=max_epoch, val_interval=5)
 
 param_scheduler = [
     dict(
@@ -107,4 +108,4 @@ optim_wrapper = dict(
         }))
 
 work_dir = 'work_dir_grounding_dino/finetune/{{fileBasenameNoExtension}}'
-load_from = '/home/m32patel/projects/def-dclausi/whale/mmwhale2/work_dir_grounding_dino/grouding_dino_swin-t_vis_caption/epoch_20.pth'  # noqa
+load_from = 'work_dir_grounding_dino/grouding_dino_swin-t_no_caption_new_split/epoch_20.pth'  # noqa
