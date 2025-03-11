@@ -16,7 +16,16 @@ metainfo = dict(classes=class_name, palette=[
     (0, 191, 255),   # duck
 ])
 
+patch_size = (512, 512)
+patch_overlap_ratio = 0
+merge_iou_thr = 1
+
+slice_configuration = dict(enable=True,
+         slice_height=patch_size[0], slice_width=patch_size[1], overlap_height_ratio=0, overlap_width_ratio=0,mix_slices_with_full_images=False, save_only_positive_slices=False)
+
 model = dict(
+    sliding_window_inference = dict(enable=True, patch_size=patch_size[0], batch_size=1,  slice_batch_size = 4,
+                                patch_overlap_ratio=patch_overlap_ratio, merge_nms_type='nms', merge_iou_thr=merge_iou_thr),
     as_two_stage=True,
     backbone=dict(
         attn_drop_rate=0.0,
@@ -207,12 +216,32 @@ train_dataloader = dict(
         ann_file=train_ann_file,
         data_prefix=dict(img='')))
 
+# big pipeline
+test_pipeline = [
+    dict(
+        type='LoadImageFromFile', backend_args=None,
+        imdecode_backend='pillow'),
+    # dict(
+    #     type='FixScaleResize',
+    #     scale=(800, 1333),
+    #     keep_ratio=True,
+    #     backend='pillow'),
+    dict(type='Resize', scale_factor=1.0, keep_ratio=True),
+    dict(type='LoadAnnotations', with_bbox=True),
+    dict(
+        type='PackDetInputs',
+        meta_keys=('img_id', 'img_path', 'ori_shape', 'img_shape',
+                   'scale_factor', 'text', 'custom_entities',
+                   'tokens_positive'))
+]
+
 val_dataloader = dict(
     num_workers=8,
     batch_size=32,
     dataset=dict(
         metainfo=metainfo,
         data_root=data_root,
+        pipeline=test_pipeline,
         ann_file=test_ann_file,
         data_prefix=dict(img='')))
 

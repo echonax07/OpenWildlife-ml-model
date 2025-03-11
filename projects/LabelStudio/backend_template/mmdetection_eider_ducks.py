@@ -23,6 +23,7 @@ from typing import List, Dict, Optional
 ## fit() related import
 import tempfile
 import torch
+import gc
 from mmengine.config import Config
 from mmdet.registry import RUNNERS
 from mmengine.runner import Runner
@@ -33,7 +34,7 @@ logger = logging.getLogger(__name__)
 
 config_file = os.environ['config_file']
 checkpoint_file = os.environ['checkpoint_file']
-device = os.environ.get("DEVICE", "cpu")
+device = os.environ.get("device", "cpu")
 LABEL_STUDIO_HOST = os.getenv('LABEL_STUDIO_HOST')
 LABEL_STUDIO_API_KEY = os.getenv('LABEL_STUDIO_API_KEY')
 
@@ -224,6 +225,9 @@ class MMDetection(LabelStudioMLBase):
         
         if 'model' in globals():
             del model
+            # Run garbage collection
+            gc.collect()
+            torch.cuda.empty_cache()
         result = {
             'model_path': checkpoint_file,
             'checkpoints': [],
@@ -246,7 +250,7 @@ class MMDetection(LabelStudioMLBase):
             
             # Get image key from labeling config
             # from_name, to_name, image_key = self.label_interface.get_first_tag_occurence('Image', 'Image')
-
+            # project.get_tasks(selected_ids=[70665, 70664])
             # Fetch and validate tasks
             tasks = project.get_labeled_tasks()
             if not tasks:
@@ -322,9 +326,14 @@ class MMDetection(LabelStudioMLBase):
                 cfg.device = 'cuda' if torch.cuda.is_available() else 'cpu'
                 cfg.load_from = os.environ['checkpoint_file']
                 # Initialize and run training
+                
+                slice_configuration = cfg.get('slice_configuration')
+                cfg = slice_train_images(cfg, **slice_configuration)
                 runner = Runner.from_cfg(cfg)
                 runner.train()
-                # torch.cuda.empty_cache()
+                
+                gc.collect()
+                torch.cuda.empty_cache()
 
                 # Handle checkpoints
                 with open(os.path.join(cfg.work_dir, 'last_checkpoint'), 'r') as f:
@@ -345,6 +354,7 @@ class MMDetection(LabelStudioMLBase):
         except Exception as e:
             logger.error(f"Training failed: {str(e)}", exc_info=True)
             result['error'] = str(e)
+            gc.collect()
             torch.cuda.empty_cache()
             model = init_detector(cfg, os.environ['checkpoint_file'], device=cfg.device)
         
