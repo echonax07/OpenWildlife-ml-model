@@ -36,7 +36,7 @@ def draw_bbox(img, bbox, color, label, show_text, thickness=2):
     if show_text:
         cv2.putText(img, label, (x, y-10), cv2.FONT_HERSHEY_SIMPLEX, 0.6, color, 2)
 
-def plot_coco_image(gt_path, pred_path, img_folder, save_folder, mode='file', image_name=None, score_threshold=0.5, iou_threshold=0.5, show_text=True, plot_images=True):
+def plot_coco_image(gt_path, pred_path, img_folder, save_folder, mode='file', image_name=None, score_threshold=0.5, iou_threshold=0.5, show_text=True, plot_images=True, suffix=None):
     # Load JSON files
     gt_data = load_json(gt_path)
     pred_data = load_json(pred_path)
@@ -198,8 +198,8 @@ def plot_coco_image(gt_path, pred_path, img_folder, save_folder, mode='file', im
 
     # Write results to CSV
     os.makedirs(save_folder, exist_ok=True)
-    csv_path = os.path.join(save_folder, 'results.csv')
-    whisker_path = os.path.join(save_folder, 'whisker.png')
+    csv_path = os.path.join(save_folder, f'results_{suffix}.csv')
+    whisker_path = os.path.join(save_folder, f'whisker_{suffix}.png')
     with open(csv_path, 'w', newline='') as csvfile:
         fieldnames = [
             'filename',
@@ -251,6 +251,21 @@ def plot_coco_image(gt_path, pred_path, img_folder, save_folder, mode='file', im
 
     # Show the plot
     plt.savefig(whisker_path)
+    
+    # Save TP and FP scores to CSV
+    scores_csv_path = os.path.join(save_folder, f'tp_fp_confidence_scores_{suffix}.csv')
+
+    with open(scores_csv_path, 'w', newline='') as csvfile:
+        writer = csv.writer(csvfile)
+        writer.writerow(["score_of_tp_without_class_confusion", "score_of_fp_without_class_confusion"])
+
+        # Write row-wise, ensuring both lists are correctly aligned
+        max_length = max(len(score_of_tp_without_class_confusion), len(score_of_fp_without_class_confusion))
+        for i in range(max_length):
+            tp_score = score_of_tp_without_class_confusion[i] if i < len(score_of_tp_without_class_confusion) else ""
+            fp_score = score_of_fp_without_class_confusion[i] if i < len(score_of_fp_without_class_confusion) else ""
+            writer.writerow([tp_score, fp_score])
+        print(f"Scores saved to {scores_csv_path}")
 
 def calculate_rmse(gt_counts, pred_counts):
     """
@@ -261,7 +276,7 @@ def calculate_rmse(gt_counts, pred_counts):
     rmse = np.sqrt(mse)
     return rmse
 
-def analyze_coco_and_predictions(coco_file, pred_file, score_threshold=0.5):
+def analyze_coco_and_predictions(coco_file, pred_file, score_threshold=0.5, suffix=None):
     """
     Analyze COCO annotations and predictions, applying a score threshold for predictions.
     """
@@ -508,21 +523,130 @@ def analyze_coco_and_predictions(coco_file, pred_file, score_threshold=0.5):
 # score_threshold = 0.1
 
 
-# # virunga garamba
-gt_json_path = '/home/m32patel/projects/rrg-dclausi/wildlife/datasets/Virunga_Garamba/groundtruth/json/big_size/test_big_size_A_B_E_K_WH_WB_grounded.json'
-# pred_json_path = '/home/m32patel/projects/def-dclausi/whale/mmwhale2/work_dir_grounding_dino/finetune/virunga_garamba/prediction_mm_grounding_dino_finetune_test.bbox.json'
-pred_json_path = '/home/m32patel/projects/def-dclausi/whale/mmwhale2/work_dir_grounding_dino/Virunga_garamba_dataset/prediction_mm_grounding_dino_nocaption.bbox.json'
+# # # virunga garamba
+# gt_json_path = '/home/m32patel/projects/rrg-dclausi/wildlife/datasets/Virunga_Garamba/groundtruth/json/big_size/test_big_size_A_B_E_K_WH_WB_grounded.json'
+# # pred_json_path = '/home/m32patel/projects/def-dclausi/whale/mmwhale2/work_dir_grounding_dino/finetune/virunga_garamba/prediction_mm_grounding_dino_finetune_test.bbox.json'
+# pred_json_path = '/home/m32patel/projects/def-dclausi/whale/mmwhale2/work_dir_grounding_dino/Virunga_garamba_dataset/prediction_mm_grounding_dino_nocaption.bbox.json'
 
-img_folder = '/home/m32patel/projects/rrg-dclausi/wildlife/datasets/Virunga_Garamba/test'
-save_folder = "/home/m32patel/projects/def-dclausi/whale/mmwhale2/result_viz/Virunga_Garamba/nocaption/"
-# save_folder = "/home/m32patel/projects/def-dclausi/whale/mmwhale2/result_viz/Virunga_Garamba/nocaption_finetune/"
-score_threshold = 0.1
+# img_folder = '/home/m32patel/projects/rrg-dclausi/wildlife/datasets/Virunga_Garamba/test'
+# save_folder = "/home/m32patel/projects/def-dclausi/whale/mmwhale2/result_viz/Virunga_Garamba/nocaption/"
+# # save_folder = "/home/m32patel/projects/def-dclausi/whale/mmwhale2/result_viz/Virunga_Garamba/nocaption_finetune/"
+# score_threshold = 0.1
 
 
 # /home/m32patel/projects/rrg-dclausi/wildlife/datasets/Aerial-livestock-dataset/test/120.jpg
 # For single image
 # plot_coco_image(gt_json_path, pred_json_path, img_folder, save_folder, mode='file', image_name='120.jpg', score_threshold=score_threshold, iou_threshold=0.1, show_text=True)
 
-# # # For all images
-# analyze_coco_and_predictions(gt_json_path, pred_json_path, score_threshold)
-plot_coco_image(gt_json_path, pred_json_path, img_folder, save_folder, mode='all', score_threshold=score_threshold, iou_threshold=0.5, show_text=True, plot_images=False)
+
+# zero shot
+gt_json_paths = [
+    '/home/m32patel/projects/rrg-dclausi/whale/dataset/2023_Survey_DFO/Elements/DFO_2023_Survey_annotation/High_Arctic_Survey/Plane1/corrected_tasks/coco_iter12345_val.json',
+    # '/home/m32patel/projects/rrg-dclausi/wildlife/datasets/Eikelboom/test/test.json',
+    # '/home/m32patel/projects/rrg-dclausi/wildlife/datasets/Aerial-livestock-dataset/test/test.json',
+    # '/home/m32patel/projects/rrg-dclausi/wildlife/datasets/birds_michigan/test.json',
+    # '/home/m32patel/projects/def-dclausi/whale/merged/test/test_ES_2016.json',
+    # '/home/m32patel/projects/rrg-dclausi/wildlife/datasets/NOAA_arctic_seals/test.json',
+    # '/home/m32patel/projects/rrg-dclausi/wildlife/datasets/birds_penguins/test.json',
+    # '/home/m32patel/projects/rrg-dclausi/wildlife/datasets/polar_bear_annotated/test_15.json',
+    # '/home/m32patel/projects/rrg-dclausi/wildlife/datasets/birds_terns_(Already_processed_Hayes)/test.json',
+    # '/home/m32patel/projects/rrg-dclausi/wildlife/datasets/WAID/test/test.json'
+    ]
+pred_json_paths =[
+        '/home/m32patel/projects/def-dclausi/whale/mmwhale2/work_dir_grounding_dino/DFO_Whale23/prediction_mm_grounding_dino_nocaption_new_split.bbox.json',
+        # '/home/m32patel/projects/def-dclausi/whale/mmwhale2/work_dir_grounding_dino/Eikelboom_dataset/prediction_mm_grounding_dino_nocaption_new_split.bbox.json',
+        # '/home/m32patel/projects/def-dclausi/whale/mmwhale2/work_dir_grounding_dino/aerial_livestock_dataset/prediction_mm_grounding_dino_nocaption_new_split.bbox.json',
+        # '/home/m32patel/projects/def-dclausi/whale/mmwhale2/work_dir_grounding_dino/michigan_od_dataset/prediction_mm_grounding_dino_nocaption_new_split.bbox.json',
+        # '/home/m32patel/projects/def-dclausi/whale/mmwhale2/work_dir_grounding_dino/Narwhal_2016_dataset/prediction_mm_grounding_dino_nocaption_new_split.bbox.json',
+        # '/home/m32patel/projects/def-dclausi/whale/mmwhale2/work_dir_grounding_dino/NOAA_artic_seal_dataset/prediction_mm_grounding_dino_nocaption_new_split.bbox.json',
+        # '/home/m32patel/projects/def-dclausi/whale/mmwhale2/work_dir_grounding_dino/penguins_od_dataset/prediction_mm_grounding_dino_nocaption_new_split.bbox.json',
+        # '/home/m32patel/projects/def-dclausi/whale/mmwhale2/work_dir_grounding_dino/polar_bear/prediction_mm_grounding_dino_nocaption_new_split.bbox.json',
+        # '/home/m32patel/projects/def-dclausi/whale/mmwhale2/work_dir_grounding_dino/tern_bioarxiv/prediction_mm_grounding_dino_nocaption_new_split.bbox.json',
+        # '/home/m32patel/projects/def-dclausi/whale/mmwhale2/work_dir_grounding_dino/WAID_livestock_dataset/prediction_mm_grounding_dino_nocaption_new_split.bbox.json'
+                ]
+
+img_folders = [
+    # '',
+    '/home/m32patel/projects/rrg-dclausi/wildlife/datasets/Eikelboom/test/',
+    # '/home/m32patel/projects/rrg-dclausi/wildlife/datasets/Aerial-livestock-dataset/test/',
+    # '/home/m32patel/projects/rrg-dclausi/wildlife/datasets/birds_michigan/',
+    # '/home/m32patel/projects/def-dclausi/whale/merged/test/',
+    # '/home/m32patel/projects/rrg-dclausi/wildlife/datasets/NOAA_arctic_seals/',
+    # '/home/m32patel/projects/rrg-dclausi/wildlife/datasets/birds_penguins/',
+    # '/home/m32patel/projects/rrg-dclausi/wildlife/datasets/polar_bear_annotated/',
+    # '/home/m32patel/projects/rrg-dclausi/wildlife/datasets/birds_terns_(Already_processed_Hayes)/',
+    # '/home/m32patel/projects/rrg-dclausi/wildlife/datasets/WAID/test/'
+    ]
+save_folders = [
+    # DFOW 23
+    "/home/m32patel/projects/def-dclausi/whale/mmwhale2/tp_fp_comparision/Eikelboom",
+    # "/home/m32patel/projects/def-dclausi/whale/mmwhale2/tp_fp_comparision/Aerial-livestock-dataset",
+    # "/home/m32patel/projects/def-dclausi/whale/mmwhale2/tp_fp_comparision/birds_michigan",
+    # "/home/m32patel/projects/def-dclausi/whale/mmwhale2/tp_fp_comparision/whale",
+    # "/home/m32patel/projects/def-dclausi/whale/mmwhale2/tp_fp_comparision/NOAA_arctic_seals",
+    # "/home/m32patel/projects/def-dclausi/whale/mmwhale2/tp_fp_comparision/birds_penguins",
+    # "/home/m32patel/projects/def-dclausi/whale/mmwhale2/tp_fp_comparision/polar_bear_annotated",
+    # "/home/m32patel/projects/def-dclausi/whale/mmwhale2/tp_fp_comparision/birds_terns_(Already_processed_Hayes)",
+    # "/home/m32patel/projects/def-dclausi/whale/mmwhale2/tp_fp_comparision/WAID"
+]
+score_threshold = 0.1
+suffix='zero_shot'
+
+# # fine tune
+# gt_json_paths = [
+#     '/home/m32patel/projects/rrg-dclausi/whale/dataset/2023_Survey_DFO/Elements/DFO_2023_Survey_annotation/High_Arctic_Survey/Plane1/corrected_tasks/coco_iter12345_val.json',
+#     '/home/m32patel/projects/rrg-dclausi/wildlife/datasets/Eikelboom/test/test.json',
+#     '/home/m32patel/projects/rrg-dclausi/wildlife/datasets/Aerial-livestock-dataset/test/test.json',
+#     '/home/m32patel/projects/rrg-dclausi/wildlife/datasets/birds_michigan/test.json',
+#     '/home/m32patel/projects/def-dclausi/whale/merged/test/test_ES_2016.json',
+#     '/home/m32patel/projects/rrg-dclausi/wildlife/datasets/NOAA_arctic_seals/test.json',
+#     '/home/m32patel/projects/rrg-dclausi/wildlife/datasets/birds_penguins/test.json',
+#     '/home/m32patel/projects/rrg-dclausi/wildlife/datasets/polar_bear_annotated/test_15.json',
+#     '/home/m32patel/projects/rrg-dclausi/wildlife/datasets/birds_terns_(Already_processed_Hayes)/test.json',
+#     '/home/m32patel/projects/rrg-dclausi/wildlife/datasets/WAID/test/test.json'
+#     ]
+
+# pred_json_paths =[
+#         '/home/m32patel/projects/def-dclausi/whale/mmwhale2/work_dir_grounding_dino/finetune/DFO_whale_23/prediction_mm_grounding_dino_finetune_val.bbox.json',
+#         '/home/m32patel/projects/def-dclausi/whale/mmwhale2/work_dir_grounding_dino/finetune_no_caption_new_split/Eikelboom_dataset/prediction_mm_grounding_dino_finetune_test.bbox.json',
+#         '/home/m32patel/projects/def-dclausi/whale/mmwhale2/work_dir_grounding_dino/finetune_no_caption_new_split/Han_aerial_livestock_dataset/prediction_mm_grounding_dino_finetune_val.bbox.json',
+#         '/home/m32patel/projects/def-dclausi/whale/mmwhale2/work_dir_grounding_dino/finetune_no_caption_new_split/michigan_od_dataset/prediction_mm_grounding_dino_finetune_test.bbox.json',
+#         '/home/m32patel/projects/def-dclausi/whale/mmwhale2/work_dir_grounding_dino/finetune/Narwhal_2016_dataset/prediction_mm_grounding_dino_finetune_val.bbox.json',
+#         '/home/m32patel/projects/def-dclausi/whale/mmwhale2/work_dir_grounding_dino/finetune_no_caption_new_split/NOAA_arctic_seal_dataset/prediction_mm_grounding_dino_finetune_val.bbox.json',
+#         '/home/m32patel/projects/def-dclausi/whale/mmwhale2/work_dir_grounding_dino/finetune_no_caption_new_split/penguins_od_finetune/prediction_mm_grounding_dino_finetune_test.bbox.json',
+#         '/home/m32patel/projects/def-dclausi/whale/mmwhale2/work_dir_grounding_dino/finetune/polar_bear_finetune/prediction_mm_grounding_dino_finetune_val.bbox.json',
+#         '/home/m32patel/projects/def-dclausi/whale/mmwhale2/work_dir_grounding_dino/finetune_no_caption_new_split/tern_bioarxiv/prediction_mm_grounding_dino_finetune_test.bbox.json',
+#         '/home/m32patel/projects/def-dclausi/whale/mmwhale2/work_dir_grounding_dino/finetune_no_caption_new_split/WAID_livestock_dataset/prediction_mm_grounding_dino_finetune_test.bbox.json'
+#                 ]
+
+# img_folders = [
+#     '',
+#     '/home/m32patel/projects/rrg-dclausi/wildlife/datasets/Eikelboom/test/',
+#     '/home/m32patel/projects/rrg-dclausi/wildlife/datasets/Aerial-livestock-dataset/test/',
+#     '/home/m32patel/projects/rrg-dclausi/wildlife/datasets/birds_michigan/',
+#     '/home/m32patel/projects/def-dclausi/whale/merged/test/',
+#     '/home/m32patel/projects/rrg-dclausi/wildlife/datasets/NOAA_arctic_seals/',
+#     '/home/m32patel/projects/rrg-dclausi/wildlife/datasets/birds_penguins/',
+#     '/home/m32patel/projects/rrg-dclausi/wildlife/datasets/polar_bear_annotated/',
+#     '/home/m32patel/projects/rrg-dclausi/wildlife/datasets/birds_terns_(Already_processed_Hayes)/',
+#     '/home/m32patel/projects/rrg-dclausi/wildlife/datasets/WAID/test/'
+#     ]
+# save_folders = [
+#     "/home/m32patel/projects/def-dclausi/whale/mmwhale2/tp_fp_comparision/DFO_whale_23",
+#     "/home/m32patel/projects/def-dclausi/whale/mmwhale2/tp_fp_comparision/Eikelboom",
+#     "/home/m32patel/projects/def-dclausi/whale/mmwhale2/tp_fp_comparision/Aerial-livestock-dataset",
+#     "/home/m32patel/projects/def-dclausi/whale/mmwhale2/tp_fp_comparision/birds_michigan",
+#     "/home/m32patel/projects/def-dclausi/whale/mmwhale2/tp_fp_comparision/whale",
+#     "/home/m32patel/projects/def-dclausi/whale/mmwhale2/tp_fp_comparision/NOAA_arctic_seals",
+#     "/home/m32patel/projects/def-dclausi/whale/mmwhale2/tp_fp_comparision/birds_penguins",
+#     "/home/m32patel/projects/def-dclausi/whale/mmwhale2/tp_fp_comparision/polar_bear_annotated",
+#     "/home/m32patel/projects/def-dclausi/whale/mmwhale2/tp_fp_comparision/birds_terns_(Already_processed_Hayes)",
+#     "/home/m32patel/projects/def-dclausi/whale/mmwhale2/tp_fp_comparision/WAID"
+# ]
+score_threshold = 0.1
+suffix='finetune'
+
+for gt_json_path,pred_json_path,img_folder,save_folder in zip(gt_json_paths,pred_json_paths,img_folders,save_folders):
+    # # # For all images
+    # analyze_coco_and_predictions(gt_json_path, pred_json_path, score_threshold,suffix)
+    plot_coco_image(gt_json_path, pred_json_path, img_folder, save_folder, mode='all', score_threshold=score_threshold, iou_threshold=0.5, show_text=True, plot_images=False,suffix=suffix)

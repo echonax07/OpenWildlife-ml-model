@@ -159,7 +159,7 @@ def load(file):
 
 def plot_confusion_matrix(gt_path, prediction_path, threshold_iou=0.5):
     threshold_iou = threshold_iou
-    score_threshold = 0
+    score_threshold = 0.05
     bbox_difference_threshold = 10000
     prepared_coco_in_dict = load(gt_path)
     prepared_anns = load(prediction_path)
@@ -179,12 +179,12 @@ def plot_confusion_matrix(gt_path, prediction_path, threshold_iou=0.5):
         cocoDt = cocoGt.loadRes(prepared_anns)
         cur = Curves(cocoGt, cocoDt, iou_tresh=threshold_iou, iouType='bbox', useCats=False)
         fig, recall, precision, scores, names = cur.plot_pre_rec(
-            plotly_backend=True)
+            plotly_backend=False)
     # cur.display_matrix(score_threshold=score_threshold)
         return len(prepared_anns), cur, recall, precision, scores, names
 
 threshold_iou = 0.5
-bbox_distance_threshold = 20
+bbox_distance_threshold = 200
 GT_json = [
     # '/home/m32patel/projects/rrg-dclausi/wildlife/datasets/Aerial_Seabirds_West_Africa/test.json',
     # '/home/m32patel/projects/rrg-dclausi/wildlife/datasets/birds_terns_(Already_processed_Hayes)/test.json'
@@ -211,7 +211,7 @@ GT_json = [
     # '/home/m32patel/projects/def-dclausi/whale/merged/test/test_2017.json',
     # '/home/m32patel/projects/rrg-dclausi/wildlife/datasets/SAVMAP_test/images/coco_split_val.json',
     # '/home/m32patel/projects/rrg-dclausi/wildlife/datasets/polar_bear_annotated/test_15.json',
-    '/home/m32patel/projects/rrg-dclausi/wildlife/datasets/Virunga_Garamba/groundtruth/json/big_size/test_big_size_A_B_E_K_WH_WB_grounded.json',
+    # '/home/m32patel/projects/rrg-dclausi/wildlife/datasets/Virunga_Garamba/groundtruth/json/big_size/test_big_size_A_B_E_K_WH_WB_grounded.json',
     # '/home/m32patel/projects/rrg-dclausi/whale/dataset/2023_Survey_DFO/Elements/DFO_2023_Survey_annotation/High_Arctic_Survey/Plane1/corrected_tasks/coco_iter12345_val.json'
     # '/home/m32patel/projects/rrg-dclausi/whale/dataset/2023_Survey_DFO/Elements/DFO_2023_Survey_annotation/High_Arctic_Survey/Plane1/corrected_tasks/mscoco_completed_test_iter1.json',
     #  '/home/m32patel/projects/rrg-dclausi/whale/dataset/2023_Survey_DFO/Elements/DFO_2023_Survey_annotation/High_Arctic_Survey/Plane1/corrected_tasks/mscoco_completed_test_iter2.json',
@@ -222,41 +222,139 @@ GT_json = [
     # '/home/m32patel/projects/rrg-dclausi/wildlife/datasets/Aerial_Seabirds_West_Africa/test.json',
 ]
 
-# # List of prediction JSON file paths
-pred_json = [
-    # "/home/m32patel/projects/def-dclausi/whale/mmwhale2/work_dir_grounding_dino/AED_dataset/prediction_mm_grounding_dino_nocaption.bbox.json",
-#     "/home/m32patel/projects/def-dclausi/whale/mmwhale2/work_dir_grounding_dino/Aerial_seabird_westafrica_od_dataset/prediction_mm_grounding_dino_nocaption.bbox.json",
-#     "/home/m32patel/projects/def-dclausi/whale/mmwhale2/work_dir_grounding_dino/aerial_livestock_dataset/prediction_mm_grounding_dino_nocaption.bbox.json",
-#     # "/home/m32patel/projects/def-dclausi/whale/mmwhale2/work_dir_grounding_dino/birds_izembek_lagoon_od_dataset/prediction_mm_grounding_dino_nocaption.bbox.json",
-#     "/home/m32patel/projects/def-dclausi/whale/mmwhale2/work_dir_grounding_dino/michigan_od_dataset/prediction_mm_grounding_dino_nocaption.bbox.json",
-#     "/home/m32patel/projects/def-dclausi/whale/mmwhale2/work_dir_grounding_dino/monash_od_dataset/prediction_mm_grounding_dino_nocaption.bbox.json",
-#     "/home/m32patel/projects/def-dclausi/whale/mmwhale2/work_dir_grounding_dino/new_mexico_od_dataset/prediction_mm_grounding_dino_nocaption.bbox.json",
-    # "/home/m32patel/projects/def-dclausi/whale/mmwhale2/work_dir_grounding_dino/palmyra_od_dataset/prediction_mm_grounding_dino_nocaption.bbox.json",
-    # "/home/m32patel/projects/def-dclausi/whale/mmwhale2/work_dir_grounding_dino/penguins_od_dataset/prediction_mm_grounding_dino_nocaption.bbox.json",
-#     "/home/m32patel/projects/def-dclausi/whale/mmwhale2/work_dir_grounding_dino/pfeifer_od_dataset/prediction_mm_grounding_dino_nocaption.bbox.json",
-#     "/home/m32patel/projects/def-dclausi/whale/mmwhale2/work_dir_grounding_dino/seabirdwatch_od_dataset/prediction_mm_grounding_dino_nocaption.bbox.json",
-#     "/home/m32patel/projects/def-dclausi/whale/mmwhale2/work_dir_grounding_dino/qian_od_dataset/prediction_mm_grounding_dino_nocaption.bbox.json",
-    # "/home/m32patel/projects/def-dclausi/whale/mmwhale2/work_dir_grounding_dino/WAID_livestock_dataset/prediction_mm_grounding_dino_nocaption.bbox.json",
-    # "/home/m32patel/projects/def-dclausi/whale/mmwhale2/work_dir_grounding_dino/Eikelboom_dataset/prediction_mm_grounding_dino_nocaption.bbox.json",
-#     "/home/m32patel/projects/def-dclausi/whale/mmwhale2/work_dir_grounding_dino/NOAA_sealion_dataset/prediction_mm_grounding_dino_nocaption.bbox.json",
-#     "/home/m32patel/projects/def-dclausi/whale/mmwhale2/work_dir_grounding_dino/turtle_dataset/prediction_mm_grounding_dino_nocaption.bbox.json",
-#     "/home/m32patel/projects/def-dclausi/whale/mmwhale2/work_dir_grounding_dino/NOAA_artic_seal_dataset/prediction_mm_grounding_dino_nocaption.bbox.json",
-#     "/home/m32patel/projects/def-dclausi/whale/mmwhale2/work_dir_grounding_dino/Beluga_2014_dataset/prediction_mm_grounding_dino_nocaption.bbox.json",  # whale data based on year
-#     "/home/m32patel/projects/def-dclausi/whale/mmwhale2/work_dir_grounding_dino/Beluga_2015_dataset/prediction_mm_grounding_dino_nocaption.bbox.json",
-#     "/home/m32patel/projects/def-dclausi/whale/mmwhale2/work_dir_grounding_dino/Narwhal_2016_dataset/prediction_mm_grounding_dino_nocaption.bbox.json",
-    # "/home/m32patel/projects/def-dclausi/whale/mmwhale2/work_dir_grounding_dino/Beluga_2017_dataset/prediction_mm_grounding_dino_nocaption.bbox.json",
-    # "/home/m32patel/projects/def-dclausi/whale/mmwhale2/work_dir_grounding_dino/SAVMAP/prediction_mm_grounding_dino_nocaption.bbox.json",
-    # "/home/m32patel/projects/def-dclausi/whale/mmwhale2/work_dir_grounding_dino/polar_bear/prediction_mm_grounding_dino_nocaption.bbox.json",
-    # "/home/m32patel/projects/def-dclausi/whale/mmwhale2/work_dir_grounding_dino/Virunga_garamba_dataset/prediction_mm_grounding_dino_nocaption.bbox.json",
-    # '/home/m32patel/projects/def-dclausi/whale/mmwhale2/work_dir_grounding_dino/DFO_Whale23/prediction_mm_grounding_dino_nocaption.bbox.json'
-# '/home/m32patel/projects/def-dclausi/whale/mmwhale2/work_dir_grounding_dino/finetune/penguins_od_finetune/prediction_mm_grounding_dino_finetune_test.bbox.json'
-# '/home/m32patel/projects/def-dclausi/whale/mmwhale2/work_dir_grounding_dino/finetune/SAVMAP/prediction_mm_grounding_dino_finetune_val.bbox.json'
-    # "/home/m32patel/projects/def-dclausi/whale/mmwhale2/work_dir_grounding_dino/Aerial_seabird_westafrica_od_dataset/prediction_mm_grounding_dino_nocaption.bbox.json",
-    # '/home/m32patel/projects/def-dclausi/whale/mmwhale2/work_dir_grounding_dino/finetune/tern_finetune/prediction_mm_grounding_dino_finetune_val.bbox.json'
-    # '/lustre06/project/6075102/whale/mmwhale2/work_dir_grounding_dino/palmyra_od_dataset/prediction_mm_grounding_dino_nocaption.bbox.json'
-    '/home/m32patel/projects/def-dclausi/whale/mmwhale2/work_dir_grounding_dino/finetune/virunga_garamba/prediction_mm_grounding_dino_finetune_test.bbox.json'
+GT_json = [
+    '/home/m32patel/projects/rrg-dclausi/wildlife/datasets/birds_terns_(Already_processed_Hayes)/test.json',
+    '/home/m32patel/projects/rrg-dclausi/wildlife/datasets/AED/test.json',
+    '/home/m32patel/projects/rrg-dclausi/wildlife/datasets/Aerial-livestock-dataset/test/test.json',
+    '/home/m32patel/projects/rrg-dclausi/wildlife/datasets/birds_Izembek_Lagoon_Waterfowl/test.json',
+    '/home/m32patel/projects/rrg-dclausi/wildlife/datasets/birds_michigan/test.json',
+    '/home/m32patel/projects/rrg-dclausi/wildlife/datasets/birds_monash/test.json',
+    '/home/m32patel/projects/rrg-dclausi/wildlife/datasets/birds_newmexico/test.json',
+    '/home/m32patel/projects/rrg-dclausi/wildlife/datasets/birds_palmyra/test.json',
+    '/home/m32patel/projects/rrg-dclausi/wildlife/datasets/birds_penguins/test.json',
+    '/home/m32patel/projects/rrg-dclausi/wildlife/datasets/birds_pfeifer/test.json',
+    '/home/m32patel/projects/rrg-dclausi/wildlife/datasets/birds_seabirdwatch/test.json',
+    '/home/m32patel/projects/rrg-dclausi/wildlife/datasets/birds_qian_penguin/test.json',
+    '/home/m32patel/projects/rrg-dclausi/wildlife/datasets/WAID/test/test.json',
+    '/home/m32patel/projects/rrg-dclausi/wildlife/datasets/Eikelboom/test.json',
+    '/home/m32patel/projects/rrg-dclausi/wildlife/datasets/NOAA_sea_lion_blackout/test.json',
+    '/home/m32patel/projects/rrg-dclausi/wildlife/datasets/turtle/test.json',
+    '/home/m32patel/projects/rrg-dclausi/wildlife/datasets/NOAA_arctic_seals/test.json',
+    '/home/m32patel/projects/def-dclausi/whale/merged/test/test_140.json',
+    '/home/m32patel/projects/def-dclausi/whale/merged/test/test_2015.json',
+    '/home/m32patel/projects/def-dclausi/whale/merged/test/test_ES_2016.json',
+    '/home/m32patel/projects/def-dclausi/whale/merged/test/test_2017.json',
+    '/home/m32patel/projects/rrg-dclausi/wildlife/datasets/SAVMAP_test/images/coco_split_val.json',
+    '/home/m32patel/projects/rrg-dclausi/wildlife/datasets/polar_bear_annotated/test_15.json',
+    '/home/m32patel/projects/rrg-dclausi/wildlife/datasets/Virunga_Garamba/groundtruth/json/big_size/test_big_size_A_B_E_K_WH_WB_grounded.json',
+    '/home/m32patel/projects/rrg-dclausi/whale/dataset/2023_Survey_DFO/Elements/DFO_2023_Survey_annotation/High_Arctic_Survey/Plane1/corrected_tasks/coco_iter12345_val.json'
+    # '/home/m32patel/projects/rrg-dclausi/whale/dataset/2023_Survey_DFO/Elements/DFO_2023_Survey_annotation/High_Arctic_Survey/Plane1/corrected_tasks/mscoco_completed_test_iter1.json',
+    #  '/home/m32patel/projects/rrg-dclausi/whale/dataset/2023_Survey_DFO/Elements/DFO_2023_Survey_annotation/High_Arctic_Survey/Plane1/corrected_tasks/mscoco_completed_test_iter2.json',
+    #   '/home/m32patel/projects/rrg-dclausi/whale/dataset/2023_Survey_DFO/Elements/DFO_2023_Survey_annotation/High_Arctic_Survey/Plane1/corrected_tasks/mscoco_completed_test_iter3.json',
+    #    '/home/m32patel/projects/rrg-dclausi/whale/dataset/2023_Survey_DFO/Elements/DFO_2023_Survey_annotation/High_Arctic_Survey/Plane1/corrected_tasks/mscoco_completed_test_iter4.json',
+    #     '/home/m32patel/projects/rrg-dclausi/whale/dataset/2023_Survey_DFO/Elements/DFO_2023_Survey_annotation/High_Arctic_Survey/Plane1/corrected_tasks/mscoco_completed_test_iter5.json',
+    #     '/home/m32patel/projects/rrg-dclausi/whale/dataset/2023_Survey_DFO/Elements/DFO_2023_Survey_annotation/High_Arctic_Survey/Plane1/corrected_tasks/mscoco_completed_test_iter6.json',
+    # '/home/m32patel/projects/rrg-dclausi/wildlife/datasets/Aerial_Seabirds_West_Africa/test.json',
 ]
 
+# Elephant - OW Keyword Bert
+# GT_json = ['/home/m32patel/projects/rrg-dclausi/wildlife/datasets/AED/test.json',]
+# pred_json = ["/home/m32patel/projects/def-dclausi/whale/mmwhale2/work_dir_grounding_dino/AED_dataset/prediction_mm_grounding_dino_nocaption_new_split.bbox.json"]
+
+
+# Finetune on zero-training data - OW Keyword - Bert
+GT_json = [
+        # '/home/m32patel/projects/rrg-dclausi/whale/dataset/2023_Survey_DFO/Elements/DFO_2023_Survey_annotation/High_Arctic_Survey/Plane1/corrected_tasks/coco_iter12345.json',
+    # '/home/m32patel/projects/rrg-dclausi/wildlife/datasets/Eikelboom/test/test.json',
+    # '/home/m32patel/projects/rrg-dclausi/wildlife/datasets/Aerial-livestock-dataset/test/test.json',
+    '/home/m32patel/projects/rrg-dclausi/wildlife/datasets/birds_michigan/test.json',
+    # '/home/m32patel/projects/def-dclausi/whale/merged/test/test_ES_2016.json',
+    '/home/m32patel/projects/rrg-dclausi/wildlife/datasets/NOAA_arctic_seals/test.json',
+    # '/home/m32patel/projects/rrg-dclausi/wildlife/datasets/birds_penguins/test.json',
+    # '/home/m32patel/projects/rrg-dclausi/wildlife/datasets/polar_bear_annotated/test_15.json',
+    '/home/m32patel/projects/rrg-dclausi/wildlife/datasets/birds_terns_(Already_processed_Hayes)/test.json',
+    # '/home/m32patel/projects/rrg-dclausi/wildlife/datasets/WAID/test/test.json'
+]
+
+pred_json = [
+            # DFOW23
+        # '/home/m32patel/projects/def-dclausi/whale/mmwhale2/work_dir_grounding_dino/Eikelboom_dataset/prediction_mm_grounding_dino_nocaption_new_split.bbox.json',
+        # '/home/m32patel/projects/def-dclausi/whale/mmwhale2/work_dir_grounding_dino/aerial_livestock_dataset/prediction_mm_grounding_dino_nocaption_new_split.bbox.json',
+        '/home/m32patel/projects/def-dclausi/whale/mmwhale2/work_dir_grounding_dino/finetune_no_caption_new_split/michigan_od_dataset/prediction_mm_grounding_dino_finetune_test.bbox.json',
+        # '/home/m32patel/projects/def-dclausi/whale/mmwhale2/work_dir_grounding_dino/Narwhal_2016_dataset/prediction_mm_grounding_dino_nocaption_new_split.bbox.json',
+        '/home/m32patel/projects/def-dclausi/whale/mmwhale2/work_dir_grounding_dino/finetune_no_caption_new_split/NOAA_arctic_seal_dataset/prediction_mm_grounding_dino_finetune_val.bbox.json',
+        # '/home/m32patel/projects/def-dclausi/whale/mmwhale2/work_dir_grounding_dino/penguins_od_dataset/prediction_mm_grounding_dino_nocaption_new_split.bbox.json',
+        # '/home/m32patel/projects/def-dclausi/whale/mmwhale2/work_dir_grounding_dino/polar_bear/prediction_mm_grounding_dino_nocaption_new_split.bbox.json',
+        '/home/m32patel/projects/def-dclausi/whale/mmwhale2/work_dir_grounding_dino/finetune_no_caption_new_split/tern_bioarxiv/prediction_mm_grounding_dino_finetune_test.bbox.json',
+        # '/home/m32patel/projects/def-dclausi/whale/mmwhale2/work_dir_grounding_dino/WAID_livestock_dataset/prediction_mm_grounding_dino_nocaption_new_split.bbox.json'
+]
+
+# ## OW Keyword BERT
+# pred_json = [
+#     "/home/m32patel/projects/def-dclausi/whale/mmwhale2/work_dirs/tern_bioarxiv/prediction_mm_grounding_dino_nocaption_new_split.bbox.json",
+#     "/home/m32patel/projects/def-dclausi/whale/mmwhale2/work_dir_grounding_dino/AED_dataset/,prediction_mm_grounding_dino_nocaption_new_split.bbox.json",
+#     "/home/m32patel/projects/def-dclausi/whale/mmwhale2/work_dir_grounding_dino/aerial_livestock_dataset/prediction_mm_grounding_dino_nocaption_new_split.bbox.json",
+#     "/home/m32patel/projects/def-dclausi/whale/mmwhale2/work_dir_grounding_dino/birds_izembek_lagoon_od_dataset/prediction_mm_grounding_dino_nocaption_new_split.bbox.json",
+#     "/home/m32patel/projects/def-dclausi/whale/mmwhale2/work_dir_grounding_dino/michigan_od_dataset/prediction_mm_grounding_dino_nocaption_new_split.bbox.json",
+#     "/home/m32patel/projects/def-dclausi/whale/mmwhale2/work_dir_grounding_dino/monash_od_dataset/prediction_mm_grounding_dino_nocaption_new_split.bbox.json",
+#     "/home/m32patel/projects/def-dclausi/whale/mmwhale2/work_dir_grounding_dino/new_mexico_od_dataset/prediction_mm_grounding_dino_nocaption_new_split.bbox.json",
+#     "/home/m32patel/projects/def-dclausi/whale/mmwhale2/work_dir_grounding_dino/palmyra_od_dataset/prediction_mm_grounding_dino_nocaption_new_split.bbox.json",
+#     "/home/m32patel/projects/def-dclausi/whale/mmwhale2/work_dir_grounding_dino/penguins_od_dataset/prediction_mm_grounding_dino_nocaption_new_split.bbox.json",
+#     "/home/m32patel/projects/def-dclausi/whale/mmwhale2/work_dir_grounding_dino/pfeifer_od_dataset/prediction_mm_grounding_dino_nocaption_new_split.bbox.json",
+#     "/home/m32patel/projects/def-dclausi/whale/mmwhale2/work_dir_grounding_dino/seabirdwatch_od_dataset/prediction_mm_grounding_dino_nocaption_new_split.bbox.json",
+#     "/home/m32patel/projects/def-dclausi/whale/mmwhale2/work_dir_grounding_dino/qian_od_dataset/prediction_mm_grounding_dino_nocaption_new_split.bbox.json",
+#     "/home/m32patel/projects/def-dclausi/whale/mmwhale2/work_dir_grounding_dino/WAID_livestock_dataset/prediction_mm_grounding_dino_nocaption_new_split.bbox.json",
+#     "/home/m32patel/projects/def-dclausi/whale/mmwhale2/work_dir_grounding_dino/Eikelboom_dataset/prediction_mm_grounding_dino_nocaption_new_split.bbox.json",
+#     "/home/m32patel/projects/def-dclausi/whale/mmwhale2/work_dir_grounding_dino/NOAA_sealion_dataset/prediction_mm_grounding_dino_nocaption_new_split.bbox.json",
+#     "/home/m32patel/projects/def-dclausi/whale/mmwhale2/work_dir_grounding_dino/turtle_dataset/prediction_mm_grounding_dino_nocaption_new_split.bbox.json",
+#     "/home/m32patel/projects/def-dclausi/whale/mmwhale2/work_dir_grounding_dino/NOAA_artic_seal_dataset/prediction_mm_grounding_dino_nocaption_new_split.bbox.json",
+#     "/home/m32patel/projects/def-dclausi/whale/mmwhale2/work_dir_grounding_dino/Beluga_2014_dataset/prediction_mm_grounding_dino_nocaption_new_split.bbox.json",
+#     "/home/m32patel/projects/def-dclausi/whale/mmwhale2/work_dir_grounding_dino/Beluga_2015_dataset/prediction_mm_grounding_dino_nocaption_new_split.bbox.json",
+#     "/home/m32patel/projects/def-dclausi/whale/mmwhale2/work_dir_grounding_dino/Narwhal_2016_dataset/prediction_mm_grounding_dino_nocaption_new_split.bbox.json",
+#     "/home/m32patel/projects/def-dclausi/whale/mmwhale2/work_dir_grounding_dino/Beluga_2017_dataset/prediction_mm_grounding_dino_nocaption_new_split.bbox.json",
+#     "/home/m32patel/projects/def-dclausi/whale/mmwhale2/work_dir_grounding_dino/SAVMAP/prediction_mm_grounding_dino_nocaption_new_split.bbox.json",
+#     "/home/m32patel/projects/def-dclausi/whale/mmwhale2/work_dir_grounding_dino/polar_bear/prediction_mm_grounding_dino_nocaption_new_split.bbox.json",
+#     "/home/m32patel/projects/def-dclausi/whale/mmwhale2/work_dir_grounding_dino/Virunga_garamba_dataset/prediction_mm_grounding_dino_nocaption_new_split.bbox.json",
+#     # ADD DFOW whale 23 pred file here
+    
+# ]
+
+
+
+# # # List of prediction JSON file paths
+# pred_json = [
+#     # "/home/m32patel/projects/def-dclausi/whale/mmwhale2/work_dir_grounding_dino/AED_dataset/prediction_mm_grounding_dino_nocaption.bbox.json",
+# #     "/home/m32patel/projects/def-dclausi/whale/mmwhale2/work_dir_grounding_dino/Aerial_seabird_westafrica_od_dataset/prediction_mm_grounding_dino_nocaption.bbox.json",
+# #     "/home/m32patel/projects/def-dclausi/whale/mmwhale2/work_dir_grounding_dino/aerial_livestock_dataset/prediction_mm_grounding_dino_nocaption.bbox.json",
+# #     # "/home/m32patel/projects/def-dclausi/whale/mmwhale2/work_dir_grounding_dino/birds_izembek_lagoon_od_dataset/prediction_mm_grounding_dino_nocaption.bbox.json",
+# #     "/home/m32patel/projects/def-dclausi/whale/mmwhale2/work_dir_grounding_dino/michigan_od_dataset/prediction_mm_grounding_dino_nocaption.bbox.json",
+# #     "/home/m32patel/projects/def-dclausi/whale/mmwhale2/work_dir_grounding_dino/monash_od_dataset/prediction_mm_grounding_dino_nocaption.bbox.json",
+# #     "/home/m32patel/projects/def-dclausi/whale/mmwhale2/work_dir_grounding_dino/new_mexico_od_dataset/prediction_mm_grounding_dino_nocaption.bbox.json",
+#     # "/home/m32patel/projects/def-dclausi/whale/mmwhale2/work_dir_grounding_dino/palmyra_od_dataset/prediction_mm_grounding_dino_nocaption.bbox.json",
+#     # "/home/m32patel/projects/def-dclausi/whale/mmwhale2/work_dir_grounding_dino/penguins_od_dataset/prediction_mm_grounding_dino_nocaption.bbox.json",
+# #     "/home/m32patel/projects/def-dclausi/whale/mmwhale2/work_dir_grounding_dino/pfeifer_od_dataset/prediction_mm_grounding_dino_nocaption.bbox.json",
+# #     "/home/m32patel/projects/def-dclausi/whale/mmwhale2/work_dir_grounding_dino/seabirdwatch_od_dataset/prediction_mm_grounding_dino_nocaption.bbox.json",
+# #     "/home/m32patel/projects/def-dclausi/whale/mmwhale2/work_dir_grounding_dino/qian_od_dataset/prediction_mm_grounding_dino_nocaption.bbox.json",
+#     # "/home/m32patel/projects/def-dclausi/whale/mmwhale2/work_dir_grounding_dino/WAID_livestock_dataset/prediction_mm_grounding_dino_nocaption.bbox.json",
+#     # "/home/m32patel/projects/def-dclausi/whale/mmwhale2/work_dir_grounding_dino/Eikelboom_dataset/prediction_mm_grounding_dino_nocaption.bbox.json",
+# #     "/home/m32patel/projects/def-dclausi/whale/mmwhale2/work_dir_grounding_dino/NOAA_sealion_dataset/prediction_mm_grounding_dino_nocaption.bbox.json",
+# #     "/home/m32patel/projects/def-dclausi/whale/mmwhale2/work_dir_grounding_dino/turtle_dataset/prediction_mm_grounding_dino_nocaption.bbox.json",
+# #     "/home/m32patel/projects/def-dclausi/whale/mmwhale2/work_dir_grounding_dino/NOAA_artic_seal_dataset/prediction_mm_grounding_dino_nocaption.bbox.json",
+# #     "/home/m32patel/projects/def-dclausi/whale/mmwhale2/work_dir_grounding_dino/Beluga_2014_dataset/prediction_mm_grounding_dino_nocaption.bbox.json",  # whale data based on year
+# #     "/home/m32patel/projects/def-dclausi/whale/mmwhale2/work_dir_grounding_dino/Beluga_2015_dataset/prediction_mm_grounding_dino_nocaption.bbox.json",
+# #     "/home/m32patel/projects/def-dclausi/whale/mmwhale2/work_dir_grounding_dino/Narwhal_2016_dataset/prediction_mm_grounding_dino_nocaption.bbox.json",
+#     # "/home/m32patel/projects/def-dclausi/whale/mmwhale2/work_dir_grounding_dino/Beluga_2017_dataset/prediction_mm_grounding_dino_nocaption.bbox.json",
+#     # "/home/m32patel/projects/def-dclausi/whale/mmwhale2/work_dir_grounding_dino/SAVMAP/prediction_mm_grounding_dino_nocaption.bbox.json",
+#     # "/home/m32patel/projects/def-dclausi/whale/mmwhale2/work_dir_grounding_dino/polar_bear/prediction_mm_grounding_dino_nocaption.bbox.json",
+#     # "/home/m32patel/projects/def-dclausi/whale/mmwhale2/work_dir_grounding_dino/Virunga_garamba_dataset/prediction_mm_grounding_dino_nocaption.bbox.json",
+#     # '/home/m32patel/projects/def-dclausi/whale/mmwhale2/work_dir_grounding_dino/DFO_Whale23/prediction_mm_grounding_dino_nocaption.bbox.json'
+# # '/home/m32patel/projects/def-dclausi/whale/mmwhale2/work_dir_grounding_dino/finetune/penguins_od_finetune/prediction_mm_grounding_dino_finetune_test.bbox.json'
+# # '/home/m32patel/projects/def-dclausi/whale/mmwhale2/work_dir_grounding_dino/finetune/SAVMAP/prediction_mm_grounding_dino_finetune_val.bbox.json'
+#     # "/home/m32patel/projects/def-dclausi/whale/mmwhale2/work_dir_grounding_dino/Aerial_seabird_westafrica_od_dataset/prediction_mm_grounding_dino_nocaption.bbox.json",
+#     # '/home/m32patel/projects/def-dclausi/whale/mmwhale2/work_dir_grounding_dino/finetune/tern_finetune/prediction_mm_grounding_dino_finetune_val.bbox.json'
+#     # '/lustre06/project/6075102/whale/mmwhale2/work_dir_grounding_dino/palmyra_od_dataset/prediction_mm_grounding_dino_nocaption.bbox.json'
+#     # '/home/m32patel/projects/def-dclausi/whale/mmwhale2/work_dir_grounding_dino/finetune/virunga_garamba/prediction_mm_grounding_dino_finetune_test.bbox.json'
+# ]
 
 # # List of prediction JSON file paths
 # pred_json = [
@@ -408,10 +506,10 @@ experiment_json = {
     "experiments": experiments
 }
 
-with open("/home/m32patel/projects/def-dclausi/whale/mmwhale2/result_viz/eider_duck.json", "w") as outfile:
+with open("/home/m32patel/projects/def-dclausi/whale/mmwhale2/result_viz/AED.json", "w") as outfile:
     json.dump(experiment_json, outfile)
-fig.write_image('pr_curve_plotly.png')
-fig.show()
+fig.write_image('AED.png')
 fig.write_html(
-    "/home/m32patel/projects/def-dclausi/whale/mmwhale2/result_viz/eider_duck.html")
+    "/home/m32patel/projects/def-dclausi/whale/mmwhale2/result_viz/AED.html")
+fig.show()
 print("file dumped sucessfully")

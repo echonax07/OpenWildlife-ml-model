@@ -2,7 +2,7 @@ import json
 from collections import defaultdict
 
 # Path to your COCO test file
-coco_test_file = "/home/m32patel/projects/rrg-dclausi/wildlife/datasets/birds_qian_penguin/test.json"
+coco_test_file = "/home/m32patel/projects/rrg-dclausi/wildlife/datasets/birds_terns_(Already_processed_Hayes)/train.json"
 
 # Load the COCO file
 with open(coco_test_file, "r") as file:
