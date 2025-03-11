@@ -109,8 +109,8 @@ class CLIPModel(BaseModel):
         tokenizer_input = {
             'input_ids': input_ids,
             'attention_mask': attention_mask,
-            # 'position_ids': position_ids,
-            'attention_mask_2d': tokenized.attention_mask
+            'position_ids': position_ids,
+            'attention_mask_2d': tokenized.attention_mask,
             # 'token_type_ids': token_type_ids
         }
         
@@ -164,13 +164,8 @@ class CLIPTextEncoder(nn.Module):
         #         output_hidden_states=True,
         #     )
             
-        # mask = x['attention_mask']
-        mask = x['attention_mask_2d']
-        
-        attention_mask_3d = (mask
-                                .unsqueeze(1)  # Add sequence dim
-                                .expand(-1, mask.size(1), -1)
-                                .bool())
+        # 3D attention mask
+        mask = x['attention_mask']
         
         outputs = self.model(
             input_ids=x['input_ids'],
@@ -186,7 +181,6 @@ class CLIPTextEncoder(nn.Module):
         
         # features = torch.stack(encoded_layers[-self.num_layers_of_embedded:],1).mean(1)
         # features = features / self.num_layers_of_embedded
-        
     
         # if mask.dim() == 2:
         #     embedded = features * mask.unsqueeze(-1).float()
@@ -196,7 +190,7 @@ class CLIPTextEncoder(nn.Module):
 
         return {
             'embedded': embedded,
-            'masks': attention_mask_3d.bool(),
+            'masks': mask,
             # 'hidden': encoded_layers[-1]
         }
 

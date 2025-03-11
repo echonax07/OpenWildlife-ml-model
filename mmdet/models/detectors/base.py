@@ -100,10 +100,6 @@ class BaseDetector(BaseModel, metaclass=ABCMeta):
             return self.loss(inputs, data_samples)
         elif mode == 'predict':
             if self.sliding_window_inference.get('enable'):
-                from icecream import ic
-                print('*'*10)
-                ic('sliding window inference')
-                print('*'*10)
                 _, _, height, width = inputs.shape
                 img_np = inputs[0].permute(1, 2, 0).cpu().numpy()
                 
@@ -125,13 +121,29 @@ class BaseDetector(BaseModel, metaclass=ABCMeta):
                 ) if data_samples else None
 
                 # Prepare slices on CPU
-                slices_np = np.stack(sliced_image_object.images).transpose(0, 3, 1, 2)
+                max_height = slice_params['patch_size']
+                max_width = slice_params['patch_size']
+                padded_slices = []
+                for img in sliced_image_object.images:
+                    pad_height = max_height - img.shape[0]
+                    pad_width = max_width - img.shape[1]
+                    padded_img = np.pad(
+                        img, ((0, pad_height), (0, pad_width), (0, 0)), mode='constant'
+                    )
+                    padded_slices.append(padded_img)
+
+                slices_np = np.stack(padded_slices).transpose(0, 3, 1, 2)
                 slices_cpu = torch.from_numpy(slices_np).to(dtype=inputs.dtype)
+                
 
                 slice_results = []
                 batch_size = slice_params.get('slice_batch_size', 1)
+                if batch_size==-1:
+                    batch_size = len(slices_np)
                 
                 # Process in batches
+                
+                # wrap tqdm around the for
                 for i in range(0, len(slices_cpu), batch_size):
                     batch_end = i + batch_size
                     current_batch = slices_cpu[i:batch_end]

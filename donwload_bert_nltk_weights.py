@@ -55,10 +55,11 @@ nltk.download('averaged_perceptron_tagger', download_dir=f'{user_home}/nltk_data
 
 
 # Download and save OPENCLIP model components
-model_name = "laion/CLIP-ViT-bigG-14-laion2B-39B-b160k"  # Choose your CLIP variant
+# model_name = "laion/CLIP-ViT-bigG-14-laion2B-39B-b160k"  # Choose your CLIP variant
+model_name = "laion/CLIP-ViT-B-32-laion2B-s34B-b79K"
 
 # Create save directory
-save_path = "checkpoints/laion/CLIP-ViT-bigG-14-laion2B-39B-b160k"
+save_path = "checkpoints/laion/CLIP-ViT-B-32-laion2B-s34B-b79K"
 os.makedirs(save_path, exist_ok=True)
 
 # Load and save components
