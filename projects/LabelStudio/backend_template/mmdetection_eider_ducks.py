@@ -64,6 +64,19 @@ class MMDetection(LabelStudioMLBase):
                  **kwargs):
 
         super(MMDetection, self).__init__(**kwargs)
+                # Initialize memory bank with proper error handling
+        try:
+            memory_bank = self.get('memory_bank')
+            self.memory_bank = json.loads(memory_bank)
+            # Convert list back to set for trained_task_ids
+            self.memory_bank['trained_task_ids'] = set(self.memory_bank.get('trained_task_ids', []))
+        except KeyError:
+            self.memory_bank = {'trained_task_ids': set()}
+        except Exception as e:
+            logger.error(f"Error loading memory bank: {str(e)}")
+            self.memory_bank = {'trained_task_ids': set()}
+            
+        self.max_memory_size = 1000
         
         self.labels_file = labels_file or os.environ.get('labels_file')
         # default Label Studio image upload folder
@@ -151,8 +164,12 @@ class MMDetection(LabelStudioMLBase):
         
     def predict(self, tasks, context: Optional[Dict] = None, **kwargs):
         
-        # if model is None:
-            # model = init_detector(config_file, latest_ckpt, device=
+        # if 'model' not in globals():
+        #     latest_ckpt = os.environ.get('checkpoint_file')
+        #     device = os.environ.get("device", "cpu")
+        #     config_file = os.environ.get('config_file')
+        #     model = init_detector(config_file, latest_ckpt, device=device)
+            
         
         label_studio_results = []
         # ic(context)
@@ -261,9 +278,23 @@ class MMDetection(LabelStudioMLBase):
             # project.get_tasks(selected_ids=[70665, 70664])
             # Fetch and validate tasks
             tasks = project.get_labeled_tasks()
-            if not tasks:
-                raise ValueError("No annotated tasks available for training")
-
+            # Get existing trained tasks from memory bank
+            trained_tasks = self.memory_bank.get('trained_task_ids', set())
+            # Filter out already trained tasks
+            new_tasks = [task for task in tasks if str(task['id']) not in trained_tasks]
+        
+        
+            if not new_tasks:
+                logger.info("No new labeled tasks since last training")
+                return {
+                    'model_path': checkpoint_file,
+                    'checkpoints': [],
+                    'labels': self.labels_in_config,
+                    'error': "No new tasks to train on"
+                }
+            # Store current task IDs before training
+            current_task_ids = {str(task['id']) for task in new_tasks}
+            
             # Convert tasks to COCO format
             coco_data = self._tasks_to_coco(tasks)
 
@@ -342,7 +373,8 @@ class MMDetection(LabelStudioMLBase):
                 try: 
                     runner.train()
                     # gc.collect()
-                    # torch.cuda.empty_cache()
+                    # torch.cuda.empty_cache()         
+                    # Only update memory bank if training was successful
                     # model = init_detector(cfg, os.environ['checkpoint_file'], device=cfg.device)
                 except Exception as e:
                     logger.error(f"Training failed: {str(e)}", exc_info=True)    
@@ -360,6 +392,8 @@ class MMDetection(LabelStudioMLBase):
                     gc.collect()
                     torch.cuda.empty_cache()
                     model = init_detector(cfg, latest_ckpt, device=device)
+                    self._update_memory_bank(current_task_ids)
+                    
                     # set the environment variable to use the new model
                     os.environ['checkpoint_file'] = latest_ckpt
                     ic("Training completed successfully")
@@ -378,6 +412,27 @@ class MMDetection(LabelStudioMLBase):
         return result
 
 
+    def _update_memory_bank(self, new_task_ids):
+        """Update memory bank with new task IDs, maintaining max size"""
+        current_trained = self.memory_bank.get('trained_task_ids', set())
+        
+        # Add new task IDs
+        updated_trained = current_trained.union(new_task_ids)
+        
+        # Maintain max size by keeping most recent
+        if len(updated_trained) > self.max_memory_size:
+            updated_trained = set(list(updated_trained)[-self.max_memory_size:])
+            
+        self.memory_bank['trained_task_ids'] = updated_trained
+        
+        # Store as JSON string with list conversion for sets
+        memory_bank_to_store = {
+            'trained_task_ids': list(updated_trained)
+        }
+        self.set('memory_bank', json.dumps(memory_bank_to_store))
+        logger.info(f"Memory bank updated. Now contains {len(updated_trained)} trained tasks")
+    
+    
     def _tasks_to_coco(self, tasks):
         """Convert Label Studio tasks to COCO format"""
         # Invert label map
