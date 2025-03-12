@@ -337,6 +337,7 @@ class MMDetection(LabelStudioMLBase):
                 
                 slice_configuration = cfg.get('slice_configuration')
                 cfg = slice_train_images(cfg, **slice_configuration)
+                cfg.log_level = 'ERROR'  # Add this line to suppress INFO/WARNING logs
                 runner = Runner.from_cfg(cfg)
                 try: 
                     runner.train()
@@ -356,12 +357,12 @@ class MMDetection(LabelStudioMLBase):
                     result['model_path'] = latest_ckpt
                     result['checkpoints'].append(latest_ckpt)
                     checkpoint_file = latest_ckpt
-                    model = init_detector(cfg, latest_ckpt, device=cfg.device)
+                    gc.collect()
+                    torch.cuda.empty_cache()
+                    model = init_detector(cfg, latest_ckpt, device=device)
                     # set the environment variable to use the new model
                     os.environ['checkpoint_file'] = latest_ckpt
                     ic("Training completed successfully")
-                    gc.collect()
-                    torch.cuda.empty_cache()
                 else:
                     raise RuntimeError("Training failed - no checkpoint created")
 
@@ -372,7 +373,7 @@ class MMDetection(LabelStudioMLBase):
             result['error'] = str(e)
             gc.collect()
             torch.cuda.empty_cache()
-            model = init_detector(cfg, os.environ['checkpoint_file'], device=cfg.device)
+            model = init_detector(cfg, os.environ['checkpoint_file'], device)
         
         return result
 
