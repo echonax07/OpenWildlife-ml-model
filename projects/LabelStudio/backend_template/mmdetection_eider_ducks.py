@@ -40,16 +40,12 @@ import tempfile
 
 logger = logging.getLogger(__name__)
 
-config_file = os.environ['config_file']
-checkpoint_file = os.environ['checkpoint_file']
-device = os.environ.get("device", "cpu")
 LABEL_STUDIO_HOST = os.getenv('LABEL_STUDIO_HOST')
 LABEL_STUDIO_API_KEY = os.getenv('LABEL_STUDIO_API_KEY')
 
 ic(LABEL_STUDIO_HOST)
-
-logger.info(f"Load new model from: {config_file}, {checkpoint_file}")
-model = init_detector(config_file, checkpoint_file, device=device)
+# TODO: Test memory bank code 
+# TODO: Test cuda memory allocation and clearence
 
 class MMDetection(LabelStudioMLBase):
     """Object detector based on https://github.com/open-mmlab/mmdetection."""
@@ -64,20 +60,6 @@ class MMDetection(LabelStudioMLBase):
                  **kwargs):
 
         super(MMDetection, self).__init__(**kwargs)
-                # Initialize memory bank with proper error handling
-        try:
-            memory_bank = self.get('memory_bank')
-            self.memory_bank = json.loads(memory_bank)
-            # Convert list back to set for trained_task_ids
-            self.memory_bank['trained_task_ids'] = set(self.memory_bank.get('trained_task_ids', []))
-        except KeyError:
-            self.memory_bank = {'trained_task_ids': set()}
-        except Exception as e:
-            logger.error(f"Error loading memory bank: {str(e)}")
-            self.memory_bank = {'trained_task_ids': set()}
-            
-        self.max_memory_size = 1000
-        
         self.labels_file = labels_file or os.environ.get('labels_file')
         # default Label Studio image upload folder
         upload_dir = os.path.join(get_data_dir(), 'media', 'upload')
@@ -114,6 +96,21 @@ class MMDetection(LabelStudioMLBase):
                         #     )
                         self.label_map[predicted_value] = ls_label
         self.score_threshold = float(os.environ.get("SCORE_THRESHOLD", 0.3))
+                        # Initialize memory bank with proper error handling
+        # try:
+        #     memory_bank = self.get('memory_bank')
+        #     self.memory_bank = json.loads(memory_bank)
+        #     # Convert list back to set for trained_task_ids
+        #     self.memory_bank['trained_task_ids'] = set(self.memory_bank.get('trained_task_ids', []))
+        # except (KeyError,TypeError):
+        #     self.memory_bank = {'trained_task_ids': set()}
+        # except Exception as e:
+        #     logger.error(f"Error loading memory bank: {str(e)}")
+        #     self.memory_bank = {'trained_task_ids': set()}
+            
+        self.max_memory_size = 1000
+        # self.model_version = self.get("model_version")
+        
     
     def setup(self):
         self.set("model_version", f'{self.__class__.__name__}-v0.0.1')
@@ -169,7 +166,12 @@ class MMDetection(LabelStudioMLBase):
         #     device = os.environ.get("device", "cpu")
         #     config_file = os.environ.get('config_file')
         #     model = init_detector(config_file, latest_ckpt, device=device)
-            
+        config_file = os.environ['config_file']
+        checkpoint_file = os.environ['checkpoint_file']
+        device = os.environ.get("device", "cpu")
+        model = init_detector(config_file, checkpoint_file, device=device)
+        logger.info(f"Load new model from: {config_file}, {checkpoint_file}")
+        # self.model_version = self.get("model_version")
         
         label_studio_results = []
         # ic(context)
@@ -237,29 +239,35 @@ class MMDetection(LabelStudioMLBase):
             avg_score = sum(all_scores) / max(len(all_scores), 1)
             # print(f'>>> RESULTS: {results}')
             label_studio_results.append(
-                {'result': results, 'score': avg_score, 'model_version': self.get("model_version")})
+                {'result': results, 'score': round(avg_score, 3), 'model_version': self.get("model_version")})
             ic("Prediction returned successfully")
-        return label_studio_results
-
-    def fit(self, event, data, **kwargs):
-        """Train MMDetection model with Label Studio annotations"""
-        # Environment configuration
-        os.environ['OMP_NUM_THREADS'] = '1'
-        os.environ['MKL_NUM_THREADS'] = '1'
-        global checkpoint_file, config_file, model
-        
-        if 'model' in globals():
+            # free gpu memory
             del model
             # Run garbage collection
             gc.collect()
             torch.cuda.empty_cache()
+        return label_studio_results
+
+    def fit(self, event, data, **kwargs):
+        """Train MMDetection model with Label Studio annotations"""
+        gc.collect()
+        torch.cuda.empty_cache()
+        # Environment configuration
+        os.environ['OMP_NUM_THREADS'] = '1'
+        os.environ['MKL_NUM_THREADS'] = '1'
+        
+        config_file = os.environ['config_file']
+        checkpoint_file = os.environ['checkpoint_file']
+        device = os.environ.get("device", "cpu")
+        # model = init_detector(config_file, checkpoint_file, device=device)
+        logger.info(f"Load new model from: {config_file}, {checkpoint_file}")
+        
         result = {
             'model_path': checkpoint_file,
             'checkpoints': [],
             'labels': self.labels_in_config,
             'error': None
         }
-
         try:
             # Validate event type
             if event not in ('ANNOTATION_CREATED', 'ANNOTATION_UPDATED', 'START_TRAINING'):
@@ -272,6 +280,9 @@ class MMDetection(LabelStudioMLBase):
                 LABEL_STUDIO_API_KEY
             )
             project = ls.get_project(data['project']['id'])
+            self.project_id = str(data['project']['id'])
+            self.set("model_version", self.get("model_version")) 
+            
             
             # Get image key from labeling config
             # from_name, to_name, image_key = self.label_interface.get_first_tag_occurence('Image', 'Image')
@@ -279,13 +290,17 @@ class MMDetection(LabelStudioMLBase):
             # Fetch and validate tasks
             tasks = project.get_labeled_tasks()
             # Get existing trained tasks from memory bank
+            self.memory_bank = self.get("memory_bank")
+            self.memory_bank = json.loads(self.memory_bank)
             trained_tasks = self.memory_bank.get('trained_task_ids', set())
+            ic(trained_tasks)
             # Filter out already trained tasks
             new_tasks = [task for task in tasks if str(task['id']) not in trained_tasks]
-        
-        
+            for task in new_tasks:            
+                ic(task['id'])
             if not new_tasks:
-                logger.info("No new labeled tasks since last training")
+                # TODO: Add warning msg according to the api button implemented
+                logger.warning("No new labeled tasks since last training\nPlease click on force re-train")
                 return {
                     'model_path': checkpoint_file,
                     'checkpoints': [],
@@ -294,12 +309,12 @@ class MMDetection(LabelStudioMLBase):
                 }
             # Store current task IDs before training
             current_task_ids = {str(task['id']) for task in new_tasks}
+            os.makedirs(os.path.join('work_dirs',project.title), exist_ok=True)
             
-            # Convert tasks to COCO format
-            coco_data = self._tasks_to_coco(tasks)
-
             # Training setup
-            with tempfile.TemporaryDirectory() as temp_dir:
+            with tempfile.TemporaryDirectory(dir=os.path.join('work_dirs',project.title)) as temp_dir:
+                # Convert tasks to COCO format
+                coco_data = self._tasks_to_coco(new_tasks, temp_dir)
                 # Save COCO annotations
                 ann_file = os.path.join(temp_dir, 'train.json')
                 with open(ann_file, 'w') as f:
@@ -312,14 +327,16 @@ class MMDetection(LabelStudioMLBase):
                 cfg.num_queries = 2000
                 cfg.test_cfg.max_per_img = 2000
                 # TODO : Each project should have its own workdir
-                cfg.work_dir = os.path.join('mmdet_workdir_eider')
+                # Config 1 : Work dir location
+                cfg.work_dir = os.path.join('work_dirs',project.title)
                 os.makedirs(cfg.work_dir, exist_ok=True)
 
                 # Dataset configuration
                 cfg.data_root = ''
                 cfg.train_dataloader.batch_size=1
                 cfg.train_dataloader.dataset.data_root = ''
-                cfg.train_dataloader.dataset.ann_file = ann_file
+                cfg.train_dataloader.dataset.ann_file = os.path.join(
+                    temp_dir, 'train.json')
                 cfg.train_dataloader.num_workers = 0  # Disable multiprocessing
                 cfg.train_dataloader.persistent_workers = False
                 
@@ -353,7 +370,7 @@ class MMDetection(LabelStudioMLBase):
                 os.makedirs(os.path.join(temp_dir, 'slices'), exist_ok=True)
                 cfg.data_root_slice = os.path.join(temp_dir, 'slices')
                 # whole images data_root
-                cfg.data_root_whole = temp_dir
+                cfg.data_root_whole = ''
 
                 # Training parameters
                 cfg.train_cfg = dict(
@@ -370,8 +387,10 @@ class MMDetection(LabelStudioMLBase):
                 cfg = slice_train_images(cfg, **slice_configuration)
                 cfg.log_level = 'ERROR'  # Add this line to suppress INFO/WARNING logs
                 runner = Runner.from_cfg(cfg)
+                sucess = False
                 try: 
                     runner.train()
+                    sucess = True
                     # gc.collect()
                     # torch.cuda.empty_cache()         
                     # Only update memory bank if training was successful
@@ -379,26 +398,34 @@ class MMDetection(LabelStudioMLBase):
                 except Exception as e:
                     logger.error(f"Training failed: {str(e)}", exc_info=True)    
                     gc.collect()
-                    result['error'] = str(e)
                     torch.cuda.empty_cache()
-
-                # Handle checkpoints
-                with open(os.path.join(cfg.work_dir, 'last_checkpoint'), 'r') as f:
-                    latest_ckpt = f.read().strip()
-                if os.path.exists(latest_ckpt):
-                    result['model_path'] = latest_ckpt
-                    result['checkpoints'].append(latest_ckpt)
-                    checkpoint_file = latest_ckpt
+                    result['error'] = str(e)
+                    
+                                # Handle checkpoints
+                
+                if(sucess):
+                    with open(os.path.join(cfg.work_dir, 'last_checkpoint'), 'r') as f:
+                        latest_ckpt = f.read().strip()
+                        result['model_path'] = latest_ckpt
+                        result['checkpoints'].append(latest_ckpt)
+                        checkpoint_file = latest_ckpt
+                        self._update_memory_bank(current_task_ids)
+                        gc.collect()
+                        torch.cuda.empty_cache()
+                        # model = init_detector(cfg, latest_ckpt, device=device)
+                        
+                        # set the environment variable to use the new model
+                        # self.bump_model_version()
+                        # self.model_version = self.get("model_version")
+                        
+                        os.environ['checkpoint_file'] = latest_ckpt
+                        logger.info("Training completed successfully")
+                        ic("Training completed successfully")
+                else:
                     gc.collect()
                     torch.cuda.empty_cache()
-                    model = init_detector(cfg, latest_ckpt, device=device)
-                    self._update_memory_bank(current_task_ids)
-                    
-                    # set the environment variable to use the new model
-                    os.environ['checkpoint_file'] = latest_ckpt
-                    ic("Training completed successfully")
-                else:
-                    raise RuntimeError("Training failed - no checkpoint created")
+                    # raise RuntimeError("Training failed - no checkpoint created")
+
 
             return result
 
@@ -407,7 +434,168 @@ class MMDetection(LabelStudioMLBase):
             result['error'] = str(e)
             gc.collect()
             torch.cuda.empty_cache()
-            model = init_detector(cfg, os.environ['checkpoint_file'], device)
+            # model = init_detector(cfg, os.environ['checkpoint_file'], device)
+        
+        return result
+
+    def force_fit(self, event, data, **kwargs):
+        """Train MMDetection model with Label Studio annotations"""
+        # Environment configuration
+        os.environ['OMP_NUM_THREADS'] = '1'
+        os.environ['MKL_NUM_THREADS'] = '1'
+        
+        config_file = os.environ['config_file']
+        checkpoint_file = os.environ['checkpoint_file']
+        device = os.environ.get("device", "cpu")
+        # model = init_detector(config_file, checkpoint_file, device=device)
+        ic("Called force fit function")
+        logger.info(f"Load new model from: {config_file}, {checkpoint_file}")
+        
+        result = {
+            'model_path': checkpoint_file,
+            'checkpoints': [],
+            'labels': self.labels_in_config,
+            'error': None
+        }
+        try:
+            # Initialize Label Studio client
+            ls = label_studio_sdk.Client(
+                LABEL_STUDIO_HOST,
+                LABEL_STUDIO_API_KEY
+            )
+            project = ls.get_project(data['project']['id'])
+            self.project_id = str(data['project']['id'])
+            
+            # Get image key from labeling config
+            # from_name, to_name, image_key = self.label_interface.get_first_tag_occurence('Image', 'Image')
+            # project.get_tasks(selected_ids=[70665, 70664])
+            # Fetch and validate tasks
+            tasks = data['tasks']
+            current_task_ids = {str(task['id']) for task in tasks}
+            # Store current task IDs before training
+            os.makedirs(os.path.join('work_dirs',project.title), exist_ok=True)
+            
+            # Training setup
+            with tempfile.TemporaryDirectory(dir=os.path.join('work_dirs',project.title)) as temp_dir:
+                # Convert tasks to COCO format
+                coco_data = self._tasks_to_coco(tasks, temp_dir)
+                # Save COCO annotations
+                ann_file = os.path.join(temp_dir, 'train.json')
+                with open(ann_file, 'w') as f:
+                    json.dump(coco_data, f)
+
+                # Configure MMDetection
+                cfg = Config.fromfile(config_file)
+                # Update model configuration
+                cfg.model.bbox_head.num_classes = len(self.labels_in_config)
+                cfg.num_queries = 2000
+                cfg.test_cfg.max_per_img = 2000
+                # TODO : Each project should have its own workdir
+                # Config 1 : Work dir location
+                cfg.work_dir = os.path.join('work_dirs',project.title)
+                os.makedirs(cfg.work_dir, exist_ok=True)
+
+                # Dataset configuration
+                cfg.data_root = ''
+                cfg.train_dataloader.batch_size=1
+                cfg.train_dataloader.dataset.data_root = ''
+                cfg.train_dataloader.dataset.ann_file = os.path.join(
+                    temp_dir, 'train.json')
+                cfg.train_dataloader.num_workers = 0  # Disable multiprocessing
+                cfg.train_dataloader.persistent_workers = False
+                
+                # Modify val paths
+                cfg.val_dataloader.dataset.data_root = ''
+                cfg.val_dataloader.dataset.ann_file = os.path.join(
+                    temp_dir, 'train.json')
+                # Disable multiprocessing to avoid interference with Label Studio which doesnt allow any child to spawn new processes
+                cfg.val_dataloader.num_workers = 0
+                cfg.val_dataloader.persistent_workers = False
+                cfg.val_dataloader.prefetch_factor = None
+                cfg.val_evaluator.ann_file = os.path.join(
+                    temp_dir, 'train.json')
+                cfg.val_evaluator.outfile_prefix = os.path.join(
+                    temp_dir, 'prediction_val')
+
+                # Modify test paths
+                cfg.test_dataloader.dataset.data_root = ''
+                cfg.test_dataloader.dataset.ann_file = os.path.join(
+                    temp_dir, 'train.json')
+                # Disable multiprocessing to avoid interference with Label Studio which doesnt allow any child to spawn new processes
+                cfg.test_dataloader.num_workers = 0
+                cfg.test_dataloader.persistent_workers = False
+                cfg.test_dataloader.prefetch_factor = None
+                cfg.test_evaluator.ann_file = os.path.join(
+                    temp_dir, 'train.json')
+                cfg.test_evaluator.outfile_prefix = os.path.join(
+                    temp_dir, 'prediction_test')
+                
+                # Modify train slices path
+                os.makedirs(os.path.join(temp_dir, 'slices'), exist_ok=True)
+                cfg.data_root_slice = os.path.join(temp_dir, 'slices')
+                # whole images data_root
+                cfg.data_root_whole = ''
+
+                # Training parameters
+                cfg.train_cfg = dict(
+                    type='EpochBasedTrainLoop',
+                    max_epochs=10,
+                    val_interval=1000000
+                )
+                cfg.default_hooks.checkpoint.interval = 10
+                cfg.device = 'cuda' if torch.cuda.is_available() else 'cpu'
+                cfg.load_from = os.environ['checkpoint_file']
+                # Initialize and run training
+                
+                slice_configuration = cfg.get('slice_configuration')
+                cfg = slice_train_images(cfg, **slice_configuration)
+                cfg.log_level = 'ERROR'  # Add this line to suppress INFO/WARNING logs
+                runner = Runner.from_cfg(cfg)
+                sucess = False
+                try: 
+                    runner.train()
+                    sucess = True
+                    # gc.collect()
+                    # torch.cuda.empty_cache()         
+                    # Only update memory bank if training was successful
+                    # model = init_detector(cfg, os.environ['checkpoint_file'], device=cfg.device)
+                except Exception as e:
+                    logger.error(f"Training failed: {str(e)}", exc_info=True)    
+                    gc.collect()
+                    torch.cuda.empty_cache()
+                    result['error'] = str(e)
+                    
+                                # Handle checkpoints
+                
+                if(sucess):
+                    with open(os.path.join(cfg.work_dir, 'last_checkpoint'), 'r') as f:
+                        latest_ckpt = f.read().strip()
+                        result['model_path'] = latest_ckpt
+                        result['checkpoints'].append(latest_ckpt)
+                        checkpoint_file = latest_ckpt
+                        self._update_memory_bank(current_task_ids)
+                        gc.collect()
+                        torch.cuda.empty_cache()
+                        # model = init_detector(cfg, latest_ckpt, device=device)
+                        
+                        # set the environment variable to use the new model
+                        self.bump_model_version()
+                        os.environ['checkpoint_file'] = latest_ckpt
+                        logger.info("Training completed successfully")
+                        ic("Training completed successfully")
+                else:
+                    gc.collect()
+                    torch.cuda.empty_cache()
+                    # raise RuntimeError("Training failed - no checkpoint created")
+
+            return result
+
+        except Exception as e:
+            logger.error(f"Training failed: {str(e)}", exc_info=True)
+            result['error'] = str(e)
+            gc.collect()
+            torch.cuda.empty_cache()
+            # model = init_detector(cfg, os.environ['checkpoint_file'], device)
         
         return result
 
@@ -415,7 +603,8 @@ class MMDetection(LabelStudioMLBase):
     def _update_memory_bank(self, new_task_ids):
         """Update memory bank with new task IDs, maintaining max size"""
         current_trained = self.memory_bank.get('trained_task_ids', set())
-        
+        current_trained = set(current_trained)
+        new_task_ids = set(new_task_ids)
         # Add new task IDs
         updated_trained = current_trained.union(new_task_ids)
         
@@ -433,7 +622,7 @@ class MMDetection(LabelStudioMLBase):
         logger.info(f"Memory bank updated. Now contains {len(updated_trained)} trained tasks")
     
     
-    def _tasks_to_coco(self, tasks):
+    def _tasks_to_coco(self, tasks, temp_dir):
         """Convert Label Studio tasks to COCO format"""
         # Invert label map
         self.label_map_inverted = {v: k for k, v in self.label_map.items()}
@@ -509,7 +698,7 @@ class MMDetection(LabelStudioMLBase):
                     cropped_img = Image.fromarray(cropped_img_array)
                     
                     # Save the cropped image to a temporary directory
-                    cropped_img_path = os.path.join(tempfile.gettempdir(), f'cropped_{task_id}.jpg')
+                    cropped_img_path = os.path.join(temp_dir, f'cropped_{task_id}.jpg')
                     cropped_img.save(cropped_img_path)
                 
                 # Update COCO image entry
@@ -581,9 +770,22 @@ class MMDetection(LabelStudioMLBase):
                             ann_id += 1
 
             except Exception as e:
-                logger.error(f"Error processing task {task_id}: {str(e)}")
+                logger.error(f"Error processing task {task_id}: {e}")
                 
         return coco
+
+    def clear_memory_bank(self,):
+        """Reset the memory bank of trained task IDs"""
+        try:
+            # Clear both the in-memory and stored memory bank
+            # self.memory_bank['trained_task_ids'] = set()
+            # Update the persistent storage with empty list
+            self.set('memory_bank', json.dumps({'trained_task_ids': []}))
+            logger.info("Successfully cleared memory bank")
+            return True
+        except Exception as e:
+            logger.error(f"Failed to clear memory bank: {str(e)}", exc_info=True)
+            return False
 
 def json_load(file, int_keys=False):
     with io.open(file, encoding='utf8') as f:
@@ -592,3 +794,4 @@ def json_load(file, int_keys=False):
             return {int(k): v for k, v in data.items()}
         else:
             return data
+
