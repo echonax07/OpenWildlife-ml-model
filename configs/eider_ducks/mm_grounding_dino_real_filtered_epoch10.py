@@ -40,10 +40,7 @@ model = dict(
         drop_rate=0.0,
         embed_dims=96,
         frozen_stages=-1,
-        init_cfg=dict(
-            checkpoint=
-            'checkpoints/swin_tiny_patch4_window7_224.pth',
-            type='Pretrained'),
+        init_cfg=None,
         mlp_ratio=4,
         num_heads=[
             3,

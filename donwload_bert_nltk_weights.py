@@ -54,24 +54,24 @@ nltk.download('averaged_perceptron_tagger', download_dir=f'{user_home}/nltk_data
 
 
 
-# Download and save OPENCLIP model components
-# model_name = "laion/CLIP-ViT-bigG-14-laion2B-39B-b160k"  # Choose your CLIP variant
-model_name = "laion/CLIP-ViT-B-32-laion2B-s34B-b79K"
+# # Download and save OPENCLIP model components
+# # model_name = "laion/CLIP-ViT-bigG-14-laion2B-39B-b160k"  # Choose your CLIP variant
+# model_name = "laion/CLIP-ViT-B-32-laion2B-s34B-b79K"
 
-# Create save directory
-save_path = "checkpoints/laion/CLIP-ViT-B-32-laion2B-s34B-b79K"
-os.makedirs(save_path, exist_ok=True)
+# # Create save directory
+# save_path = "checkpoints/laion/CLIP-ViT-B-32-laion2B-s34B-b79K"
+# os.makedirs(save_path, exist_ok=True)
 
-# Load and save components
-config = CLIPTextConfig.from_pretrained(model_name)
-model = CLIPTextModel.from_pretrained(model_name, config=config)
-tokenizer = CLIPTokenizer.from_pretrained(model_name)
+# # Load and save components
+# config = CLIPTextConfig.from_pretrained(model_name)
+# model = CLIPTextModel.from_pretrained(model_name, config=config)
+# tokenizer = CLIPTokenizer.from_pretrained(model_name)
 
-config.save_pretrained(save_path)
-model.save_pretrained(save_path)
-tokenizer.save_pretrained(save_path)
+# config.save_pretrained(save_path)
+# model.save_pretrained(save_path)
+# tokenizer.save_pretrained(save_path)
 
-# Download NLTK data (same as before)
-user_home = os.path.expanduser("~")
-nltk.download('punkt', download_dir=f'{user_home}/nltk_data')
-nltk.download('averaged_perceptron_tagger', download_dir=f'{user_home}/nltk_data')
+# # Download NLTK data (same as before)
+# user_home = os.path.expanduser("~")
+# nltk.download('punkt', download_dir=f'{user_home}/nltk_data')
+# nltk.download('averaged_perceptron_tagger', download_dir=f'{user_home}/nltk_data')

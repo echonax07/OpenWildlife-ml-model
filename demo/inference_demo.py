@@ -3,14 +3,15 @@ import json
 
 ### model without finetuning
 # Choose to use a config
-config_path = '/home/m32patel/projects/def-dclausi/whale/mmwhale2/configs/mm_grounding_dino_animals/finetune_configs/eiderduck_predict_on_real.py'
+config_path = 'configs/eider_ducks/mm_grounding_dino_real_filtered_epoch10.py'
 
 # Setup a checkpoint file to load
-checkpoint = '/home/m32patel/projects/def-dclausi/whale/mmwhale2/work_dir_grounding_dino/finetune/eiderduck_finetune_syn_plus_real/epoch_120.pth'
+checkpoint = 'work_dirs/mm_grounding_dino_real_filtered_epoch10/epoch_50.pth'
 
 # Initialize the DetInferencer
 inferencer = DetInferencer(model=config_path, weights=checkpoint, device= 'cuda:0')
-result = inferencer('/home/m32patel/projects/rrg-dclausi/wildlife/datasets/Eider_survey_project/2008/grants_photos_1/100EOS5D/IMG_4427.JPG', out_dir='./output', pred_score_thr=0.3)
+result = inferencer('/home/pc2041/d8d096d5-overhead_2.png', out_dir='./output', pred_score_thr=0.3, text_prompt="female duck. male duck. Ice. Juvenile duck. duck", custom_entities=True)
+
 
 
 # from icecream import ic 

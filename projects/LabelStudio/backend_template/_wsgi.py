@@ -60,7 +60,7 @@ if __name__ == "__main__":
         '-d', '--debug', dest='debug', action='store_true',
         help='Switch debug mode')
     parser.add_argument(
-        '--log-level', dest='log_level', choices=['DEBUG', 'INFO', 'WARNING', 'ERROR'], default=None,
+        '--log-level', dest='log_level', choices=['DEBUG', 'INFO', 'WARNING', 'ERROR'], default=os.getenv('LOG_LEVEL', 'INFO'),  # Add default,
         help='Logging level')
     parser.add_argument(
         '--model-dir', dest='model_dir', default=os.path.dirname(__file__),
