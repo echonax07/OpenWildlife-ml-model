@@ -240,12 +240,12 @@ class MMDetection(LabelStudioMLBase):
             # print(f'>>> RESULTS: {results}')
             label_studio_results.append(
                 {'result': results, 'score': round(avg_score, 3), 'model_version': self.get("model_version")})
-            ic("Prediction returned successfully")
-            # free gpu memory
-            del model
-            # Run garbage collection
-            gc.collect()
-            torch.cuda.empty_cache()
+        ic("Prediction returned successfully")
+        # free gpu memory
+        del model
+        # Run garbage collection
+        gc.collect()
+        torch.cuda.empty_cache()
         return label_studio_results
 
     def fit(self, event, data, **kwargs):
@@ -454,7 +454,7 @@ class MMDetection(LabelStudioMLBase):
         result = {
             'model_path': checkpoint_file,
             'checkpoints': [],
-            'labels': self.labels_in_config,
+            'labels': list(self.labels_in_config),
             'error': None
         }
         try:
@@ -573,13 +573,13 @@ class MMDetection(LabelStudioMLBase):
                         result['model_path'] = latest_ckpt
                         result['checkpoints'].append(latest_ckpt)
                         checkpoint_file = latest_ckpt
-                        self._update_memory_bank(current_task_ids)
+                        # self._update_memory_bank(current_task_ids)
                         gc.collect()
                         torch.cuda.empty_cache()
                         # model = init_detector(cfg, latest_ckpt, device=device)
                         
                         # set the environment variable to use the new model
-                        self.bump_model_version()
+                        # self.bump_model_version()
                         os.environ['checkpoint_file'] = latest_ckpt
                         logger.info("Training completed successfully")
                         ic("Training completed successfully")
