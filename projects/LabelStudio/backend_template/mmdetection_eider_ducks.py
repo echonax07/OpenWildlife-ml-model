@@ -186,6 +186,7 @@ class MMDetection(LabelStudioMLBase):
         #     model = init_detector(config_file, latest_ckpt, device=device)
         config_file = os.environ['config_file']
         checkpoint_file = os.environ['checkpoint_file']
+        ic(checkpoint_file)
         device = os.environ.get("device", "cpu")
         model = init_detector(config_file, checkpoint_file, device=device)
         logger.info(f"Load new model from: {config_file}, {checkpoint_file}")
@@ -402,6 +403,7 @@ class MMDetection(LabelStudioMLBase):
                     max_epochs=10,
                     val_interval=1000000
                 )
+                cfg.default_hooks.logger.interval=1
                 cfg.default_hooks.checkpoint.interval = 10
                 cfg.device = 'cuda' if torch.cuda.is_available() else 'cpu'
                 cfg.load_from = os.environ['checkpoint_file']
@@ -579,7 +581,9 @@ class MMDetection(LabelStudioMLBase):
                 runner = Runner.from_cfg(cfg)
                 sucess = False
                 try:
+                    print("Starting training...")
                     runner.train()
+                    print("Training completed.")
                     sucess = True
                     # gc.collect()
                     # torch.cuda.empty_cache()
@@ -847,7 +851,9 @@ class MMDetection(LabelStudioMLBase):
 
                             # Use a buffer relative to polygon size, preventing excessive shrinking
                             # Heuristic: 5% of the diagonal length? or 10% of min dimension? Let's stick to 10% min dim.
-                            shrink_distance = 0.10 * min(poly_width, poly_height)
+                            # --- New fixed-pixel shrinking ---
+                            fixed_shrink_pixels = 50  # Shrink 100 pixels from all edges
+                            shrink_distance = fixed_shrink_pixels
 
                             # Perform negative buffer (shrinking)
                             # Use join_style=2 (MITRE) for sharper corners if desired
