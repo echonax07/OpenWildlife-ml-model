@@ -16,15 +16,16 @@ metainfo = dict(classes=class_name, palette=[
     (0, 191, 255),   # duck
 ])
 
-patch_size = (1024, 1024)
+train_patch_size = (512, 512)
+test_patch_size = (1024,1024)
 patch_overlap_ratio = 0
 merge_iou_thr = 1
 
 slice_configuration = dict(enable=True,
-         slice_height=patch_size[0], slice_width=patch_size[1], overlap_height_ratio=0, overlap_width_ratio=0,mix_slices_with_full_images=False, save_only_positive_slices=False)
+         slice_height=train_patch_size[0], slice_width=train_patch_size[1], overlap_height_ratio=0, overlap_width_ratio=0,mix_slices_with_full_images=False, save_only_positive_slices=False)
 
 model = dict(
-    sliding_window_inference = dict(enable=True, patch_size=patch_size[0], batch_size=1,  slice_batch_size = 4,
+    sliding_window_inference = dict(enable=True, patch_size=test_patch_size[0], batch_size=1,  slice_batch_size = 4,
                                 patch_overlap_ratio=patch_overlap_ratio, merge_nms_type='nms', merge_iou_thr=merge_iou_thr),
     as_two_stage=True,
     backbone=dict(

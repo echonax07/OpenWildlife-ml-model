@@ -18,11 +18,12 @@ from mmdet.apis import inference_detector, init_detector
 from tools.slice_train_imgs import slice_train_images
 from icecream import ic
 from typing import List, Dict, Optional
-from PIL import Image, ImageDraw
+from PIL import Image, ImageDraw, ImageOps  # Added ImageOps
 import numpy as np
 import tempfile
+import math 
 
-## fit() related import
+# fit() related import
 import tempfile
 import torch
 import gc
@@ -33,19 +34,36 @@ from mmdet.apis import init_detector
 import label_studio_sdk
 
 
-from PIL import Image, ImageDraw
-import numpy as np
-import os
-import tempfile
+# Added for polygon operations
+
 
 logger = logging.getLogger(__name__)
+
+try:
+    
+    from shapely.geometry import Polygon, Point, MultiPolygon
+
+    from shapely.validation import make_valid
+
+    from shapely.errors import GEOSException
+
+    SHAPELY_AVAILABLE = True
+
+except ImportError:
+
+    SHAPELY_AVAILABLE = False
+
+    logger.warning(
+        "Shapely library not found. Polygon shrinking will not be available. pip install shapely")
+
 
 LABEL_STUDIO_HOST = os.getenv('LABEL_STUDIO_HOST')
 LABEL_STUDIO_API_KEY = os.getenv('LABEL_STUDIO_API_KEY')
 
 ic(LABEL_STUDIO_HOST)
-# TODO: Test memory bank code 
+# TODO: Test memory bank code
 # TODO: Test cuda memory allocation and clearence
+
 
 class MMDetection(LabelStudioMLBase):
     """Object detector based on https://github.com/open-mmlab/mmdetection."""
@@ -96,7 +114,7 @@ class MMDetection(LabelStudioMLBase):
                         #     )
                         self.label_map[predicted_value] = ls_label
         self.score_threshold = float(os.environ.get("SCORE_THRESHOLD", 0.3))
-                        # Initialize memory bank with proper error handling
+        # Initialize memory bank with proper error handling
         # try:
         #     memory_bank = self.get('memory_bank')
         #     self.memory_bank = json.loads(memory_bank)
@@ -107,20 +125,20 @@ class MMDetection(LabelStudioMLBase):
         # except Exception as e:
         #     logger.error(f"Error loading memory bank: {str(e)}")
         #     self.memory_bank = {'trained_task_ids': set()}
-            
+
         self.max_memory_size = 1000
         # self.model_version = self.get("model_version")
-        
-    
+
     def setup(self):
         self.set("model_version", f'{self.__class__.__name__}-v0.0.1')
 
     def _get_prompt(self, annotation: Optional[Dict] = None) -> Dict:
-        from_name_prompt, _, _ = self.get_first_tag_occurence('TextArea', 'Image')
-        
+        from_name_prompt, _, _ = self.get_first_tag_occurence(
+            'TextArea', 'Image')
 
         if annotation and 'result' in annotation:
-            prompt = next(r['value']['text'][0] for r in annotation['result'] if r['from_name'] == from_name_prompt)
+            prompt = next(r['value']['text'][0]
+                          for r in annotation['result'] if r['from_name'] == from_name_prompt)
             logger.debug(f"Prompt: {prompt}")
             return {
                 'prompt': prompt,
@@ -132,8 +150,8 @@ class MMDetection(LabelStudioMLBase):
         return {
             'prompt': prompt,
             'from_name': from_name_prompt
-    }
-    
+        }
+
     def _get_image_url(self, task: Dict) -> str:
         image_url = task["data"].get(self.value) or task["data"].get(
             DATA_UNDEFINED_NAME
@@ -158,9 +176,9 @@ class MMDetection(LabelStudioMLBase):
                 )
 
         return image_url
-        
+
     def predict(self, tasks, context: Optional[Dict] = None, **kwargs):
-        
+
         # if 'model' not in globals():
         #     latest_ckpt = os.environ.get('checkpoint_file')
         #     device = os.environ.get("device", "cpu")
@@ -172,7 +190,7 @@ class MMDetection(LabelStudioMLBase):
         model = init_detector(config_file, checkpoint_file, device=device)
         logger.info(f"Load new model from: {config_file}, {checkpoint_file}")
         # self.model_version = self.get("model_version")
-        
+
         label_studio_results = []
         # ic(context)
         for task in tasks:
@@ -180,8 +198,8 @@ class MMDetection(LabelStudioMLBase):
             # prompt = prompt_control['prompt']
             # ic(prompt)
             # if not prompt:
-                # logger.warning("Prompt not found")
-                # ModelResponse(predictions=[])
+            # logger.warning("Prompt not found")
+            # ModelResponse(predictions=[])
             image_url = self._get_image_url(task)
             image_path = self.get_local_path(image_url)
             model_results = inference_detector(model,
@@ -194,7 +212,7 @@ class MMDetection(LabelStudioMLBase):
             # print(f'>>> model.dataset_meta: {model.dataset_meta}')
             classes = model.dataset_meta.get('classes')
             # classes = cfg.val_dataloader
-            
+
             # ic(classes)
             # print(f'Classes >>> {classes}')
             for item in model_results:
@@ -255,13 +273,13 @@ class MMDetection(LabelStudioMLBase):
         # Environment configuration
         os.environ['OMP_NUM_THREADS'] = '1'
         os.environ['MKL_NUM_THREADS'] = '1'
-        
+
         config_file = os.environ['config_file']
         checkpoint_file = os.environ['checkpoint_file']
         device = os.environ.get("device", "cpu")
         # model = init_detector(config_file, checkpoint_file, device=device)
         logger.info(f"Load new model from: {config_file}, {checkpoint_file}")
-        
+
         result = {
             'model_path': checkpoint_file,
             'checkpoints': [],
@@ -271,7 +289,8 @@ class MMDetection(LabelStudioMLBase):
         try:
             # Validate event type
             if event not in ('ANNOTATION_CREATED', 'ANNOTATION_UPDATED', 'START_TRAINING'):
-                logger.info(f"Skipping training for unsupported event: {event}")
+                logger.info(
+                    f"Skipping training for unsupported event: {event}")
                 return result
 
             # Initialize Label Studio client
@@ -281,26 +300,27 @@ class MMDetection(LabelStudioMLBase):
             )
             project = ls.get_project(data['project']['id'])
             self.project_id = str(data['project']['id'])
-            self.set("model_version", self.get("model_version")) 
-            
-            
+            self.set("model_version", self.get("model_version"))
+
             # Get image key from labeling config
             # from_name, to_name, image_key = self.label_interface.get_first_tag_occurence('Image', 'Image')
             # project.get_tasks(selected_ids=[70665, 70664])
             # Fetch and validate tasks
             tasks = project.get_labeled_tasks()
             # Get existing trained tasks from memory bank
-            self.memory_bank = self.get("memory_bank")
-            self.memory_bank = json.loads(self.memory_bank)
-            trained_tasks = self.memory_bank.get('trained_task_ids', set())
-            ic(trained_tasks)
+            # self.memory_bank = self.get("memory_bank")
+            # self.memory_bank = json.loads(self.memory_bank)
+            # trained_tasks = self.memory_bank.get('trained_task_ids', set())
+            # ic(trained_tasks)
             # Filter out already trained tasks
-            new_tasks = [task for task in tasks if str(task['id']) not in trained_tasks]
-            for task in new_tasks:            
+            # new_tasks = [task for task in tasks if str(
+            #     task['id']) not in trained_tasks]
+            for task in tasks:
                 ic(task['id'])
-            if not new_tasks:
+            if not tasks:
                 # TODO: Add warning msg according to the api button implemented
-                logger.warning("No new labeled tasks since last training\nPlease click on force re-train")
+                logger.warning(
+                    "No new labeled tasks since last training\nPlease click on force re-train")
                 return {
                     'model_path': checkpoint_file,
                     'checkpoints': [],
@@ -308,175 +328,15 @@ class MMDetection(LabelStudioMLBase):
                     'error': "No new tasks to train on"
                 }
             # Store current task IDs before training
-            current_task_ids = {str(task['id']) for task in new_tasks}
-            os.makedirs(os.path.join('work_dirs',project.title), exist_ok=True)
-            
-            # Training setup
-            with tempfile.TemporaryDirectory(dir=os.path.join('work_dirs',project.title)) as temp_dir:
-                # Convert tasks to COCO format
-                coco_data = self._tasks_to_coco(new_tasks, temp_dir)
-                # Save COCO annotations
-                ann_file = os.path.join(temp_dir, 'train.json')
-                with open(ann_file, 'w') as f:
-                    json.dump(coco_data, f)
-
-                # Configure MMDetection
-                cfg = Config.fromfile(config_file)
-                # Update model configuration
-                cfg.model.bbox_head.num_classes = len(self.labels_in_config)
-                cfg.num_queries = 2000
-                cfg.test_cfg.max_per_img = 2000
-                # TODO : Each project should have its own workdir
-                # Config 1 : Work dir location
-                cfg.work_dir = os.path.join('work_dirs',project.title)
-                os.makedirs(cfg.work_dir, exist_ok=True)
-
-                # Dataset configuration
-                cfg.data_root = ''
-                cfg.train_dataloader.batch_size=1
-                cfg.train_dataloader.dataset.data_root = ''
-                cfg.train_dataloader.dataset.ann_file = os.path.join(
-                    temp_dir, 'train.json')
-                cfg.train_dataloader.num_workers = 0  # Disable multiprocessing
-                cfg.train_dataloader.persistent_workers = False
-                
-                # Modify val paths
-                cfg.val_dataloader.dataset.data_root = ''
-                cfg.val_dataloader.dataset.ann_file = os.path.join(
-                    temp_dir, 'train.json')
-                # Disable multiprocessing to avoid interference with Label Studio which doesnt allow any child to spawn new processes
-                cfg.val_dataloader.num_workers = 0
-                cfg.val_dataloader.persistent_workers = False
-                cfg.val_dataloader.prefetch_factor = None
-                cfg.val_evaluator.ann_file = os.path.join(
-                    temp_dir, 'train.json')
-                cfg.val_evaluator.outfile_prefix = os.path.join(
-                    temp_dir, 'prediction_val')
-
-                # Modify test paths
-                cfg.test_dataloader.dataset.data_root = ''
-                cfg.test_dataloader.dataset.ann_file = os.path.join(
-                    temp_dir, 'train.json')
-                # Disable multiprocessing to avoid interference with Label Studio which doesnt allow any child to spawn new processes
-                cfg.test_dataloader.num_workers = 0
-                cfg.test_dataloader.persistent_workers = False
-                cfg.test_dataloader.prefetch_factor = None
-                cfg.test_evaluator.ann_file = os.path.join(
-                    temp_dir, 'train.json')
-                cfg.test_evaluator.outfile_prefix = os.path.join(
-                    temp_dir, 'prediction_test')
-                
-                # Modify train slices path
-                os.makedirs(os.path.join(temp_dir, 'slices'), exist_ok=True)
-                cfg.data_root_slice = os.path.join(temp_dir, 'slices')
-                # whole images data_root
-                cfg.data_root_whole = ''
-
-                # Training parameters
-                cfg.train_cfg = dict(
-                    type='EpochBasedTrainLoop',
-                    max_epochs=10,
-                    val_interval=1000000
-                )
-                cfg.default_hooks.checkpoint.interval = 10
-                cfg.device = 'cuda' if torch.cuda.is_available() else 'cpu'
-                cfg.load_from = os.environ['checkpoint_file']
-                # Initialize and run training
-                
-                slice_configuration = cfg.get('slice_configuration')
-                cfg = slice_train_images(cfg, **slice_configuration)
-                cfg.log_level = 'ERROR'  # Add this line to suppress INFO/WARNING logs
-                runner = Runner.from_cfg(cfg)
-                sucess = False
-                try: 
-                    runner.train()
-                    sucess = True
-                    # gc.collect()
-                    # torch.cuda.empty_cache()         
-                    # Only update memory bank if training was successful
-                    # model = init_detector(cfg, os.environ['checkpoint_file'], device=cfg.device)
-                except Exception as e:
-                    logger.error(f"Training failed: {str(e)}", exc_info=True)    
-                    gc.collect()
-                    torch.cuda.empty_cache()
-                    result['error'] = str(e)
-                    
-                                # Handle checkpoints
-                
-                if(sucess):
-                    with open(os.path.join(cfg.work_dir, 'last_checkpoint'), 'r') as f:
-                        latest_ckpt = f.read().strip()
-                        result['model_path'] = latest_ckpt
-                        result['checkpoints'].append(latest_ckpt)
-                        checkpoint_file = latest_ckpt
-                        self._update_memory_bank(current_task_ids)
-                        gc.collect()
-                        torch.cuda.empty_cache()
-                        # model = init_detector(cfg, latest_ckpt, device=device)
-                        
-                        # set the environment variable to use the new model
-                        # self.bump_model_version()
-                        # self.model_version = self.get("model_version")
-                        
-                        os.environ['checkpoint_file'] = latest_ckpt
-                        logger.info("Training completed successfully")
-                        ic("Training completed successfully")
-                else:
-                    gc.collect()
-                    torch.cuda.empty_cache()
-                    # raise RuntimeError("Training failed - no checkpoint created")
-
-
-            return result
-
-        except Exception as e:
-            logger.error(f"Training failed: {str(e)}", exc_info=True)
-            result['error'] = str(e)
-            gc.collect()
-            torch.cuda.empty_cache()
-            # model = init_detector(cfg, os.environ['checkpoint_file'], device)
-        
-        return result
-
-    def force_fit(self, event, data, **kwargs):
-        """Train MMDetection model with Label Studio annotations"""
-        # Environment configuration
-        os.environ['OMP_NUM_THREADS'] = '1'
-        os.environ['MKL_NUM_THREADS'] = '1'
-        
-        config_file = os.environ['config_file']
-        checkpoint_file = os.environ['checkpoint_file']
-        device = os.environ.get("device", "cpu")
-        # model = init_detector(config_file, checkpoint_file, device=device)
-        ic("Called force fit function")
-        logger.info(f"Load new model from: {config_file}, {checkpoint_file}")
-        
-        result = {
-            'model_path': checkpoint_file,
-            'checkpoints': [],
-            'labels': list(self.labels_in_config),
-            'error': None
-        }
-        try:
-            # Initialize Label Studio client
-            ls = label_studio_sdk.Client(
-                LABEL_STUDIO_HOST,
-                LABEL_STUDIO_API_KEY
-            )
-            project = ls.get_project(data['project']['id'])
-            self.project_id = str(data['project']['id'])
-            
-            # Get image key from labeling config
-            # from_name, to_name, image_key = self.label_interface.get_first_tag_occurence('Image', 'Image')
-            # project.get_tasks(selected_ids=[70665, 70664])
-            # Fetch and validate tasks
-            tasks = data['tasks']
             current_task_ids = {str(task['id']) for task in tasks}
-            # Store current task IDs before training
-            os.makedirs(os.path.join('work_dirs',project.title), exist_ok=True)
-            
+            os.makedirs(os.path.join(
+                'work_dirs', project.title), exist_ok=True)
+
             # Training setup
-            with tempfile.TemporaryDirectory(dir=os.path.join('work_dirs',project.title)) as temp_dir:
+            with tempfile.TemporaryDirectory(dir=os.path.join('work_dirs', project.title)) as temp_dir2:
+                # Define a path manually for debugging
+                temp_dir = os.path.join('work_dirs', project.title, 'debug_temp')
+                os.makedirs(temp_dir, exist_ok=True)
                 # Convert tasks to COCO format
                 coco_data = self._tasks_to_coco(tasks, temp_dir)
                 # Save COCO annotations
@@ -492,18 +352,18 @@ class MMDetection(LabelStudioMLBase):
                 cfg.test_cfg.max_per_img = 2000
                 # TODO : Each project should have its own workdir
                 # Config 1 : Work dir location
-                cfg.work_dir = os.path.join('work_dirs',project.title)
+                cfg.work_dir = os.path.join('work_dirs', project.title)
                 os.makedirs(cfg.work_dir, exist_ok=True)
 
                 # Dataset configuration
                 cfg.data_root = ''
-                cfg.train_dataloader.batch_size=1
+                cfg.train_dataloader.batch_size = 1
                 cfg.train_dataloader.dataset.data_root = ''
                 cfg.train_dataloader.dataset.ann_file = os.path.join(
                     temp_dir, 'train.json')
                 cfg.train_dataloader.num_workers = 0  # Disable multiprocessing
                 cfg.train_dataloader.persistent_workers = False
-                
+
                 # Modify val paths
                 cfg.val_dataloader.dataset.data_root = ''
                 cfg.val_dataloader.dataset.ann_file = os.path.join(
@@ -529,7 +389,7 @@ class MMDetection(LabelStudioMLBase):
                     temp_dir, 'train.json')
                 cfg.test_evaluator.outfile_prefix = os.path.join(
                     temp_dir, 'prediction_test')
-                
+
                 # Modify train slices path
                 os.makedirs(os.path.join(temp_dir, 'slices'), exist_ok=True)
                 cfg.data_root_slice = os.path.join(temp_dir, 'slices')
@@ -546,28 +406,28 @@ class MMDetection(LabelStudioMLBase):
                 cfg.device = 'cuda' if torch.cuda.is_available() else 'cpu'
                 cfg.load_from = os.environ['checkpoint_file']
                 # Initialize and run training
-                
+
                 slice_configuration = cfg.get('slice_configuration')
                 cfg = slice_train_images(cfg, **slice_configuration)
                 cfg.log_level = 'ERROR'  # Add this line to suppress INFO/WARNING logs
                 runner = Runner.from_cfg(cfg)
                 sucess = False
-                try: 
+                try:
                     runner.train()
                     sucess = True
                     # gc.collect()
-                    # torch.cuda.empty_cache()         
+                    # torch.cuda.empty_cache()
                     # Only update memory bank if training was successful
                     # model = init_detector(cfg, os.environ['checkpoint_file'], device=cfg.device)
                 except Exception as e:
-                    logger.error(f"Training failed: {str(e)}", exc_info=True)    
+                    logger.error(f"Training failed: {str(e)}", exc_info=True)
                     gc.collect()
                     torch.cuda.empty_cache()
                     result['error'] = str(e)
-                    
-                                # Handle checkpoints
-                
-                if(sucess):
+
+                    # Handle checkpoints
+
+                if (sucess):
                     with open(os.path.join(cfg.work_dir, 'last_checkpoint'), 'r') as f:
                         latest_ckpt = f.read().strip()
                         result['model_path'] = latest_ckpt
@@ -577,7 +437,173 @@ class MMDetection(LabelStudioMLBase):
                         gc.collect()
                         torch.cuda.empty_cache()
                         # model = init_detector(cfg, latest_ckpt, device=device)
-                        
+
+                        # set the environment variable to use the new model
+                        # self.bump_model_version()
+                        # self.model_version = self.get("model_version")
+
+                        os.environ['checkpoint_file'] = latest_ckpt
+                        logger.info("Training completed successfully")
+                        ic("Training completed successfully")
+                else:
+                    gc.collect()
+                    torch.cuda.empty_cache()
+                    # raise RuntimeError("Training failed - no checkpoint created")
+
+            return result
+
+        except Exception as e:
+            logger.error(f"Training failed: {str(e)}", exc_info=True)
+            result['error'] = str(e)
+            gc.collect()
+            torch.cuda.empty_cache()
+            # model = init_detector(cfg, os.environ['checkpoint_file'], device)
+
+        return result
+
+    def force_fit(self, event, data, **kwargs):
+        """Train MMDetection model with Label Studio annotations"""
+        # Environment configuration
+        os.environ['OMP_NUM_THREADS'] = '1'
+        os.environ['MKL_NUM_THREADS'] = '1'
+
+        config_file = os.environ['config_file']
+        checkpoint_file = os.environ['checkpoint_file']
+        device = os.environ.get("device", "cpu")
+        # model = init_detector(config_file, checkpoint_file, device=device)
+        ic("Called force fit function")
+        logger.info(f"Load new model from: {config_file}, {checkpoint_file}")
+
+        result = {
+            'model_path': checkpoint_file,
+            'checkpoints': [],
+            'labels': list(self.labels_in_config),
+            'error': None
+        }
+        try:
+            # Initialize Label Studio client
+            ls = label_studio_sdk.Client(
+                LABEL_STUDIO_HOST,
+                LABEL_STUDIO_API_KEY
+            )
+            project = ls.get_project(data['project']['id'])
+            self.project_id = str(data['project']['id'])
+
+            # Get image key from labeling config
+            # from_name, to_name, image_key = self.label_interface.get_first_tag_occurence('Image', 'Image')
+            # project.get_tasks(selected_ids=[70665, 70664])
+            # Fetch and validate tasks
+            tasks = data['tasks']
+            current_task_ids = {str(task['id']) for task in tasks}
+            # Store current task IDs before training
+            os.makedirs(os.path.join(
+                'work_dirs', project.title), exist_ok=True)
+
+            # Training setup
+            with tempfile.TemporaryDirectory(dir=os.path.join('work_dirs', project.title)) as temp_dir2:
+                temp_dir = os.path.join('work_dirs', project.title, 'debug_temp')
+                os.makedirs(temp_dir, exist_ok=True)
+                # Convert tasks to COCO format
+                coco_data = self._tasks_to_coco(tasks, temp_dir)
+                # Save COCO annotations
+                ann_file = os.path.join(temp_dir, 'train.json')
+                with open(ann_file, 'w') as f:
+                    json.dump(coco_data, f)
+
+                # Configure MMDetection
+                cfg = Config.fromfile(config_file)
+                # Update model configuration
+                cfg.model.bbox_head.num_classes = len(self.labels_in_config)
+                cfg.num_queries = 2000
+                cfg.test_cfg.max_per_img = 2000
+                # TODO : Each project should have its own workdir
+                # Config 1 : Work dir location
+                cfg.work_dir = os.path.join('work_dirs', project.title)
+                os.makedirs(cfg.work_dir, exist_ok=True)
+
+                # Dataset configuration
+                cfg.data_root = ''
+                cfg.train_dataloader.batch_size = 1
+                cfg.train_dataloader.dataset.data_root = ''
+                cfg.train_dataloader.dataset.ann_file = os.path.join(
+                    temp_dir, 'train.json')
+                cfg.train_dataloader.num_workers = 0  # Disable multiprocessing
+                cfg.train_dataloader.persistent_workers = False
+
+                # Modify val paths
+                cfg.val_dataloader.dataset.data_root = ''
+                cfg.val_dataloader.dataset.ann_file = os.path.join(
+                    temp_dir, 'train.json')
+                # Disable multiprocessing to avoid interference with Label Studio which doesnt allow any child to spawn new processes
+                cfg.val_dataloader.num_workers = 0
+                cfg.val_dataloader.persistent_workers = False
+                cfg.val_dataloader.prefetch_factor = None
+                cfg.val_evaluator.ann_file = os.path.join(
+                    temp_dir, 'train.json')
+                cfg.val_evaluator.outfile_prefix = os.path.join(
+                    temp_dir, 'prediction_val')
+
+                # Modify test paths
+                cfg.test_dataloader.dataset.data_root = ''
+                cfg.test_dataloader.dataset.ann_file = os.path.join(
+                    temp_dir, 'train.json')
+                # Disable multiprocessing to avoid interference with Label Studio which doesnt allow any child to spawn new processes
+                cfg.test_dataloader.num_workers = 0
+                cfg.test_dataloader.persistent_workers = False
+                cfg.test_dataloader.prefetch_factor = None
+                cfg.test_evaluator.ann_file = os.path.join(
+                    temp_dir, 'train.json')
+                cfg.test_evaluator.outfile_prefix = os.path.join(
+                    temp_dir, 'prediction_test')
+
+                # Modify train slices path
+                os.makedirs(os.path.join(temp_dir, 'slices'), exist_ok=True)
+                cfg.data_root_slice = os.path.join(temp_dir, 'slices')
+                # whole images data_root
+                cfg.data_root_whole = ''
+
+                # Training parameters
+                cfg.train_cfg = dict(
+                    type='EpochBasedTrainLoop',
+                    max_epochs=10,
+                    val_interval=1000000
+                )
+                cfg.default_hooks.checkpoint.interval = 10
+                cfg.device = 'cuda' if torch.cuda.is_available() else 'cpu'
+                cfg.load_from = os.environ['checkpoint_file']
+                # Initialize and run training
+
+                slice_configuration = cfg.get('slice_configuration')
+                cfg = slice_train_images(cfg, **slice_configuration)
+                cfg.log_level = 'ERROR'  # Add this line to suppress INFO/WARNING logs
+                runner = Runner.from_cfg(cfg)
+                sucess = False
+                try:
+                    runner.train()
+                    sucess = True
+                    # gc.collect()
+                    # torch.cuda.empty_cache()
+                    # Only update memory bank if training was successful
+                    # model = init_detector(cfg, os.environ['checkpoint_file'], device=cfg.device)
+                except Exception as e:
+                    logger.error(f"Training failed: {str(e)}", exc_info=True)
+                    gc.collect()
+                    torch.cuda.empty_cache()
+                    result['error'] = str(e)
+
+                    # Handle checkpoints
+
+                if (sucess):
+                    with open(os.path.join(cfg.work_dir, 'last_checkpoint'), 'r') as f:
+                        latest_ckpt = f.read().strip()
+                        result['model_path'] = latest_ckpt
+                        result['checkpoints'].append(latest_ckpt)
+                        checkpoint_file = latest_ckpt
+                        # self._update_memory_bank(current_task_ids)
+                        gc.collect()
+                        torch.cuda.empty_cache()
+                        # model = init_detector(cfg, latest_ckpt, device=device)
+
                         # set the environment variable to use the new model
                         # self.bump_model_version()
                         os.environ['checkpoint_file'] = latest_ckpt
@@ -596,9 +622,8 @@ class MMDetection(LabelStudioMLBase):
             gc.collect()
             torch.cuda.empty_cache()
             # model = init_detector(cfg, os.environ['checkpoint_file'], device)
-        
-        return result
 
+        return result
 
     def _update_memory_bank(self, new_task_ids):
         """Update memory bank with new task IDs, maintaining max size"""
@@ -607,185 +632,355 @@ class MMDetection(LabelStudioMLBase):
         new_task_ids = set(new_task_ids)
         # Add new task IDs
         updated_trained = current_trained.union(new_task_ids)
-        
+
         # Maintain max size by keeping most recent
         if len(updated_trained) > self.max_memory_size:
-            updated_trained = set(list(updated_trained)[-self.max_memory_size:])
-            
-        self.memory_bank['trained_task_ids'] = updated_trained
-        
+            updated_trained = set(list(updated_trained)
+                                  [-self.max_memory_size:])
+
+        # self.memory_bank['trained_task_ids'] = updated_trained
+
         # Store as JSON string with list conversion for sets
-        memory_bank_to_store = {
-            'trained_task_ids': list(updated_trained)
-        }
-        self.set('memory_bank', json.dumps(memory_bank_to_store))
-        logger.info(f"Memory bank updated. Now contains {len(updated_trained)} trained tasks")
-    
-    
+        # memory_bank_to_store = {
+            # 'trained_task_ids': list(updated_trained)
+        # }
+        # self.set('memory_bank', json.dumps(memory_bank_to_store))
+        logger.info(
+            f"Memory bank updated. Now contains {len(updated_trained)} trained tasks")
+
     def _tasks_to_coco(self, tasks, temp_dir):
-        """Convert Label Studio tasks to COCO format"""
-        # Invert label map
+        """Convert Label Studio tasks to COCO format, handling train regions."""
+        if not SHAPELY_AVAILABLE:
+            logger.error("Shapely is not installed, cannot process 'Train region' polygons or shrink them.")
+            # Fallback or error - choosing to log and potentially skip region processing
+            # Depending on requirements, you might want to raise an Exception here.
+
+        # Invert label map for finding category IDs
         self.label_map_inverted = {v: k for k, v in self.label_map.items()}
-        self.label_index = {l: i for i, l in enumerate(self.label_map_inverted.values())}
-        
+        # Create label index map {label_name: category_id}
+        self.label_index = {
+            label_name: i
+            for i, label_name in enumerate(self.labels_in_config) # Use labels from project config directly
+        }
+        # Ensure label_index covers all configured labels
+        coco_categories = [
+             {'id': idx, 'name': label} for label, idx in self.label_index.items()
+        ]
+
+
         coco = {
             'images': [],
             'annotations': [],
-            'categories': [{'id': i, 'name': l} for i, l in enumerate(self.label_map_inverted.values())]
+            'categories': coco_categories
         }
-        
+
         ann_id = 1
-        for task_id, task in enumerate(tasks):
+        coco_img_id = 0 # Use a separate counter for COCO image IDs
+
+        for task in tasks:
+            task_id = task['id'] # Use the actual task ID for logging/filenames
             try:
-                # Handle image data
-                img_path = self.get_local_path(task['data']['image'])
+                image_url = self._get_image_url(task)
+                img_path = self.get_local_path(image_url)
                 if not os.path.exists(img_path):
+                    logger.warning(f"Image path not found for task {task_id}: {img_path}. Skipping task.")
                     continue
-                    
-                height, width = get_image_size(img_path)
-                
-                # Load the image
+
+                original_width, original_height = get_image_size(img_path)
                 img = Image.open(img_path).convert("RGB")
-                
-                # Check the user's choice for training region
-                train_on_whole_image = True  # Default to whole image
+
+                # Determine if training on whole image or regions
+                train_on_whole_image = True # Default
+                train_region_polygons_percent = [] # Store multiple regions (as percentage points)
+
                 for ann in task.get('annotations', []):
                     for result in ann.get('result', []):
-                        if result['type'] == 'choices' and result['from_name'] == 'train_region_choice':
-                            if result['value']['choices'][0] == 'Train only on train region':
+                        # Check for the choice first
+                        if result.get('type') == 'choices' and result.get('from_name') == 'train_region_choice':
+                            choice = result.get('value', {}).get('choices', [])
+                            if choice and choice[0] == 'Train only on train region':
                                 train_on_whole_image = False
-                            break
-                    if not train_on_whole_image:
-                        break
-                
+                        # Collect *all* Train region polygons regardless of choice (needed if choice is region)
+                        elif result.get('type') == 'polygonlabels' and 'Train region' in result.get('value', {}).get('polygonlabels', []):
+                             # Ensure points exist and are not empty
+                            points = result['value'].get('points')
+                            if points and len(points) >= 3: # Need at least 3 points for a polygon
+                                train_region_polygons_percent.append(points)
+
+                # If choice is 'Train only on train region' but no valid polygons found, skip task or log warning
+                if not train_on_whole_image and not train_region_polygons_percent:
+                    logger.warning(f"Task {task_id} set to 'Train only on train region' but no valid 'Train region' polygons found. Skipping region processing for this task.")
+                    # Option 1: Skip the entire task
+                    # continue
+                    # Option 2: Fallback to training on the whole image (more robust)
+                    train_on_whole_image = True
+                    logger.warning(f"Falling back to training on whole image for task {task_id}.")
+
+
+                # --- Process Annotations ---
+                # Extract all relevant annotations from the task first
+                task_annotations = []
+                # Find required height/width text areas if they exist
+                bbox_height_text = None
+                bbox_width_text = None
+                required_width = 0.5 # Default keypoint width %
+                required_height = 0.5 # Default keypoint height %
+
+                for ann in task.get('annotations', []):
+                     # Look for text inputs defining bbox size (assuming specific from_names)
+                     for result in ann.get('result', []):
+                         if result.get('type') == 'textarea' and result.get('from_name') == 'bbox_height_px': # Adjust from_name if needed
+                             try:
+                                 # Assuming text contains a single number (percentage)
+                                 bbox_height_text = float(result['value']['text'][0])
+                                 required_height = bbox_height_text if bbox_height_text > 0 else required_height
+                             except (ValueError, IndexError, KeyError):
+                                 logger.warning(f"Task {task_id}: Could not parse bbox_height_px value.")
+                         elif result.get('type') == 'textarea' and result.get('from_name') == 'bbox_width_px': # Adjust from_name if needed
+                             try:
+                                 bbox_width_text = float(result['value']['text'][0])
+                                 required_width = bbox_width_text if bbox_width_text > 0 else required_width
+                             except (ValueError, IndexError, KeyError):
+                                 logger.warning(f"Task {task_id}: Could not parse bbox_width_px value.")
+
+                     # Now process keypoints
+                     for result in ann.get('result', []):
+                        if result.get('type') == 'keypointlabels':
+                            label = result['value'].get('keypointlabels', [None])[0]
+                            ls_label = self.label_map.get(label, label) # Map label if needed
+
+                            # Use project config labels for checking and indexing
+                            if ls_label not in self.label_index:
+                                logger.warning(f"Task {task_id}: Label '{ls_label}' (original: '{label}') not found in project config labels: {list(self.label_index.keys())}. Skipping annotation.")
+                                continue
+
+                            category_id = self.label_index[ls_label]
+
+                            # Convert keypoint center % to absolute pixel coordinates
+                            x_pct = result['value']['x']
+                            y_pct = result['value']['y']
+                            center_x = x_pct * original_width / 100
+                            center_y = y_pct * original_height / 100
+
+                            # Get bbox dimensions from text inputs or defaults (as percentages)
+                            w_pct = result['value'].get("width", required_width) # Use specific width if available
+                            h_pct = result['value'].get("height", required_height) # Use specific height if available
+
+                            # Convert width/height % to absolute pixel dimensions
+                            abs_w = w_pct * original_width / 100
+                            abs_h = h_pct * original_height / 100
+
+                            # Calculate COCO bbox [x_min, y_min, width, height] in absolute pixels
+                            x_min = center_x - abs_w / 2
+                            y_min = center_y - abs_h / 2
+
+                            # Clip bbox coordinates to image boundaries
+                            x_min = max(0, x_min)
+                            y_min = max(0, y_min)
+                            abs_w = min(original_width - x_min, abs_w)
+                            abs_h = min(original_height - y_min, abs_h)
+
+                            # Ensure width and height are positive
+                            if abs_w <= 0 or abs_h <= 0:
+                                logger.warning(f"Task {task_id}: Skipping annotation with non-positive dimensions for label '{ls_label}'. W={abs_w}, H={abs_h}")
+                                continue
+
+
+                            task_annotations.append({
+                                'category_id': category_id,
+                                'bbox_abs': [x_min, y_min, abs_w, abs_h], # Store absolute coords on original image
+                                'center_abs': (center_x, center_y) # Store absolute center point
+                            })
+
+
+                # --- Generate COCO Data ---
                 if train_on_whole_image:
                     # Use the whole image
-                    cropped_img = img
-                    cropped_img_path = img_path
-                else:
-                    # Extract polygon coordinates for "Train region"
-                    train_region_polygon = None
-                    for ann in task.get('annotations', []):
-                        for result in ann.get('result', []):
-                            if result['type'] == 'polygonlabels' and 'Train region' in result['value'].get('polygonlabels', []):
-                                train_region_polygon = result['value']['points']
-                                break
-                        if train_region_polygon:
-                            break
-                    
-                    if not train_region_polygon:
-                        continue  # Skip if no train region is defined
-                    
-                    # Convert polygon coordinates to a mask
-                    mask = Image.new('L', (width, height), 0)
-                    ImageDraw.Draw(mask).polygon([(int(x * width / 100), int(y * height / 100)) for x, y in train_region_polygon], outline=1, fill=1)
-                    mask = np.array(mask)
-                    
-                    # Apply the mask to the image to extract the polygon region
-                    img_array = np.array(img)
-                    masked_img_array = np.zeros_like(img_array)
-                    masked_img_array[mask > 0] = img_array[mask > 0]
-                    
-                    # Find the bounding box of the polygon to crop the image
-                    coords = np.column_stack(np.where(mask > 0))
-                    if coords.size == 0:
-                        continue  # Skip if the polygon is invalid or empty
-                    min_y, min_x = coords.min(axis=0)
-                    max_y, max_x = coords.max(axis=0)
-                    
-                    # Crop the masked image to the polygon region
-                    cropped_img_array = masked_img_array[min_y:max_y, min_x:max_x]
-                    cropped_img = Image.fromarray(cropped_img_array)
-                    
-                    # Save the cropped image to a temporary directory
-                    cropped_img_path = os.path.join(temp_dir, f'cropped_{task_id}.jpg')
-                    cropped_img.save(cropped_img_path)
-                
-                # Update COCO image entry
-                coco['images'].append({
-                    'id': task_id,
-                    'file_name': cropped_img_path,
-                    'width': cropped_img.width,
-                    'height': cropped_img.height
-                })
-                
-                # Process annotations (same as before)
-                for ann in task.get('annotations', []):
-                    height_bbox = float(ann.get('result', [])[-2].get('value')['text'][0])
-                    width_bbox = float(ann.get('result', [])[-1].get('value')['text'][0])
-                    
-                    for result in ann.get('result', []):
-                        if result['type'] != 'keypointlabels':
-                            continue
+                    # Add COCO image entry
+                    coco['images'].append({
+                        'id': coco_img_id,
+                        'file_name': img_path, # Use original path
+                        'width': original_width,
+                        'height': original_height
+                    })
 
-                        label = result['value']['keypointlabels'][0]
-                        if label not in self.label_map_inverted.keys():
-                            continue
-                        
-                        # Convert to COCO bbox format
-                        x_pct = result['value']['x'] / 100
-                        y_pct = result['value']['y'] / 100
-                        w_pct = height_bbox / 100
-                        h_pct = width_bbox / 100
-                        
-                        bbox = [
-                            x_pct * width - w_pct * width / 2,
-                            y_pct * height - h_pct * height / 2,
-                            w_pct * width,
-                            h_pct * height
-                        ]
-                        
-                        # Check if the bbox is within the polygon (if applicable)
-                        if not train_on_whole_image:
-                            bbox_mask = Image.new('L', (width, height), 0)
-                            ImageDraw.Draw(bbox_mask).rectangle([
-                                int(bbox[0]), int(bbox[1]),
-                                int(bbox[0] + bbox[2]), int(bbox[1] + bbox[3])
-                            ], outline=1, fill=1)
-                            bbox_mask = np.array(bbox_mask)
-                            
-                            if not np.any(mask & bbox_mask):
-                                continue  # Skip if the bbox is outside the train region
-                        
-                        # Adjust bbox coordinates to the cropped image
-                        adjusted_bbox = [
-                            bbox[0] - (min_x if not train_on_whole_image else 0),
-                            bbox[1] - (min_y if not train_on_whole_image else 0),
-                            bbox[2],
-                            bbox[3]
-                        ]
-                        
-                        # Check if the adjusted bbox is within the cropped image
-                        if (adjusted_bbox[0] >= 0 and adjusted_bbox[1] >= 0 and
-                            adjusted_bbox[0] + adjusted_bbox[2] <= cropped_img.width and
-                            adjusted_bbox[1] + adjusted_bbox[3] <= cropped_img.height):
-                            coco['annotations'].append({
-                                'id': ann_id,
-                                'image_id': task_id,
-                                'category_id': self.label_index.get(label),
-                                'bbox': adjusted_bbox,
-                                'area': (w_pct * width) * (h_pct * height),
-                                'iscrowd': 0
-                            })
-                            ann_id += 1
+                    # Add all annotations associated with this image
+                    for ann_data in task_annotations:
+                        coco['annotations'].append({
+                            'id': ann_id,
+                            'image_id': coco_img_id,
+                            'category_id': ann_data['category_id'],
+                            'bbox': ann_data['bbox_abs'], # Use original absolute bbox
+                            'area': ann_data['bbox_abs'][2] * ann_data['bbox_abs'][3],
+                            'iscrowd': 0
+                        })
+                        ann_id += 1
+                    coco_img_id += 1 # Increment after processing the whole image
 
+                elif SHAPELY_AVAILABLE: # Process regions only if shapely is available
+                    processed_region = False
+                    # Iterate through each detected train region polygon
+                    for region_index, region_poly_percent in enumerate(train_region_polygons_percent):
+                        try:
+                            # Convert percentage points to absolute pixel coordinates
+                            abs_points = [
+                                (p[0] * original_width / 100, p[1] * original_height / 100)
+                                for p in region_poly_percent
+                            ]
+
+                            if len(abs_points) < 3:
+                                logger.warning(f"Task {task_id}, Region {region_index}: Skipping invalid polygon with < 3 points.")
+                                continue
+
+                            # Create Shapely Polygon
+                            polygon = Polygon(abs_points)
+
+                            # --- Feature 2: Shrink the polygon ---
+                            # Calculate shrink distance: 10% of the smaller dimension of the polygon's bounding box
+                            min_x, min_y, max_x, max_y = polygon.bounds
+                            poly_width = max_x - min_x
+                            poly_height = max_y - min_y
+
+                            if poly_width <= 0 or poly_height <= 0:
+                                logger.warning(f"Task {task_id}, Region {region_index}: Skipping polygon with non-positive dimensions.")
+                                continue
+
+                            # Use a buffer relative to polygon size, preventing excessive shrinking
+                            # Heuristic: 5% of the diagonal length? or 10% of min dimension? Let's stick to 10% min dim.
+                            shrink_distance = 0.10 * min(poly_width, poly_height)
+
+                            # Perform negative buffer (shrinking)
+                            # Use join_style=2 (MITRE) for sharper corners if desired
+                            shrunk_polygon = polygon.buffer(-shrink_distance, join_style=2)
+
+                            # Validate shrunk polygon
+                            shrunk_polygon = make_valid(shrunk_polygon) # Ensure geometric validity
+
+                            if shrunk_polygon.is_empty or not shrunk_polygon.is_valid:
+                                logger.warning(f"Task {task_id}, Region {region_index}: Polygon became empty or invalid after shrinking by {shrink_distance:.2f} pixels. Skipping region.")
+                                continue
+
+                             # Handle potential MultiPolygons resulting from buffering
+                            polygons_to_process = []
+                            if isinstance(shrunk_polygon, MultiPolygon):
+                                # Option: Process each part of the MultiPolygon as a separate crop
+                                # polygons_to_process.extend(list(shrunk_polygon.geoms))
+                                # Option: Take only the largest polygon
+                                largest_poly = max(shrunk_polygon.geoms, key=lambda p: p.area)
+                                if largest_poly.area > 0:
+                                    polygons_to_process.append(largest_poly)
+                                else:
+                                     logger.warning(f"Task {task_id}, Region {region_index}: Largest component of MultiPolygon has zero area after shrinking. Skipping.")
+                                     continue
+                            elif isinstance(shrunk_polygon, Polygon) and shrunk_polygon.area > 0:
+                                polygons_to_process.append(shrunk_polygon)
+                            else:
+                                logger.warning(f"Task {task_id}, Region {region_index}: Invalid geometry type or zero area after shrinking. Type: {type(shrunk_polygon)}. Skipping.")
+                                continue
+
+                            # --- Feature 3: Create Crop for each valid (shrunk) polygon ---
+                            for poly_idx, final_polygon in enumerate(polygons_to_process):
+
+                                # Get bounding box of the final (shrunk) polygon
+                                crop_min_x, crop_min_y, crop_max_x, crop_max_y = [
+                                    int(math.floor(c)) for c in final_polygon.bounds # Floor/Ceil for pixel grid
+                                ]
+                                # Add safety margin if needed, or ensure bounds are integers
+                                crop_min_x = max(0, crop_min_x)
+                                crop_min_y = max(0, crop_min_y)
+                                crop_max_x = min(original_width, int(math.ceil(crop_max_x)))
+                                crop_max_y = min(original_height, int(math.ceil(crop_max_y)))
+
+
+                                # Ensure valid crop dimensions
+                                if crop_max_x <= crop_min_x or crop_max_y <= crop_min_y:
+                                    logger.warning(f"Task {task_id}, Region {region_index}, Polygon {poly_idx}: Invalid crop dimensions after shrinking [{crop_min_x},{crop_min_y},{crop_max_x},{crop_max_y}]. Skipping crop.")
+                                    continue
+
+                                # Create the crop
+                                cropped_img = img.crop((crop_min_x, crop_min_y, crop_max_x, crop_max_y))
+                                crop_width = cropped_img.width
+                                crop_height = cropped_img.height
+
+                                if crop_width <= 0 or crop_height <= 0:
+                                     logger.warning(f"Task {task_id}, Region {region_index}, Polygon {poly_idx}: Zero dimension crop produced. Skipping.")
+                                     continue
+
+
+                                # Save the cropped image uniquely
+                                crop_filename = f'task_{task_id}_region_{region_index}_poly_{poly_idx}_crop.jpg'
+                                cropped_img_path = os.path.join(temp_dir, crop_filename)
+                                cropped_img.save(cropped_img_path)
+
+                                # Add COCO image entry for the crop
+                                coco['images'].append({
+                                    'id': coco_img_id,
+                                    'file_name': cropped_img_path, # Absolute path to the crop
+                                    'width': crop_width,
+                                    'height': crop_height
+                                })
+
+                                # Associate annotations with this crop
+                                for ann_data in task_annotations:
+                                    # Check if the annotation's center point falls within the *shrunk* polygon
+                                    center_point = Point(ann_data['center_abs'])
+                                    if final_polygon.contains(center_point):
+                                        # Adjust bbox coordinates relative to the crop's top-left corner
+                                        orig_bbox = ann_data['bbox_abs']
+                                        adj_x_min = orig_bbox[0] - crop_min_x
+                                        adj_y_min = orig_bbox[1] - crop_min_y
+                                        adj_w = orig_bbox[2]
+                                        adj_h = orig_bbox[3]
+
+                                        # Clip adjusted bbox to crop dimensions
+                                        final_x_min = max(0, adj_x_min)
+                                        final_y_min = max(0, adj_y_min)
+                                        final_w = min(crop_width - final_x_min, adj_w)
+                                        final_h = min(crop_height - final_y_min, adj_h)
+
+                                        # Add annotation if it has positive area within the crop
+                                        if final_w > 0 and final_h > 0:
+                                            coco['annotations'].append({
+                                                'id': ann_id,
+                                                'image_id': coco_img_id, # Associate with the crop image ID
+                                                'category_id': ann_data['category_id'],
+                                                'bbox': [final_x_min, final_y_min, final_w, final_h],
+                                                'area': final_w * final_h,
+                                                'iscrowd': 0
+                                            })
+                                            ann_id += 1
+
+                                # Increment COCO image ID for the next crop/image
+                                coco_img_id += 1
+                                processed_region = True # Mark that at least one region was processed
+
+                        except GEOSException as geos_e:
+                            logger.error(f"Task {task_id}, Region {region_index}: Shapely geometric error: {geos_e}. Skipping region.")
+                        except Exception as e:
+                            logger.error(f"Task {task_id}, Region {region_index}: Unexpected error processing region: {e}", exc_info=True)
+                            # Continue to next region
+
+                    # If regions were supposed to be processed but none were successful, log it
+                    if not processed_region and not train_on_whole_image:
+                        logger.warning(f"Task {task_id}: Set to train on regions, but no regions were successfully processed and cropped.")
+
+
+            except FileNotFoundError:
+                 logger.warning(f"Image file not found for task {task_id} at path derived from {task['data'].get('image', 'N/A')}. Skipping task.")
+            except IOError as e:
+                 logger.error(f"Error opening or reading image for task {task_id}: {e}. Skipping task.")
             except Exception as e:
-                logger.error(f"Error processing task {task_id}: {e}")
-                
+                # Catch broader errors during task processing
+                logger.error(f"Error processing task {task_id}: {e}", exc_info=True)
+
+        if not coco['images']:
+            logger.warning("COCO generation resulted in zero images. Training cannot proceed.")
+        if not coco['annotations']:
+            logger.warning("COCO generation resulted in zero annotations. Training might be ineffective.")
+
+
         return coco
 
-    def clear_memory_bank(self,):
-        """Reset the memory bank of trained task IDs"""
-        try:
-            # Clear both the in-memory and stored memory bank
-            # self.memory_bank['trained_task_ids'] = set()
-            # Update the persistent storage with empty list
-            self.set('memory_bank', json.dumps({'trained_task_ids': []}))
-            logger.info("Successfully cleared memory bank")
-            return True
-        except Exception as e:
-            logger.error(f"Failed to clear memory bank: {str(e)}", exc_info=True)
-            return False
 
 def json_load(file, int_keys=False):
     with io.open(file, encoding='utf8') as f:
@@ -794,4 +989,3 @@ def json_load(file, int_keys=False):
             return {int(k): v for k, v in data.items()}
         else:
             return data
-
