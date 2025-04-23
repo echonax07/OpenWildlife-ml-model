@@ -196,98 +196,150 @@ class MMDetection(LabelStudioMLBase):
         return image_url
 
     def predict(self, tasks, context: Optional[Dict] = None, **kwargs):
-
-        # if 'model' not in globals():
-        #     latest_ckpt = os.environ.get('checkpoint_file')
-        #     device = os.environ.get("device", "cpu")
-        #     config_file = os.environ.get('config_file')
-        #     model = init_detector(config_file, latest_ckpt, device=device)
         config_file = os.environ['config_file']
         checkpoint_file = os.environ['checkpoint_file']
-        ic(checkpoint_file)
         device = os.environ.get("device", "cpu")
         model = init_detector(config_file, checkpoint_file, device=device)
-        logger.info(f"Load new model from: {config_file}, {checkpoint_file}")
-        # self.model_version = self.get("model_version")
-
+        
+        # Get polygon label keys from config
+        poly_from_name, poly_to_name, _, _ = get_single_tag_keys(
+            self.parsed_label_config, 'PolygonLabels', 'Image'
+        )
+        
         label_studio_results = []
-        # with open(os.path.join('work_dirs','task_predict.json'), "w") as f:
-        #     json.dump(tasks,f)
-        # ic(os.path.join('work_dirs','task_predict.json'))
-        # ic(context)
+        
         for task in tasks:
-            # prompt_control = self._get_prompt(context)
-            # prompt = prompt_control['prompt']
-            # ic(prompt)
-            # if not prompt:
-            # logger.warning("Prompt not found")
-            # ModelResponse(predictions=[])
             image_url = self._get_image_url(task)
             image_path = self.get_local_path(image_url)
-            model_results = inference_detector(model,
-                                               image_path, text_prompt="female duck. male duck. Ice. Juvenile duck. duck", custom_entities=True).pred_instances
+            img_width, img_height = get_image_size(image_path)
+            
+            # Get existing annotations and train regions
+            existing_annotations = []
+            train_regions = []
+            
+            # Parse annotations to find train regions and existing points
+            for ann in task.get('annotations', []):
+                for result in ann.get('result', []):
+                    # Collect train regions
+                    if result.get('type') == 'polygonlabels' and 'Train region' in result.get('value', {}).get('polygonlabels', []):
+                        train_regions.append({
+                            'points': result['value']['points'],
+                            'original_width': result.get('original_width', img_width),
+                            'original_height': result.get('original_height', img_height)
+                        })
+                    
+                    # Collect existing keypoint annotations
+                    if result.get('type') == 'keypointlabels':
+                        label = result['value'].get('keypointlabels', [None])[0]
+                        if label in self.label_map:
+                            existing_annotations.append({
+                                'x': result['value']['x'],
+                                'y': result['value']['y'],
+                                'label': self.label_map[label],
+                                'score': 1.0  # Existing annotations get max confidence
+                            })
+
+            # Get model predictions
+            model_results = inference_detector(model, image_path, text_prompt="female duck. male duck. Ice. Juvenile duck. duck", custom_entities=True).pred_instances
             results = []
             all_scores = []
-            img_width, img_height = get_image_size(image_path)
-            # print(f'>>> model_results: {model_results}')
-            # print(f'>>> label_map {self.label_map}')
-            # print(f'>>> model.dataset_meta: {model.dataset_meta}')
+            
             classes = model.dataset_meta.get('classes')
-            # classes = cfg.val_dataloader
+            
+            # Add train regions to results first
+            for region in train_regions:
+                results.append({
+                    'from_name': poly_from_name,
+                    'to_name': poly_to_name,
+                    'type': 'polygonlabels',
+                    'value': {
+                        'points': region['points'],
+                        'polygonlabels': ['Train region'],
+                        'original_width': region['original_width'],
+                        'original_height': region['original_height']
+                    },
+                    'score': 1.0  # Full confidence for existing regions
+                })
+                # all_scores.append(1.0)
 
-            # ic(classes)
-            # print(f'Classes >>> {classes}')
+            # Process model predictions
             for item in model_results:
-                # print(f'item >>>>> {item}')
-                bboxes, label, scores = item['bboxes'], item['labels'], item[
-                    'scores']
+                bboxes, label, scores = item['bboxes'], item['labels'], item['scores']
                 score = float(scores[-1])
                 if score < self.score_threshold:
                     continue
-                # print(f'bboxes >>>>> {bboxes}')
-                # print(f'label >>>>> {label}')
-                output_label = classes[list(
-                    self.label_map.get(label, label))[0]]
-                # print(f'>>> output_label: {output_label}')
+
+                output_label = classes[list(self.label_map.get(label, label))[0]]
                 if output_label not in self.labels_in_config:
-                    print(output_label + ' label not found in project config.')
                     continue
 
                 for bbox in bboxes:
-                    bbox = list(bbox)
-                    if not bbox:
-                        continue
-
-                    # Convert bbox to center point
                     x_min, y_min, x_max, y_max = bbox[:4]
                     x_center = (x_min + x_max) / 2
                     y_center = (y_min + y_max) / 2
+                    x_percent = x_center / img_width * 100
+                    y_percent = y_center / img_height * 100
 
-                    results.append({
-                        'from_name': self.from_name,
-                        'to_name': self.to_name,
-                        'type': 'keypointlabels',  # Changed type
-                        'value': {
-                            'keypointlabels': [output_label],  # Changed key
-                            'x': float(x_center) / img_width * 100,
-                            'y': float(y_center) / img_height * 100,
-                            "width": 0.4054054054054053,
-                        },
-                        'score': score,
-                    })
-                    all_scores.append(score)
+                    # Check if prediction is inside any train region
+                    in_train_region = False
+                    if SHAPELY_AVAILABLE:
+                        point = Point(x_center, y_center)
+                        for region in train_regions:
+                            # Convert percentage points to absolute coordinates
+                            abs_points = [
+                                (p[0]/100 * region['original_width'], 
+                                p[1]/100 * region['original_height']) 
+                                for p in region['points']
+                            ]
+                            poly = Polygon(abs_points)
+                            if poly.contains(point):
+                                in_train_region = True
+                                break
+
+                    # Only keep predictions outside train regions
+                    if not in_train_region:
+                        results.append({
+                            'from_name': self.from_name,
+                            'to_name': self.to_name,
+                            'type': 'keypointlabels',
+                            'value': {
+                                'keypointlabels': [output_label],
+                                'x': float(x_percent),
+                                'y': float(y_percent),
+                                "width": 0.4054054054054053,
+                            },
+                            'score': score,
+                        })
+                        all_scores.append(score)
+
+            # Add existing annotations from train regions
+            for ann in existing_annotations:
+                results.append({
+                    'from_name': self.from_name,
+                    'to_name': self.to_name,
+                    'type': 'keypointlabels',
+                    'value': {
+                        'keypointlabels': [ann['label']],
+                        'x': ann['x'],
+                        'y': ann['y'],
+                        "width": 0.4054054054054053,
+                    },
+                    'score': ann['score'],
+                })
+                all_scores.append(ann['score'])
+
             avg_score = sum(all_scores) / max(len(all_scores), 1)
-            # print(f'>>> RESULTS: {results}')
-            label_studio_results.append(
-                {'result': results, 'score': round(avg_score, 3), 'model_version': self.get("model_version")})
+            label_studio_results.append({
+                'result': results,
+                'score': round(avg_score, 3),
+                'model_version': self.get("model_version")
+            })
         ic("Prediction returned successfully")
-        # free gpu memory
         del model
-        # Run garbage collection
         gc.collect()
         torch.cuda.empty_cache()
         return label_studio_results
-
+    
     def fit(self, event, data, **kwargs):
         """Train MMDetection model with Label Studio annotations"""
         gc.collect()
