@@ -3,6 +3,8 @@ import io
 import json
 import logging
 import os
+import time
+import shutil
 from urllib.parse import urlparse
 
 import boto3
@@ -56,6 +58,8 @@ except ImportError:
     logger.warning(
         "Shapely library not found. Polygon shrinking will not be available. pip install shapely")
 
+
+DEFAULT_NUM_CKPTS_TO_KEEP = 10
 
 LABEL_STUDIO_HOST = os.getenv('LABEL_STUDIO_HOST')
 LABEL_STUDIO_API_KEY = os.getenv('LABEL_STUDIO_API_KEY')
@@ -130,7 +134,21 @@ class MMDetection(LabelStudioMLBase):
         # self.model_version = self.get("model_version")
 
     def setup(self):
-        self.set("model_version", f'{self.__class__.__name__}-v0.0.1')
+        self.load_model_checkpoint_and_version()
+
+    def get_versions(self):
+        last_n_ckpts = json.loads(self.get("last_n_ckpts")) if self.has('last_n_ckpts') else None
+        if last_n_ckpts is not None:
+            last_n_ckpts = json.loads(self.get('last_n_ckpts'))
+            versions = [ckpt[0] for ckpt in last_n_ckpts]
+            # Flip the list to get the latest version first
+            versions = versions[::-1]
+            return versions
+        elif self.has('model_version'):
+            model_version = self.get('model_version')
+            return [model_version]
+        else:
+            return []
 
     def _get_prompt(self, annotation: Optional[Dict] = None) -> Dict:
         from_name_prompt, _, _ = self.get_first_tag_occurence(
@@ -193,6 +211,9 @@ class MMDetection(LabelStudioMLBase):
         # self.model_version = self.get("model_version")
 
         label_studio_results = []
+        # with open(os.path.join('work_dirs','task_predict.json'), "w") as f:
+        #     json.dump(tasks,f)
+        # ic(os.path.join('work_dirs','task_predict.json'))
         # ic(context)
         for task in tasks:
             # prompt_control = self._get_prompt(context)
@@ -364,6 +385,7 @@ class MMDetection(LabelStudioMLBase):
                     temp_dir, 'train.json')
                 cfg.train_dataloader.num_workers = 0  # Disable multiprocessing
                 cfg.train_dataloader.persistent_workers = False
+                cfg.train_dataloader.dataset.pipeline= cfg.train_pipeline2
 
                 # Modify val paths
                 cfg.val_dataloader.dataset.data_root = ''
@@ -400,7 +422,7 @@ class MMDetection(LabelStudioMLBase):
                 # Training parameters
                 cfg.train_cfg = dict(
                     type='EpochBasedTrainLoop',
-                    max_epochs=10,
+                    max_epochs=1,
                     val_interval=1000000
                 )
                 cfg.default_hooks.logger.interval=1
@@ -441,10 +463,8 @@ class MMDetection(LabelStudioMLBase):
                         # model = init_detector(cfg, latest_ckpt, device=device)
 
                         # set the environment variable to use the new model
-                        # self.bump_model_version()
+                        self.bump_model_version(latest_ckpt, max_ckpts=cfg.default_hooks.checkpoint.max_keep_ckpts)
                         # self.model_version = self.get("model_version")
-
-                        os.environ['checkpoint_file'] = latest_ckpt
                         logger.info("Training completed successfully")
                         ic("Training completed successfully")
                 else:
@@ -474,6 +494,7 @@ class MMDetection(LabelStudioMLBase):
         device = os.environ.get("device", "cpu")
         # model = init_detector(config_file, checkpoint_file, device=device)
         ic("Called force fit function")
+        # ic(os.environ['checkpoint_file'])
         logger.info(f"Load new model from: {config_file}, {checkpoint_file}")
 
         result = {
@@ -501,6 +522,8 @@ class MMDetection(LabelStudioMLBase):
             os.makedirs(os.path.join(
                 'work_dirs', project.title), exist_ok=True)
 
+            # with open(os.path.join('work_dirs', project.title,'task.json'), "w") as f:
+            #         json.dump(tasks,f)
             # Training setup
             with tempfile.TemporaryDirectory(dir=os.path.join('work_dirs', project.title)) as temp_dir2:
                 temp_dir = os.path.join('work_dirs', project.title, 'debug_temp')
@@ -600,6 +623,12 @@ class MMDetection(LabelStudioMLBase):
                 if (sucess):
                     with open(os.path.join(cfg.work_dir, 'last_checkpoint'), 'r') as f:
                         latest_ckpt = f.read().strip()
+                        # Rename the file to include the timestamp
+                        latest_ckpt_dir = os.path.dirname(latest_ckpt)
+                        new_checkpoint_path = os.path.join(latest_ckpt_dir, f"checkpoint_{time.strftime('%Y%m%d_%H%M%S')}.pth")
+                        shutil.copyfile(latest_ckpt, new_checkpoint_path)
+                        latest_ckpt = new_checkpoint_path
+                        
                         result['model_path'] = latest_ckpt
                         result['checkpoints'].append(latest_ckpt)
                         checkpoint_file = latest_ckpt
@@ -609,8 +638,7 @@ class MMDetection(LabelStudioMLBase):
                         # model = init_detector(cfg, latest_ckpt, device=device)
 
                         # set the environment variable to use the new model
-                        # self.bump_model_version()
-                        os.environ['checkpoint_file'] = latest_ckpt
+                        self.bump_model_version(latest_ckpt, max_ckpts=cfg.default_hooks.checkpoint.max_keep_ckpts)
                         logger.info("Training completed successfully")
                         ic("Training completed successfully")
                 else:
@@ -628,6 +656,43 @@ class MMDetection(LabelStudioMLBase):
             # model = init_detector(cfg, os.environ['checkpoint_file'], device)
 
         return result
+
+    def load_model_checkpoint_and_version(self):
+        if self.has('latest_ckpt'):
+            latest_ckpt = json.loads(self.get('latest_ckpt'))
+            print("SETTING CHECKPOINT FILE TO ", latest_ckpt[1])
+            os.environ['checkpoint_file'] = latest_ckpt[1]
+            self.model_version = latest_ckpt[0]
+            self.set("model_version", self.model_version)
+        else:
+            self.model_version = f"{self.__class__.__name__}-v0.0.0"
+            self.set("model_version", self.model_version)
+
+    def bump_model_version(self, checkpoint_file, max_ckpts=DEFAULT_NUM_CKPTS_TO_KEEP):
+        if not os.path.exists(checkpoint_file):
+            logger.error(f"Checkpoint file {checkpoint_file} does not exist.")
+            return
+
+        timestamp = os.path.getmtime(checkpoint_file)
+        # Convert timestamp to a human-readable format
+        timestamp_str = time.strftime(
+            "%Y-%m-%d %H:%M:%S", time.localtime(timestamp))
+        # Update the model version with the timestamp
+        version_name = f"{self.__class__.__name__}-{timestamp_str}"
+        last_n_ckpts = json.loads(self.get("last_n_ckpts")) if self.has('last_n_ckpts') else []
+        last_n_ckpts.append([version_name, checkpoint_file])
+        while len(last_n_ckpts) > max_ckpts:
+            remove_ckpt = last_n_ckpts.pop(0)
+            if os.path.exists(remove_ckpt[1]):
+                os.remove(remove_ckpt[1])
+                logger.info(f"Removed checkpoint: {remove_ckpt[1]}")
+        self.set("last_n_ckpts", json.dumps(last_n_ckpts))
+        self.set("latest_ckpt", json.dumps([version_name, checkpoint_file]))
+
+        os.environ['checkpoint_file'] = checkpoint_file
+
+        self.set("model_version", version_name)
+
 
     def _update_memory_bank(self, new_task_ids):
         """Update memory bank with new task IDs, maintaining max size"""
@@ -664,20 +729,17 @@ class MMDetection(LabelStudioMLBase):
         # Create label index map {label_name: category_id}
         self.label_index = {
             label_name: i
-            for i, label_name in enumerate(self.labels_in_config) # Use labels from project config directly
+            for i, label_name in enumerate(self.label_map_inverted.values()) # Use labels from project config directly
         }
-        # Ensure label_index covers all configured labels
-        coco_categories = [
-             {'id': idx, 'name': label} for label, idx in self.label_index.items()
-        ]
-
-
+        # ic(self.label_index)
         coco = {
             'images': [],
             'annotations': [],
-            'categories': coco_categories
+            'categories': [{'id': i, 'name': l} for i, l in enumerate(self.label_map_inverted.values())]
         }
 
+        # ic(coco['categories'])
+        
         ann_id = 1
         coco_img_id = 0 # Use a separate counter for COCO image IDs
 
@@ -733,14 +795,14 @@ class MMDetection(LabelStudioMLBase):
                 for ann in task.get('annotations', []):
                      # Look for text inputs defining bbox size (assuming specific from_names)
                      for result in ann.get('result', []):
-                         if result.get('type') == 'textarea' and result.get('from_name') == 'bbox_height_px': # Adjust from_name if needed
+                         if result.get('type') == 'textarea' and result.get('from_name') == 'height': # Adjust from_name if needed
                              try:
                                  # Assuming text contains a single number (percentage)
                                  bbox_height_text = float(result['value']['text'][0])
                                  required_height = bbox_height_text if bbox_height_text > 0 else required_height
                              except (ValueError, IndexError, KeyError):
                                  logger.warning(f"Task {task_id}: Could not parse bbox_height_px value.")
-                         elif result.get('type') == 'textarea' and result.get('from_name') == 'bbox_width_px': # Adjust from_name if needed
+                         elif result.get('type') == 'textarea' and result.get('from_name') == 'width': # Adjust from_name if needed
                              try:
                                  bbox_width_text = float(result['value']['text'][0])
                                  required_width = bbox_width_text if bbox_width_text > 0 else required_width
@@ -767,9 +829,9 @@ class MMDetection(LabelStudioMLBase):
                             center_y = y_pct * original_height / 100
 
                             # Get bbox dimensions from text inputs or defaults (as percentages)
-                            w_pct = result['value'].get("width", required_width) # Use specific width if available
-                            h_pct = result['value'].get("height", required_height) # Use specific height if available
-
+                            w_pct = required_width # Use specific width if available
+                            h_pct = required_height # Use specific height if available
+                            
                             # Convert width/height % to absolute pixel dimensions
                             abs_w = w_pct * original_width / 100
                             abs_h = h_pct * original_height / 100
@@ -852,7 +914,7 @@ class MMDetection(LabelStudioMLBase):
                             # Use a buffer relative to polygon size, preventing excessive shrinking
                             # Heuristic: 5% of the diagonal length? or 10% of min dimension? Let's stick to 10% min dim.
                             # --- New fixed-pixel shrinking ---
-                            fixed_shrink_pixels = 50  # Shrink 100 pixels from all edges
+                            fixed_shrink_pixels = 20  # Shrink 100 pixels from all edges
                             shrink_distance = fixed_shrink_pixels
 
                             # Perform negative buffer (shrinking)
@@ -886,69 +948,69 @@ class MMDetection(LabelStudioMLBase):
 
                             # --- Feature 3: Create Crop for each valid (shrunk) polygon ---
                             for poly_idx, final_polygon in enumerate(polygons_to_process):
-
+                                # Get polygon points from the SHRUNK polygon
+                                shrunk_points = list(final_polygon.exterior.coords)
+                                
                                 # Get bounding box of the final (shrunk) polygon
-                                crop_min_x, crop_min_y, crop_max_x, crop_max_y = [
-                                    int(math.floor(c)) for c in final_polygon.bounds # Floor/Ceil for pixel grid
-                                ]
-                                # Add safety margin if needed, or ensure bounds are integers
-                                crop_min_x = max(0, crop_min_x)
-                                crop_min_y = max(0, crop_min_y)
-                                crop_max_x = min(original_width, int(math.ceil(crop_max_x)))
-                                crop_max_y = min(original_height, int(math.ceil(crop_max_y)))
+                                min_x, min_y, max_x, max_y = final_polygon.bounds
+                                crop_min_x = max(0, int(math.floor(min_x)))
+                                crop_min_y = max(0, int(math.floor(min_y)))
+                                crop_max_x = min(original_width, int(math.ceil(max_x)))
+                                crop_max_y = min(original_height, int(math.ceil(max_y)))
 
+                                # Create mask using SHRUNK polygon coordinates
+                                mask = Image.new('L', (original_width, original_height), 0)
+                                draw = ImageDraw.Draw(mask)
+                                
+                                # Convert shrunk polygon coordinates to list of tuples
+                                shrunk_poly_points = [(x, y) for x, y in shrunk_points]
+                                draw.polygon(shrunk_poly_points, fill=255)  # Use shrunk coordinates
 
-                                # Ensure valid crop dimensions
-                                if crop_max_x <= crop_min_x or crop_max_y <= crop_min_y:
-                                    logger.warning(f"Task {task_id}, Region {region_index}, Polygon {poly_idx}: Invalid crop dimensions after shrinking [{crop_min_x},{crop_min_y},{crop_max_x},{crop_max_y}]. Skipping crop.")
-                                    continue
+                                # Apply mask and crop
+                                img_array = np.array(img)
+                                mask_array = np.array(mask)
+                                masked_array = np.where(mask_array[..., None] == 255, img_array, 0)
+                                cropped_img = Image.fromarray(masked_array).crop(
+                                    (crop_min_x, crop_min_y, crop_max_x, crop_max_y)
+                                )
 
-                                # Create the crop
-                                cropped_img = img.crop((crop_min_x, crop_min_y, crop_max_x, crop_max_y))
-                                crop_width = cropped_img.width
-                                crop_height = cropped_img.height
-
-                                if crop_width <= 0 or crop_height <= 0:
-                                     logger.warning(f"Task {task_id}, Region {region_index}, Polygon {poly_idx}: Zero dimension crop produced. Skipping.")
-                                     continue
-
-
-                                # Save the cropped image uniquely
+                                # Save cropped image
                                 crop_filename = f'task_{task_id}_region_{region_index}_poly_{poly_idx}_crop.jpg'
                                 cropped_img_path = os.path.join(temp_dir, crop_filename)
                                 cropped_img.save(cropped_img_path)
 
-                                # Add COCO image entry for the crop
+                                
+                                # Get actual crop dimensions from the image
+                                crop_width, crop_height = cropped_img.size
+
+                                                                # Add COCO image entry for the crop
                                 coco['images'].append({
                                     'id': coco_img_id,
                                     'file_name': cropped_img_path, # Absolute path to the crop
                                     'width': crop_width,
                                     'height': crop_height
                                 })
-
-                                # Associate annotations with this crop
+                                # Process annotations
                                 for ann_data in task_annotations:
-                                    # Check if the annotation's center point falls within the *shrunk* polygon
+                                    # Check if center is in the SHRUNK polygon
                                     center_point = Point(ann_data['center_abs'])
                                     if final_polygon.contains(center_point):
-                                        # Adjust bbox coordinates relative to the crop's top-left corner
+                                        # Convert coordinates RELATIVE TO CROP
                                         orig_bbox = ann_data['bbox_abs']
                                         adj_x_min = orig_bbox[0] - crop_min_x
                                         adj_y_min = orig_bbox[1] - crop_min_y
-                                        adj_w = orig_bbox[2]
-                                        adj_h = orig_bbox[3]
-
-                                        # Clip adjusted bbox to crop dimensions
+                                        
+                                        # Ensure coordinates are within crop bounds
                                         final_x_min = max(0, adj_x_min)
                                         final_y_min = max(0, adj_y_min)
-                                        final_w = min(crop_width - final_x_min, adj_w)
-                                        final_h = min(crop_height - final_y_min, adj_h)
+                                        final_w = min(crop_width - final_x_min, orig_bbox[2])
+                                        final_h = min(crop_height - final_y_min, orig_bbox[3])
 
-                                        # Add annotation if it has positive area within the crop
+                                        # Only add if annotation is visible in crop
                                         if final_w > 0 and final_h > 0:
                                             coco['annotations'].append({
                                                 'id': ann_id,
-                                                'image_id': coco_img_id, # Associate with the crop image ID
+                                                'image_id': coco_img_id,
                                                 'category_id': ann_data['category_id'],
                                                 'bbox': [final_x_min, final_y_min, final_w, final_h],
                                                 'area': final_w * final_h,
