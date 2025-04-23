@@ -159,6 +159,17 @@ model = dict(
     with_box_refine=True)
 
 
+train_pipeline2 = [
+    dict(type='LoadImageFromFile', backend_args=_base_.backend_args),
+    dict(type='LoadAnnotations', with_bbox=True),
+    dict(type='RandomFlip', prob=0.5),
+    dict(
+        type='PackDetInputs',
+        meta_keys=('img_id', 'img_path', 'ori_shape', 'img_shape',
+                   'scale_factor', 'flip', 'flip_direction', 'text',
+                   'custom_entities'))
+]
+
 train_pipeline = [
     dict(type='LoadImageFromFile'),
     dict(type='LoadAnnotations', with_bbox=True),
@@ -254,7 +265,7 @@ test_evaluator = dict(ann_file=data_root + '/' + test_ann_file,outfile_prefix=f'
 max_epoch = 50
 
 default_hooks = dict(
-    checkpoint=dict(interval=10, max_keep_ckpts=1, save_best='auto'),
+    checkpoint=dict(interval=1, max_keep_ckpts=10, save_best=None),
     logger=dict(type='LoggerHook', interval=5))
 train_cfg = dict(max_epochs=max_epoch, val_interval=10)
 
