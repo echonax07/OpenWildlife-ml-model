@@ -198,6 +198,8 @@ class MMDetection(LabelStudioMLBase):
     def predict(self, tasks, context: Optional[Dict] = None, **kwargs):
         config_file = os.environ['config_file']
         checkpoint_file = os.environ['checkpoint_file']
+        ic(self.model_version)
+        ic(checkpoint_file)
         device = os.environ.get("device", "cpu")
         model = init_detector(config_file, checkpoint_file, device=device)
         
@@ -216,8 +218,12 @@ class MMDetection(LabelStudioMLBase):
             # Get existing annotations and train regions
             existing_annotations = []
             train_regions = []
+            with open(os.path.join('work_dirs', 'task_predict.json'), 'w') as f:
+                    json.dump(tasks, f)
+
             
             # Parse annotations to find train regions and existing points
+            num_train_regions = 0
             for ann in task.get('annotations', []):
                 for result in ann.get('result', []):
                     # Collect train regions
@@ -227,17 +233,43 @@ class MMDetection(LabelStudioMLBase):
                             'original_width': result.get('original_width', img_width),
                             'original_height': result.get('original_height', img_height)
                         })
-                    
+                        num_train_regions += 1
+            
+            for ann in task.get('annotations', []):
+                for result in ann.get('result', []):
                     # Collect existing keypoint annotations
                     if result.get('type') == 'keypointlabels':
-                        label = result['value'].get('keypointlabels', [None])[0]
-                        if label in self.label_map:
-                            existing_annotations.append({
-                                'x': result['value']['x'],
-                                'y': result['value']['y'],
-                                'label': self.label_map[label],
-                                'score': 1.0  # Existing annotations get max confidence
-                            })
+                        # Check if the keypoint is within the train regions
+                        if result['value'].get('x') is None or result['value'].get('y') is None:
+                            continue
+                        x_percent = result['value']['x']
+                        y_percent = result['value']['y']
+                        x_abs = x_percent / 100 * img_width
+                        y_abs = y_percent / 100 * img_height
+                        in_train_region = False
+                        if SHAPELY_AVAILABLE:
+                            point = Point(x_abs, y_abs)
+                            for region in train_regions:
+                                # Convert percentage points to absolute coordinates
+                                abs_points = [
+                                    (p[0]/100 * region['original_width'], 
+                                    p[1]/100 * region['original_height']) 
+                                    for p in region['points']
+                                ]
+                                poly = Polygon(abs_points)
+                                if poly.contains(point):
+                                    in_train_region = True
+                                    break
+                        
+                        if in_train_region:
+                            label = result['value'].get('keypointlabels', [None])[0]
+                            if label in self.label_map:
+                                existing_annotations.append({
+                                    'x': result['value']['x'],
+                                    'y': result['value']['y'],
+                                    'label': self.label_map[label],
+                                    'score': 1.0  # Existing annotations get max confidence
+                                })
 
             # Get model predictions
             model_results = inference_detector(model, image_path, text_prompt="female duck. male duck. Ice. Juvenile duck. duck", custom_entities=True).pred_instances
@@ -437,7 +469,7 @@ class MMDetection(LabelStudioMLBase):
                     temp_dir, 'train.json')
                 cfg.train_dataloader.num_workers = 0  # Disable multiprocessing
                 cfg.train_dataloader.persistent_workers = False
-                cfg.train_dataloader.dataset.pipeline= cfg.train_pipeline2
+                cfg.train_dataloader.dataset.pipeline= cfg.train_pipeline
 
                 # Modify val paths
                 cfg.val_dataloader.dataset.data_root = ''
@@ -480,6 +512,7 @@ class MMDetection(LabelStudioMLBase):
                 cfg.default_hooks.logger.interval=1
                 cfg.default_hooks.checkpoint.interval = 10
                 cfg.device = 'cuda' if torch.cuda.is_available() else 'cpu'
+                ic(os.environ['checkpoint_file'])
                 cfg.load_from = os.environ['checkpoint_file']
                 # Initialize and run training
 
@@ -606,6 +639,7 @@ class MMDetection(LabelStudioMLBase):
                     temp_dir, 'train.json')
                 cfg.train_dataloader.num_workers = 0  # Disable multiprocessing
                 cfg.train_dataloader.persistent_workers = False
+                cfg.train_dataloader.dataset.pipeline= cfg.train_pipeline2
 
                 # Modify val paths
                 cfg.val_dataloader.dataset.data_root = ''
@@ -645,8 +679,10 @@ class MMDetection(LabelStudioMLBase):
                     max_epochs=10,
                     val_interval=1000000
                 )
+                cfg.default_hooks.logger.interval=1
                 cfg.default_hooks.checkpoint.interval = 10
                 cfg.device = 'cuda' if torch.cuda.is_available() else 'cpu'
+                ic(os.environ['checkpoint_file'])
                 cfg.load_from = os.environ['checkpoint_file']
                 # Initialize and run training
 
@@ -710,15 +746,26 @@ class MMDetection(LabelStudioMLBase):
         return result
 
     def load_model_checkpoint_and_version(self):
-        if self.has('latest_ckpt'):
-            latest_ckpt = json.loads(self.get('latest_ckpt'))
-            print("SETTING CHECKPOINT FILE TO ", latest_ckpt[1])
-            os.environ['checkpoint_file'] = latest_ckpt[1]
-            self.model_version = latest_ckpt[0]
-            self.set("model_version", self.model_version)
-        else:
-            self.model_version = f"{self.__class__.__name__}-v0.0.0"
-            self.set("model_version", self.model_version)
+        if self.has('model_version'):
+            self.model_version = self.get('model_version')
+            last_n_ckpts = json.loads(self.get('last_n_ckpts')) if self.has('last_n_ckpts') else []
+            if last_n_ckpts:
+                # Find the latest checkpoint based on the model version
+                latest_ckpt = next(
+                    (ckpt for ckpt in last_n_ckpts if ckpt[0] == self.model_version), None)
+                if latest_ckpt:
+                    os.environ['checkpoint_file'] = latest_ckpt[1]
+                    self.model_version = latest_ckpt[0]
+                    print(self.model_version)
+                    print(os.environ['checkpoint_file'])
+                    return
+
+        # If model version not found, last_n_ckpts is empty, or model version can't be found in last_n_ckpts
+        # Set a default model version
+        self.model_version = f"{self.__class__.__name__}-v0.0.0"
+        self.set("model_version", self.model_version)
+        print(self.model_version)
+        print(os.environ['checkpoint_file'])
 
     def bump_model_version(self, checkpoint_file, max_ckpts=DEFAULT_NUM_CKPTS_TO_KEEP):
         if not os.path.exists(checkpoint_file):

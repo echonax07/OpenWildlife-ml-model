@@ -281,11 +281,11 @@ def calculate_tp_fp_fn_ignore_category(coco_file, pred_file, score_threshold=0.5
 
 
 # # Example usage
-gt_json_path = '/home/pc2041/VIP_lab/labelstudio/mmwhale2/work_dirs/Eider DEMO v1/debug_temp/train.json'
+gt_json_path = '/home/pc2041/VIP_lab/labelstudio/mmwhale2/work_dirs/Eider Demo V2/debug_temp/train.json'
 
-pred_json_path = '/home/pc2041/VIP_lab/labelstudio/mmwhale2/work_dirs/Eider DEMO v1/debug_temp/prediction_val.bbox.json'
+pred_json_path = '/home/pc2041/VIP_lab/labelstudio/mmwhale2/work_dirs/Eider Demo V2/debug_temp/prediction_val.bbox.json'
 img_folder = '/home/pc2041/VIP_lab/labelstudio/mmwhale2/'
-save_folder = "/home/pc2041/VIP_lab/labelstudio/mmwhale2/work_dirs/Eider DEMO v1/vis"
+save_folder = "/home/pc2041/VIP_lab/labelstudio/mmwhale2/work_dirs/Eider Demo V2/vis"
 
 
 # # # Example usage
@@ -527,8 +527,8 @@ save_folder = "/home/pc2041/VIP_lab/labelstudio/mmwhale2/work_dirs/Eider DEMO v1
 
 score_threshold = 0.3
 iou_threshold = 0.2
-# plot_coco_image(gt_json_path, pred_json_path, img_folder, save_folder, mode='all', score_threshold=score_threshold, iou_threshold=iou_threshold, show_text=False)
-plot_coco_image(gt_json_path, None, img_folder, save_folder, mode='all', score_threshold=score_threshold, iou_threshold=iou_threshold, show_text=False)
+plot_coco_image(gt_json_path, pred_json_path, img_folder, save_folder, mode='all', score_threshold=score_threshold, iou_threshold=iou_threshold, show_text=False)
+# plot_coco_image(gt_json_path, None, img_folder, save_folder, mode='all', score_threshold=score_threshold, iou_threshold=iou_threshold, show_text=False)
 
 # calculate_tp_fp_fn_ignore_category(
 #     gt_json_path,

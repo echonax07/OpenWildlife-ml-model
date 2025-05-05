@@ -385,6 +385,10 @@ class GroundingDINO(DINO):
         # multi-class classification, while DeformDETR, where the input
         # is `enc_outputs_class[..., 0]` selects according to scores of
         # binary classification.
+        # from icecream import ic
+        # ic(self.num_queries)
+        # ic(enc_outputs_class.max(-1)[0].shape[1])
+    
         topk_indices = torch.topk(
             enc_outputs_class.max(-1)[0], k=self.num_queries, dim=1)[1]
 

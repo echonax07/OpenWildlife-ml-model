@@ -162,7 +162,7 @@ model = dict(
 train_pipeline2 = [
     dict(type='LoadImageFromFile', backend_args=_base_.backend_args),
     dict(type='LoadAnnotations', with_bbox=True),
-    dict(type='RandomFlip', prob=0.5),
+    dict(type='Pad', size=(512, 512), pad_val=0),  # Adds padding to make images 512x512
     dict(
         type='PackDetInputs',
         meta_keys=('img_id', 'img_path', 'ori_shape', 'img_shape',
@@ -291,3 +291,4 @@ optim_wrapper = dict(
 # work_dir = 'work_dir_grounding_dino/finetune/{{fileBasenameNoExtension}}'
 load_from = 'work_dir_grounding_dino/grouding_dino_swin-t_vis_caption/epoch_10.pth'  # noqapy
 # load_from = 'work_dirs/mm_grounding_dino_clustered_epoch10/epoch_10.pth'  # noqapy
+randomness=dict(seed=20111998)
