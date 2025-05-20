@@ -92,6 +92,7 @@ def visualize_keypoints(image_path, json_path, output_path,
     num_labels = len(unique_labels)
     block_height = max(40, bar_height // num_labels)
     
+    actual_label_name = {0: "Female duck", 1: "Male duck", 2: "Ice", 3: "Juvenile duck", 4: "Duck"}
     # Draw class information
     for idx, label in enumerate(unique_labels):
         color = label_colors[label]
@@ -104,6 +105,7 @@ def visualize_keypoints(image_path, json_path, output_path,
         
         # Class text
         text = f"Class {label}: {count}"
+        text = f"{actual_label_name[label]}: {count}"
         (tw, th), _ = cv2.getTextSize(text, cv2.FONT_HERSHEY_SIMPLEX, 0.7, 1)
         text_y = y_start + (block_height + th) // 2
         cv2.putText(color_bar, text, (10, text_y),
@@ -111,7 +113,7 @@ def visualize_keypoints(image_path, json_path, output_path,
 
     # Add total count and threshold info
     total_text = f"Total: {len(filtered_labels)}"
-    threshold_text = f"Score Threshold: {score_threshold}"
+    # threshold_text = f"Score Threshold: {score_threshold}"
     (tw, th), _ = cv2.getTextSize(total_text, cv2.FONT_HERSHEY_SIMPLEX, 0.9, 2)
     
     # Draw threshold text
@@ -124,14 +126,15 @@ def visualize_keypoints(image_path, json_path, output_path,
     # Combine and save
     combined = np.hstack([image, color_bar])
     cv2.imwrite(output_path, combined, [cv2.IMWRITE_JPEG_QUALITY, 100])
+    print(f"Output saved to {output_path}")
 
 # Usage example with threshold
 visualize_keypoints(
     '/home/pc2041/d8d096d5-overhead_2.png',
-    '/home/pc2041/VIP_lab/labelstudio/mmwhale2/outputs/preds/d8d096d5-overhead_2.json',
-    '/home/pc2041/VIP_lab/labelstudio/mmwhale2/outputs/preds/d8d096d5-overhead_2_plotted.png',
+    '/home/pc2041/VIP_lab/labelstudio/mmwhale2/output2/preds/d8d096d5-overhead_2.json',
+    '/home/pc2041/VIP_lab/labelstudio/mmwhale2/output2/preds/d8d096d5-overhead_2_plotted.png',
     score_threshold=0.3,  # Adjust this value as needed
-    keypoint_radius = 2
+    keypoint_radius = 3
 )
 
 

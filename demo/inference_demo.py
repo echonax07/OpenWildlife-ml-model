@@ -1,18 +1,23 @@
 from mmdet.apis import DetInferencer
 import json
+import os.path as osp
 
 ### model without finetuning
 # Choose to use a config
 config_path = 'configs/eider_ducks/mm_grounding_dino_real_filtered_epoch10.py'
 
 # Setup a checkpoint file to load
-checkpoint = 'work_dirs/mm_grounding_dino_real_filtered_epoch10/epoch_50.pth'
+# checkpoint = 'work_dirs/mm_grounding_dino_real_filtered_epoch10/epoch_50.pth'
+checkpoint = '/home/pc2041/VIP_lab/labelstudio/mmwhale2/work_dirs/Eider Demo V2/epoch_10.pth'
+
 
 # Initialize the DetInferencer
 inferencer = DetInferencer(model=config_path, weights=checkpoint, device= 'cuda:0')
-result = inferencer('/home/pc2041/d8d096d5-overhead_2.png', out_dir='./output', pred_score_thr=0.3, text_prompt="female duck. male duck. Ice. Juvenile duck. duck", custom_entities=True)
+result = inferencer('/home/pc2041/d8d096d5-overhead_2.png', out_dir='./output2', pred_score_thr=0.3, texts="female duck. male duck. Ice. Juvenile duck. duck", custom_entities=True, no_save_pred=False)
 
-
+# save ressults to json
+# with open(osp.join('./output2', 'prediction.json'), 'w') as f:
+#     json.dump(result, f, indent=4)
 
 # from icecream import ic 
 # ic(result)

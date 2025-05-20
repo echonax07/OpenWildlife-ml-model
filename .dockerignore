@@ -1,0 +1,20 @@
+
+# Ignore everything:
+**
+
+# Except:
+!mmdet
+!configs
+!sahi
+!tools
+!work_dirs/mm_grounding_dino_real_filtered_epoch10/
+!label_studio/**
+!projects/LabelStudio/**
+!checkpoints
+
+
+!README.md
+!licenses/**
+!LICENSE
+!pyproject.toml
+!poetry.lock

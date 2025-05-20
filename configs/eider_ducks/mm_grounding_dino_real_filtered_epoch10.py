@@ -213,7 +213,7 @@ train_pipeline = [
 ]
 
 train_dataloader = dict(
-    batch_size=2,
+    batch_size=1,
     dataset=dict(
         _delete_=True,
         type='CocoDataset',

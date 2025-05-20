@@ -1,6 +1,22 @@
-[tool.black]
-line-length = 120
+[tool.poetry]
+name = "sahi"
+version = "0.1.0"
+description = ""
+authors = ["Sahi Team on github"]
 
-[tool.isort]
-line_length = 120
-profile = "black"
+[tool.poetry.dependencies]
+python = ">=3.9,<4.0"
+opencv-python-headless = "*"
+shapely = ">=1.8.0"
+tqdm = ">=4.48.2"
+pillow = ">=8.2.0"
+pybboxes = "==0.1.6"
+pyyaml = "*"
+fire = "*"
+terminaltables = "*"
+requests = "*"
+click = "*"
+
+[build-system]
+requires = ["poetry-core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"

@@ -38,3 +38,29 @@ RUN conda clean --all \
     && pip install --no-cache-dir -e .
 
 WORKDIR /mmdetection
+
+################################ Stage: venv-builder (prepare the virtualenv)
+FROM python:${PYTHON_VERSION}-slim AS venv-builder
+ARG POETRY_VERSION
+
+ENV PYTHONUNBUFFERED=1 \
+    PYTHONDONTWRITEBYTECODE=1 \
+    PIP_NO_CACHE_DIR=off \
+    PIP_DISABLE_PIP_VERSION_CHECK=on \
+    PIP_DEFAULT_TIMEOUT=100 \
+    PIP_CACHE_DIR="/.cache" \
+    POETRY_CACHE_DIR="/.poetry-cache" \
+    POETRY_HOME="/opt/poetry" \
+    POETRY_VIRTUALENVS_IN_PROJECT=true \
+    PATH="/opt/poetry/bin:$PATH"
+
+ADD https://install.python-poetry.org /tmp/install-poetry.py
+RUN python /tmp/install-poetry.py
+
+RUN --mount=type=cache,target="/var/cache/apt",sharing=locked \
+    --mount=type=cache,target="/var/lib/apt/lists",sharing=locked \
+    set -eux; \
+    apt-get update; \
+    apt-get install --no-install-recommends -y \
+            build-essential git; \
+    apt-get autoremove -y
