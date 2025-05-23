@@ -1,0 +1,46 @@
+version: "3.9"
+
+networks:
+  labelstudio_shared:
+    external: true
+services:
+  # ----- MMDetection backend -----
+  mmwhale2:
+    image: mmwhale2:latest
+    container_name: mmdetection
+    init: true
+    networks:
+      - labelstudio_shared
+    restart: unless-stopped
+    ports:
+      - "9090:9090"
+    environment:
+      - BASIC_AUTH_USER=
+      - BASIC_AUTH_PASS=
+      - LOG_LEVEL=DEBUG
+      - WORKERS=1
+      - THREADS=8
+      - MODEL_DIR=/data/models
+      - checkpoint_file=work_dirs/mm_grounding_dino_real_filtered_epoch10/epoch_50.pth
+      - labels_file=work_dirs/mm_grounding_dino_real_filtered_epoch10/label_map.json
+      - config_file=configs/eider_ducks/mm_grounding_dino_real_filtered_epoch10.py
+      - DEVICE=cuda:0
+      - SCORE_THRESHOLD=0.5
+      - LABEL_STUDIO_HOST=http://172.18.0.4:8085
+      # - LABEL_STUDIO_HOST=http://ls_nginx:8085
+      - LABEL_STUDIO_API_KEY=1827b001dbd5abe74cf64744683815d4f6394c20
+      - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}
+      - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}
+      # Time out in seconds
+      - TIMEOUT_TRAIN= 1000
+      - TIMEOUT_PREDICT= 300
+    volumes:
+      - ./data/server:/data
+      - ./data/work_dirs:/app/work_dirs
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1  # Use 1 GPU; set to 'all' to use all available GPUs
+              capabilities: [ gpu ]

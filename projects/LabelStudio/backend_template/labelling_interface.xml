@@ -1,0 +1,51 @@
+<View>
+ 
+<Image name="image" value="$image" zoom="true" zoomControl="true" rotateControl="false" contrastControl="true" brightnessControl="true" maxWidth="1500px"/>
+
+<!--Rect 1 whale 
+	Rect 2 baby_whale-->
+<KeyPointLabels name="keypoints" toName="image">  
+<Label value="female duck" background="#EF4444"/>
+<Label value="male duck" background="blue"/>
+<Label value="Ice" background="green"/>
+<Label value="Juvenile duck" background="yellow"/>
+<Label value="duck" background="orange"/>
+</KeyPointLabels>
+  
+<RectangleLabels name="rectangle" toName="image">  
+<Label value="rectangle" background="black"/>
+</RectangleLabels>  
+
+  
+<PolygonLabels name="label" toName="image" strokeWidth="3" pointSize="small" opacity="0.36" snap="pixel1">
+    <Label value="Train region" background="#c800ff"/>
+ </PolygonLabels>
+
+
+  <!-- Radio button to choose whether to train on the whole image or train region -->
+  <Choices name="train_region_choice" toName="image" choice="single-radio" showInline="true" required="true">
+    <Choice value="Train only on train region"/>
+    <Choice value="Train on whole image"/>
+  
+  </Choices>
+
+  
+ 
+  <!-- Add numeric input fields -->
+  
+   <TextArea name="width" toName="image" placeholder="Enter width (float)" inputType="number" required="true" perRegion="false"/>
+  
+  <TextArea name="height" toName="image" placeholder="Enter height (float)" inputType="number" required="true" perRegion="false"/>
+            
+ 
+<!--
+ <Style>
+    .lsf-main-content.lsf-requesting .prompt::before { content: ' loading...'; color: #808080; }
+    </Style>
+    <View className="prompt">
+        <Header value="Enter a prompt to detect objects in the image:"/>
+    <TextArea name="prompt" toName="image" editable="true" rows="2" maxSubmissions="1" showSubmitButton="true"/>
+  
+  </View>
+-->
+</View>

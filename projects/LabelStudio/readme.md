@@ -1,5 +1,12 @@
 # LabelStudio ML Backend for MMDetection
 
+# To install this repository, clone it and run the following command:
+```bash
+DOCKER_BUILDKIT=1 docker build -t mmwhale2 --build-context ls_sdk=../label-studio-sdk --build-context ls_ml_backend=../label-studio-ml-backend . 
+```
+
+Make sure you have label-studio-sdk and label-studio-ml-backend  repo cloned in the same folder. This will build the image with the label-studio-sdk and label-studio-ml-backend as build contexts.
+
 This repository extends the Label Studio ML backend to support `mmdetection` for detecting eider ducks in aerial imagery.
 
 ## Key File

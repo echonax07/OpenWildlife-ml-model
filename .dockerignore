@@ -13,8 +13,10 @@
 !checkpoints
 
 
+
 !README.md
 !licenses/**
 !LICENSE
 !pyproject.toml
 !poetry.lock
+!download_bert_nltk_weights.py

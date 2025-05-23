@@ -44,7 +44,7 @@ ENV POETRY_VIRTUALENVS_CREATE=false \
 # Copy dependency specifications first
 WORKDIR /app
 COPY pyproject.toml poetry.lock ./
-
+COPY download_bert_nltk_weights.py ./
 
 # # Copy SDK and application code
 COPY --from=ls_sdk / /label-studio-sdk
@@ -57,6 +57,15 @@ RUN poetry install
 
 # # Final installation steps
 RUN pip install mmcv==2.2.0 --no-deps -f https://download.openmmlab.com/mmcv/dist/cu118/torch2.4/index.html 
+
+RUN python download_bert_nltk_weights.py
+
+COPY /checkpoints /app/checkpoints
+
+# copy the contents of the backend_template directory to /app
+COPY /projects/LabelStudio/backend_template/. /app/
+
+
 
 # RUN poetry install --only-root 
 # # Create non-root user
@@ -79,9 +88,11 @@ RUN pip install mmcv==2.2.0 --no-deps -f https://download.openmmlab.com/mmcv/dis
 
 EXPOSE 9090
 
-WORKDIR /app/projects/LabelStudio/backend_template
+WORKDIR /app
+# WORKDIR /app/projects/LabelStudio/backend_template
 
 
 # RUN pip uninstall -y  opencv-python
 
-CMD gunicorn --preload --bind :$PORT --workers $WORKERS --threads $THREADS --timeout 0 _wsgi:app
+# CMD gunicorn --preload --bind :$PORT --workers $WORKERS --threads $THREADS --timeout 0 _wsgi:app
+CMD label-studio-ml start .

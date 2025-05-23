@@ -39,7 +39,7 @@ fairscale = "*"
 jsonlines = "*"
 nltk = "^3.9.1"
 pycocoevalcap = "1.2"
-transformers = "^4.49.0"
+transformers = "4.49.0"
 gunicorn = "23.0.0"
 sahi = { path = "sahi", develop = false }
 label_studio_ml_backend = { path = "../label-studio-ml-backend", develop = false }
