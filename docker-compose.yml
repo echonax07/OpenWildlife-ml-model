@@ -24,7 +24,7 @@ services:
       - checkpoint_file=work_dirs/mm_grounding_dino_real_filtered_epoch10/epoch_50.pth
       - labels_file=work_dirs/mm_grounding_dino_real_filtered_epoch10/label_map.json
       - config_file=configs/eider_ducks/mm_grounding_dino_real_filtered_epoch10.py
-      - DEVICE=cuda:0
+      - device=cuda:0
       - SCORE_THRESHOLD=0.5
       - LABEL_STUDIO_HOST=http://172.18.0.4:8085
       # - LABEL_STUDIO_HOST=http://ls_nginx:8085
