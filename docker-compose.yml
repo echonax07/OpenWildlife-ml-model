@@ -21,12 +21,12 @@ services:
       - WORKERS=1
       - THREADS=8
       - MODEL_DIR=/data/models
-      - checkpoint_file=work_dirs/mm_grounding_dino_real_filtered_epoch10/epoch_50.pth
-      - labels_file=work_dirs/mm_grounding_dino_real_filtered_epoch10/label_map.json
-      - config_file=configs/eider_ducks/mm_grounding_dino_real_filtered_epoch10.py
-      - DEVICE=cuda:0
+      - checkpoint_file=/app/work_dirs/mm_grounding_dino_real_filtered_epoch10/epoch_50.pth
+      - labels_file=/app/work_dirs/mm_grounding_dino_real_filtered_epoch10/label_map.json
+      - config_file=/app/configs/eider_ducks/mm_grounding_dino_real_filtered_epoch10.py
+      - device=cuda
       - SCORE_THRESHOLD=0.5
-      - LABEL_STUDIO_HOST=http://172.18.0.4:8085
+      - LABEL_STUDIO_HOST=http://172.18.0.5:8085
       # - LABEL_STUDIO_HOST=http://ls_nginx:8085
       - LABEL_STUDIO_API_KEY=1827b001dbd5abe74cf64744683815d4f6394c20
       - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}
@@ -36,7 +36,7 @@ services:
       - ML_TIMEOUT_PREDICT= 300
     volumes:
       - ./data/server:/data
-      - ./data/work_dirs:/app/work_dirs
+      - ./work_dirs:/app/work_dirs
     deploy:
       resources:
         reservations:
