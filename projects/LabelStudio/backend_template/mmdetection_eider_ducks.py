@@ -150,6 +150,11 @@ class MMDetection(LabelStudioMLBase):
         else:
             return []
 
+    def get_model_extra_params_config(self):
+        with open(os.path.join(get_data_dir(), '/home/pc2041/VIP_lab/labelstudio/mmwhale2/mmdetection_extra_params.json'), 'r') as f:
+            extra_params = json.load(f)
+        return extra_params
+
     def _get_prompt(self, annotation: Optional[Dict] = None) -> Dict:
         from_name_prompt, _, _ = self.get_first_tag_occurence(
             'TextArea', 'Image')
@@ -200,7 +205,9 @@ class MMDetection(LabelStudioMLBase):
         checkpoint_file = os.environ['checkpoint_file']
         ic(self.model_version)
         ic(checkpoint_file)
+        ic(os.getcwd())
         device = os.environ.get("device", "cpu")
+        ic(device)
         model = init_detector(config_file, checkpoint_file, device=device)
         
         # Get polygon label keys from config
@@ -377,8 +384,8 @@ class MMDetection(LabelStudioMLBase):
         gc.collect()
         torch.cuda.empty_cache()
         # Environment configuration
-        os.environ['OMP_NUM_THREADS'] = '1'
-        os.environ['MKL_NUM_THREADS'] = '1'
+        os.environ['OMP_NUM_THREADS'] = '2'
+        os.environ['MKL_NUM_THREADS'] = '2'
 
         config_file = os.environ['config_file']
         checkpoint_file = os.environ['checkpoint_file']
@@ -467,7 +474,7 @@ class MMDetection(LabelStudioMLBase):
                 cfg.train_dataloader.dataset.data_root = ''
                 cfg.train_dataloader.dataset.ann_file = os.path.join(
                     temp_dir, 'train.json')
-                cfg.train_dataloader.num_workers = 0  # Disable multiprocessing
+                cfg.train_dataloader.num_workers = 4  # Disable multiprocessing
                 cfg.train_dataloader.persistent_workers = False
                 cfg.train_dataloader.dataset.pipeline= cfg.train_pipeline
 
@@ -476,7 +483,7 @@ class MMDetection(LabelStudioMLBase):
                 cfg.val_dataloader.dataset.ann_file = os.path.join(
                     temp_dir, 'train.json')
                 # Disable multiprocessing to avoid interference with Label Studio which doesnt allow any child to spawn new processes
-                cfg.val_dataloader.num_workers = 0
+                cfg.val_dataloader.num_workers = 4
                 cfg.val_dataloader.persistent_workers = False
                 cfg.val_dataloader.prefetch_factor = None
                 cfg.val_evaluator.ann_file = os.path.join(
