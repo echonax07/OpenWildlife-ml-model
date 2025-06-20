@@ -107,8 +107,8 @@ class BaseDetector(BaseModel, metaclass=ABCMeta):
                 slice_params = self.sliding_window_inference
                 sliced_image_object = slice_image(
                     img_np,
-                    slice_height=slice_params['patch_size'],
-                    slice_width=slice_params['patch_size'],
+                    slice_height=slice_params['patch_size'][0],
+                    slice_width=slice_params['patch_size'][1],
                     auto_slice_resolution=False,
                     overlap_height_ratio=slice_params['patch_overlap_ratio'],
                     overlap_width_ratio=slice_params['patch_overlap_ratio'],
@@ -121,8 +121,8 @@ class BaseDetector(BaseModel, metaclass=ABCMeta):
                 ) if data_samples else None
 
                 # Prepare slices on CPU
-                max_height = slice_params['patch_size']
-                max_width = slice_params['patch_size']
+                max_height = slice_params['patch_size'][0]
+                max_width = slice_params['patch_size'][1]
                 padded_slices = []
                 for img in sliced_image_object.images:
                     pad_height = max_height - img.shape[0]
@@ -137,15 +137,15 @@ class BaseDetector(BaseModel, metaclass=ABCMeta):
                 
 
                 slice_results = []
-                batch_size = slice_params.get('slice_batch_size', 1)
-                if batch_size==-1:
-                    batch_size = len(slices_np)
+                slice_batch_size = slice_params.get('slice_batch_size', 1)
+                if slice_batch_size==-1:
+                    slice_batch_size = len(slices_np)
                 
                 # Process in batches
                 
                 # wrap tqdm around the for
-                for i in range(0, len(slices_cpu), batch_size):
-                    batch_end = i + batch_size
+                for i in range(0, len(slices_cpu), slice_batch_size):
+                    batch_end = i + slice_batch_size
                     current_batch = slices_cpu[i:batch_end]
                     
                     # Move only this batch to GPU
@@ -191,10 +191,10 @@ class BaseDetector(BaseModel, metaclass=ABCMeta):
         """Create a template data sample for slices."""
         template_ds = original_ds.clone()
         meta = {
-            'batch_input_shape': (patch_size, patch_size),
-            'pad_shape': (patch_size, patch_size),
-            'ori_shape': (patch_size, patch_size),
-            'img_shape': (patch_size, patch_size),
+            'batch_input_shape':patch_size,
+            'pad_shape':patch_size,
+            'ori_shape':patch_size,
+            'img_shape':patch_size,
             'img_id': None,
             'img_path': None
         }

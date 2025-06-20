@@ -4,7 +4,7 @@ _base_ = '../mm_grounding_dino/grounding_dino_swin-t_pretrain_obj365.py'
 
 data_root = '/home/m32patel/projects/rrg-dclausi/wildlife/datasets/Eider_survey_project/non_overlapping_slices/'
 
-class_name = ("female duck","male duck","Ice","Juvenile duck","duck",)
+class_name = ("female duck", "male duck", "Ice", "Juvenile duck", "duck",)
 train_ann_file = 'train_slice_filtered.json_coco.json'
 test_ann_file = 'patch_annotations.json'
 num_classes = len(class_name)
@@ -17,16 +17,16 @@ metainfo = dict(classes=class_name, palette=[
 ])
 
 train_patch_size = (512, 512)
-test_patch_size = (1024,1024)
+test_patch_size = (1024, 1024)
 patch_overlap_ratio = 0
 merge_iou_thr = 1
 
 slice_configuration = dict(enable=True,
-         slice_height=train_patch_size[0], slice_width=train_patch_size[1], overlap_height_ratio=0, overlap_width_ratio=0,mix_slices_with_full_images=False, save_only_positive_slices=False)
+                           slice_height=train_patch_size[0], slice_width=train_patch_size[1], overlap_height_ratio=0, overlap_width_ratio=0, mix_slices_with_full_images=False, save_only_positive_slices=False)
 
 model = dict(
-    sliding_window_inference = dict(enable=True, patch_size=test_patch_size[0], batch_size=1,  slice_batch_size = 4,
-                                patch_overlap_ratio=patch_overlap_ratio, merge_nms_type='nms', merge_iou_thr=merge_iou_thr),
+    sliding_window_inference=dict(enable=True, patch_size=test_patch_size, slice_batch_size=4,
+                                  patch_overlap_ratio=patch_overlap_ratio, merge_nms_type='nms', merge_iou_thr=merge_iou_thr),
     as_two_stage=True,
     backbone=dict(
         attn_drop_rate=0.0,
@@ -162,7 +162,8 @@ model = dict(
 train_pipeline2 = [
     dict(type='LoadImageFromFile', backend_args=_base_.backend_args),
     dict(type='LoadAnnotations', with_bbox=True),
-    dict(type='Pad', size=(512, 512), pad_val=0),  # Adds padding to make images 512x512
+    # Adds padding to make images 512x512
+    dict(type='Pad', size=(512, 512), pad_val=0),
     dict(
         type='PackDetInputs',
         meta_keys=('img_id', 'img_path', 'ori_shape', 'img_shape',
@@ -256,11 +257,12 @@ val_dataloader = dict(
 
 test_dataloader = val_dataloader
 
-val_evaluator = dict(ann_file=data_root + '/' + test_ann_file,outfile_prefix=f'./work_dirs/{{fileBasenameNoExtension}}/prediction_val',
-)
+val_evaluator = dict(ann_file=data_root + '/' + test_ann_file, outfile_prefix=f'./work_dirs/{{fileBasenameNoExtension}}/prediction_val',
+                     )
 test_evaluator = val_evaluator
 
-test_evaluator = dict(ann_file=data_root + '/' + test_ann_file,outfile_prefix=f'./work_dirs/{{fileBasenameNoExtension}}/prediction_test')
+test_evaluator = dict(ann_file=data_root + '/' + test_ann_file,
+                      outfile_prefix=f'./work_dirs/{{fileBasenameNoExtension}}/prediction_test')
 
 max_epoch = 50
 
@@ -291,4 +293,4 @@ optim_wrapper = dict(
 # work_dir = 'work_dir_grounding_dino/finetune/{{fileBasenameNoExtension}}'
 load_from = 'work_dir_grounding_dino/grouding_dino_swin-t_vis_caption/epoch_10.pth'  # noqapy
 # load_from = 'work_dirs/mm_grounding_dino_clustered_epoch10/epoch_10.pth'  # noqapy
-randomness=dict(seed=20111998)
+randomness = dict(seed=20111998)
