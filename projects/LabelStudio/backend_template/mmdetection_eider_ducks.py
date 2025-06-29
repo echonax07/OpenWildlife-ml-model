@@ -83,6 +83,7 @@ class MMDetection(LabelStudioMLBase):
 
         super(MMDetection, self).__init__(**kwargs)
         self.labels_file = labels_file or os.environ.get('labels_file')
+        self.model_params_file = os.environ.get('model_params_file')
         # default Label Studio image upload folder
         upload_dir = os.path.join(get_data_dir(), 'media', 'upload')
         self.image_dir = image_dir or upload_dir
@@ -98,11 +99,13 @@ class MMDetection(LabelStudioMLBase):
         self.from_name, self.to_name, self.value, self.labels_in_config = get_single_tag_keys(
             self.parsed_label_config, 'KeyPointLabels', 'Image')
         schema = list(self.parsed_label_config.values())[0]
-        self.labels_in_config = set(self.labels_in_config)
+        self.labels_in_config = set(self.labels_in_config) # These are the labels defined in labelstudio
         # Collect label maps from `predicted_values="airplane,car"` attribute in <Label> tag # noqa E501
         self.labels_attrs = schema.get('labels_attrs')
         # ic(self.labels_attrs)
         # if labeling config has Label tags
+        # TODO: Remove label map completely and use something like <Label value="Vehicle" predicted_values="airplane,car"> to define the mapping
+        # refer here: https://github.com/HumanSignal/label-studio/blob/bcec8fc4bf9b56165ac44e658fce91a1d3a495bc/docs/source/tutorials/object-detector.md?plain=1#L32
         if self.labels_attrs:
             # try to find something like <Label value="Vehicle" predicted_values="airplane,car">
             for ls_label, label_attrs in self.labels_attrs.items():
@@ -131,16 +134,16 @@ class MMDetection(LabelStudioMLBase):
         #     self.memory_bank = {'trained_task_ids': set()}
 
         self.max_memory_size = 1000
-        # self.model_version = self.get("model_version")
 
     def setup(self):
         self.load_model_checkpoint_and_version()
 
     def get_versions(self):
-        last_n_ckpts = json.loads(self.get("last_n_ckpts")) if self.has('last_n_ckpts') else None
-        if last_n_ckpts is not None:
-            last_n_ckpts = json.loads(self.get('last_n_ckpts'))
-            versions = [ckpt[0] for ckpt in last_n_ckpts]
+        model_version_history = json.loads(self.get("model_version_history")) if self.has('model_version_history') else []
+        major_model_versions = json.loads(self.get("major_model_versions")) if self.has('major_model_versions') else []
+        all_model_versions = model_version_history + major_model_versions
+        if all_model_versions:
+            versions = [entry[0] for entry in all_model_versions]
             # Flip the list to get the latest version first
             versions = versions[::-1]
             return versions
@@ -151,7 +154,7 @@ class MMDetection(LabelStudioMLBase):
             return []
 
     def get_model_extra_params_config(self):
-        with open(os.path.join(get_data_dir(), '/home/pc2041/VIP_lab/labelstudio/mmwhale2/mmdetection_extra_params.json'), 'r') as f:
+        with open(os.path.join(self.model_params_file), 'r') as f:
             extra_params = json.load(f)
         return extra_params
 
@@ -203,18 +206,30 @@ class MMDetection(LabelStudioMLBase):
     def predict(self, tasks, context: Optional[Dict] = None, **kwargs):
         config_file = os.environ['config_file']
         checkpoint_file = os.environ['checkpoint_file']
-        ic(self.model_version)
+        # TODO: Replace this later
+        ic(self.get("extra_params"))
+        extra_params = json.loads(self.get("extra_params"))
+        # extra_params = self.get_model_extra_params_config()
+        
+        cfg = Config.fromfile(config_file)
+        test_patch_size = tuple(map(int, extra_params.get("test_patch_size","(1024,1024)").strip("()").split(",")))
+        cfg.model.bbox_head.num_classes = len(self.labels_in_config)
+        cfg.model.sliding_window_inference.patch_size = test_patch_size
+        cfg.model.sliding_window_inference.slice_batch_size = int(extra_params.get("test_slice_batch_size", 4))
+        cfg.model.test_cfg.max_per_img = int(extra_params.get("max_per_img", 1000))
+        ic(f"PREDICTING WITH MODEL VERSION {self.model_version}")
         ic(checkpoint_file)
         ic(os.getcwd())
         device = os.environ.get("device", "cpu")
         ic(device)
-        model = init_detector(config_file, checkpoint_file, device=device)
+        # TODO: Load sliding window_patch size from the model settings JSON.
+        model = init_detector(cfg, checkpoint_file, device=device)
         
         # Get polygon label keys from config
         poly_from_name, poly_to_name, _, _ = get_single_tag_keys(
             self.parsed_label_config, 'PolygonLabels', 'Image'
         )
-        
+        ic(self.label_config)
         label_studio_results = []
         
         for task in tasks:
@@ -270,16 +285,18 @@ class MMDetection(LabelStudioMLBase):
                         
                         if in_train_region:
                             label = result['value'].get('keypointlabels', [None])[0]
-                            if label in self.label_map:
+                            if label in self.label_map.keys():
+                                # key means Labelstudio label, value means mmdetection label
                                 existing_annotations.append({
                                     'x': result['value']['x'],
                                     'y': result['value']['y'],
-                                    'label': self.label_map[label],
+                                    'label': label,
                                     'score': 1.0  # Existing annotations get max confidence
                                 })
-
+            text_prompt = '. '.join(self.label_map.values())
+            
             # Get model predictions
-            model_results = inference_detector(model, image_path, text_prompt="female duck. male duck. Ice. Juvenile duck. duck", custom_entities=True).pred_instances
+            model_results = inference_detector(model, image_path, text_prompt=text_prompt, custom_entities=True).pred_instances
             results = []
             all_scores = []
             
@@ -345,7 +362,7 @@ class MMDetection(LabelStudioMLBase):
                                 'keypointlabels': [output_label],
                                 'x': float(x_percent),
                                 'y': float(y_percent),
-                                "width": 0.4054054054054053,
+                                "width": 0.3,
                             },
                             'score': score,
                         })
@@ -379,201 +396,207 @@ class MMDetection(LabelStudioMLBase):
         torch.cuda.empty_cache()
         return label_studio_results
     
-    def fit(self, event, data, **kwargs):
-        """Train MMDetection model with Label Studio annotations"""
-        gc.collect()
-        torch.cuda.empty_cache()
-        # Environment configuration
-        os.environ['OMP_NUM_THREADS'] = '2'
-        os.environ['MKL_NUM_THREADS'] = '2'
+    
+    # this function does not do anything, so commented out to remove confusion
+    # def fit(self, event, data, **kwargs):
+    #     """Train MMDetection model with Label Studio annotations"""
+    #     gc.collect()
+    #     torch.cuda.empty_cache()
+    #     # Environment configuration
+    #     os.environ['OMP_NUM_THREADS'] = '2'
+    #     os.environ['MKL_NUM_THREADS'] = '2'
 
-        config_file = os.environ['config_file']
-        checkpoint_file = os.environ['checkpoint_file']
-        device = os.environ.get("device", "cpu")
-        # model = init_detector(config_file, checkpoint_file, device=device)
-        logger.info(f"Load new model from: {config_file}, {checkpoint_file}")
+    #     config_file = os.environ['config_file']
+    #     checkpoint_file = os.environ['checkpoint_file']
+    #     device = os.environ.get("device", "cpu")
+    #     # model = init_detector(config_file, checkpoint_file, device=device)
+    #     logger.info(f"Load new model from: {config_file}, {checkpoint_file}")
 
-        result = {
-            'model_path': checkpoint_file,
-            'checkpoints': [],
-            'labels': self.labels_in_config,
-            'error': None
-        }
-        try:
-            # Validate event type
-            if event not in ('ANNOTATION_CREATED', 'ANNOTATION_UPDATED', 'START_TRAINING'):
-                logger.info(
-                    f"Skipping training for unsupported event: {event}")
-                return result
+    #     result = {
+    #         'model_path': checkpoint_file,
+    #         'checkpoints': [],
+    #         'labels': self.labels_in_config,
+    #         'error': None
+    #     }
+    #     try:
+    #         # Validate event type
+    #         if event not in ('ANNOTATION_CREATED', 'ANNOTATION_UPDATED', 'START_TRAINING'):
+    #             logger.info(
+    #                 f"Skipping training for unsupported event: {event}")
+    #             return result
 
-            # Initialize Label Studio client
-            ls = label_studio_sdk.Client(
-                LABEL_STUDIO_HOST,
-                LABEL_STUDIO_API_KEY
-            )
-            project = ls.get_project(data['project']['id'])
-            self.project_id = str(data['project']['id'])
-            self.set("model_version", self.get("model_version"))
+    #         # Initialize Label Studio client
+    #         ls = label_studio_sdk.Client(
+    #             LABEL_STUDIO_HOST,
+    #             LABEL_STUDIO_API_KEY
+    #         )
+    #         project = ls.get_project(data['project']['id'])
+    #         self.project_id = str(data['project']['id'])
+    #         self.set("model_version", self.get("model_version"))
 
-            # Get image key from labeling config
-            # from_name, to_name, image_key = self.label_interface.get_first_tag_occurence('Image', 'Image')
-            # project.get_tasks(selected_ids=[70665, 70664])
-            # Fetch and validate tasks
-            tasks = project.get_labeled_tasks()
-            # Get existing trained tasks from memory bank
-            # self.memory_bank = self.get("memory_bank")
-            # self.memory_bank = json.loads(self.memory_bank)
-            # trained_tasks = self.memory_bank.get('trained_task_ids', set())
-            # ic(trained_tasks)
-            # Filter out already trained tasks
-            # new_tasks = [task for task in tasks if str(
-            #     task['id']) not in trained_tasks]
-            for task in tasks:
-                ic(task['id'])
-            if not tasks:
-                # TODO: Add warning msg according to the api button implemented
-                logger.warning(
-                    "No new labeled tasks since last training\nPlease click on force re-train")
-                return {
-                    'model_path': checkpoint_file,
-                    'checkpoints': [],
-                    'labels': self.labels_in_config,
-                    'error': "No new tasks to train on"
-                }
-            # Store current task IDs before training
-            current_task_ids = {str(task['id']) for task in tasks}
-            os.makedirs(os.path.join(
-                'work_dirs', project.title), exist_ok=True)
+    #         # Get image key from labeling config
+    #         # from_name, to_name, image_key = self.label_interface.get_first_tag_occurence('Image', 'Image')
+    #         # project.get_tasks(selected_ids=[70665, 70664])
+    #         # Fetch and validate tasks
+    #         tasks = project.get_labeled_tasks()
+    #         # Get existing trained tasks from memory bank
+    #         # self.memory_bank = self.get("memory_bank")
+    #         # self.memory_bank = json.loads(self.memory_bank)
+    #         # trained_tasks = self.memory_bank.get('trained_task_ids', set())
+    #         # ic(trained_tasks)
+    #         # Filter out already trained tasks
+    #         # new_tasks = [task for task in tasks if str(
+    #         #     task['id']) not in trained_tasks]
+    #         for task in tasks:
+    #             ic(task['id'])
+    #         if not tasks:
+    #             # TODO: Add warning msg according to the api button implemented
+    #             logger.warning(
+    #                 "No new labeled tasks since last training\nPlease click on force re-train")
+    #             return {
+    #                 'model_path': checkpoint_file,
+    #                 'checkpoints': [],
+    #                 'labels': self.labels_in_config,
+    #                 'error': "No new tasks to train on"
+    #             }
+    #         # Store current task IDs before training
+    #         current_task_ids = {str(task['id']) for task in tasks}
+    #         os.makedirs(os.path.join(
+    #             'work_dirs', project.title), exist_ok=True)
 
-            # Training setup
-            with tempfile.TemporaryDirectory(dir=os.path.join('work_dirs', project.title)) as temp_dir2:
-                # Define a path manually for debugging
-                temp_dir = os.path.join('work_dirs', project.title, 'debug_temp')
-                os.makedirs(temp_dir, exist_ok=True)
-                # Convert tasks to COCO format
-                coco_data = self._tasks_to_coco(tasks, temp_dir)
-                # Save COCO annotations
-                ann_file = os.path.join(temp_dir, 'train.json')
-                with open(ann_file, 'w') as f:
-                    json.dump(coco_data, f)
+    #         # Training setup
+    #         with tempfile.TemporaryDirectory(dir=os.path.join('work_dirs', project.title)) as temp_dir2:
+    #             # Define a path manually for debugging
+    #             temp_dir = os.path.join('work_dirs', project.title, 'debug_temp')
+    #             os.makedirs(temp_dir, exist_ok=True)
+    #             # Convert tasks to COCO format
+    #             coco_data = self._tasks_to_coco(tasks, temp_dir)
+    #             # Save COCO annotations
+    #             ann_file = os.path.join(temp_dir, 'train.json')
+    #             with open(ann_file, 'w') as f:
+    #                 json.dump(coco_data, f)
 
-                # Configure MMDetection
-                cfg = Config.fromfile(config_file)
-                # Update model configuration
-                cfg.model.bbox_head.num_classes = len(self.labels_in_config)
-                cfg.num_queries = 2000
-                cfg.test_cfg.max_per_img = 2000
-                # TODO : Each project should have its own workdir
-                # Config 1 : Work dir location
-                cfg.work_dir = os.path.join('work_dirs', project.title)
-                os.makedirs(cfg.work_dir, exist_ok=True)
+    #             # Configure MMDetection
+    #             cfg = Config.fromfile(config_file)
+                
+    #             # Load extra parameters from the DB
+    #             # Update model configuration
+    #             cfg.model.bbox_head.num_classes = len(self.labels_in_config)
+    #             cfg.num_queries = extra_params.get("num_queries",2000)
+    #             cfg.test_cfg.max_per_img = extra_params.get("max_per_img",2000)
+                
+    #             # TODO : Each project should have its own workdir
+    #             # Config 1 : Work dir location
+    #             cfg.work_dir = os.path.join('work_dirs', project.title)
+    #             os.makedirs(cfg.work_dir, exist_ok=True)
 
-                # Dataset configuration
-                cfg.data_root = ''
-                cfg.train_dataloader.batch_size = 1
-                cfg.train_dataloader.dataset.data_root = ''
-                cfg.train_dataloader.dataset.ann_file = os.path.join(
-                    temp_dir, 'train.json')
-                cfg.train_dataloader.num_workers = 4  # Disable multiprocessing
-                cfg.train_dataloader.persistent_workers = False
-                cfg.train_dataloader.dataset.pipeline= cfg.train_pipeline
+    #             # Dataset configuration
+    #             cfg.data_root = ''
+    #             # cfg.train_dataloader.batch_size = 1
+    #             cfg.train_dataloader.batch_size = extra_params.get("batch_size",1)
+    #             cfg.train_dataloader.dataset.data_root = ''
+    #             cfg.train_dataloader.dataset.ann_file = os.path.join(
+    #                 temp_dir, 'train.json')
+    #             cfg.train_dataloader.num_workers = 4  # Disable multiprocessing
+    #             cfg.train_dataloader.persistent_workers = False
+    #             cfg.train_dataloader.dataset.pipeline= cfg.train_pipeline
 
-                # Modify val paths
-                cfg.val_dataloader.dataset.data_root = ''
-                cfg.val_dataloader.dataset.ann_file = os.path.join(
-                    temp_dir, 'train.json')
-                # Disable multiprocessing to avoid interference with Label Studio which doesnt allow any child to spawn new processes
-                cfg.val_dataloader.num_workers = 4
-                cfg.val_dataloader.persistent_workers = False
-                cfg.val_dataloader.prefetch_factor = None
-                cfg.val_evaluator.ann_file = os.path.join(
-                    temp_dir, 'train.json')
-                cfg.val_evaluator.outfile_prefix = os.path.join(
-                    temp_dir, 'prediction_val')
+    #             # Modify val paths
+    #             cfg.val_dataloader.dataset.data_root = ''
+    #             cfg.val_dataloader.dataset.ann_file = os.path.join(
+    #                 temp_dir, 'train.json')
+    #             # Disable multiprocessing to avoid interference with Label Studio which doesnt allow any child to spawn new processes
+    #             cfg.val_dataloader.num_workers = 4
+    #             cfg.val_dataloader.persistent_workers = False
+    #             cfg.val_dataloader.prefetch_factor = None
+    #             cfg.val_evaluator.ann_file = os.path.join(
+    #                 temp_dir, 'train.json')
+    #             cfg.val_evaluator.outfile_prefix = os.path.join(
+    #                 temp_dir, 'prediction_val')
 
-                # Modify test paths
-                cfg.test_dataloader.dataset.data_root = ''
-                cfg.test_dataloader.dataset.ann_file = os.path.join(
-                    temp_dir, 'train.json')
-                # Disable multiprocessing to avoid interference with Label Studio which doesnt allow any child to spawn new processes
-                cfg.test_dataloader.num_workers = 0
-                cfg.test_dataloader.persistent_workers = False
-                cfg.test_dataloader.prefetch_factor = None
-                cfg.test_evaluator.ann_file = os.path.join(
-                    temp_dir, 'train.json')
-                cfg.test_evaluator.outfile_prefix = os.path.join(
-                    temp_dir, 'prediction_test')
+    #             # Modify test paths
+    #             cfg.test_dataloader.dataset.data_root = ''
+    #             cfg.test_dataloader.dataset.ann_file = os.path.join(
+    #                 temp_dir, 'train.json')
+    #             # Disable multiprocessing to avoid interference with Label Studio which doesnt allow any child to spawn new processes
+    #             cfg.test_dataloader.num_workers = 0
+    #             cfg.test_dataloader.persistent_workers = False
+    #             cfg.test_dataloader.prefetch_factor = None
+    #             cfg.test_evaluator.ann_file = os.path.join(
+    #                 temp_dir, 'train.json')
+    #             cfg.test_evaluator.outfile_prefix = os.path.join(
+    #                 temp_dir, 'prediction_test')
 
-                # Modify train slices path
-                os.makedirs(os.path.join(temp_dir, 'slices'), exist_ok=True)
-                cfg.data_root_slice = os.path.join(temp_dir, 'slices')
-                # whole images data_root
-                cfg.data_root_whole = ''
+    #             # Modify train slices path
+    #             os.makedirs(os.path.join(temp_dir, 'slices'), exist_ok=True)
+    #             cfg.data_root_slice = os.path.join(temp_dir, 'slices')
+    #             # whole images data_root
+    #             cfg.data_root_whole = ''
 
-                # Training parameters
-                cfg.train_cfg = dict(
-                    type='EpochBasedTrainLoop',
-                    max_epochs=1,
-                    val_interval=1000000
-                )
-                cfg.default_hooks.logger.interval=1
-                cfg.default_hooks.checkpoint.interval = 10
-                cfg.device = 'cuda' if torch.cuda.is_available() else 'cpu'
-                ic(os.environ['checkpoint_file'])
-                cfg.load_from = os.environ['checkpoint_file']
-                # Initialize and run training
+    #             # Training parameters
+    #             cfg.train_cfg = dict(
+    #                 type='EpochBasedTrainLoop',
+    #                 max_epochs=1,
+    #                 val_interval=1000000
+    #             )
+    #             cfg.default_hooks.logger.interval=1
+    #             cfg.default_hooks.checkpoint.interval = 10
+    #             cfg.device = 'cuda' if torch.cuda.is_available() else 'cpu'
+    #             ic(os.environ['checkpoint_file'])
+    #             cfg.load_from = os.environ['checkpoint_file']
+    #             # Initialize and run training
 
-                slice_configuration = cfg.get('slice_configuration')
-                cfg = slice_train_images(cfg, **slice_configuration)
-                cfg.log_level = 'ERROR'  # Add this line to suppress INFO/WARNING logs
-                runner = Runner.from_cfg(cfg)
-                sucess = False
-                try:
-                    runner.train()
-                    sucess = True
-                    # gc.collect()
-                    # torch.cuda.empty_cache()
-                    # Only update memory bank if training was successful
-                    # model = init_detector(cfg, os.environ['checkpoint_file'], device=cfg.device)
-                except Exception as e:
-                    logger.error(f"Training failed: {str(e)}", exc_info=True)
-                    gc.collect()
-                    torch.cuda.empty_cache()
-                    result['error'] = str(e)
+    #             slice_configuration = cfg.get('slice_configuration')
+    #             cfg = slice_train_images(cfg, **slice_configuration)
+    #             cfg.log_level = 'ERROR'  # Add this line to suppress INFO/WARNING logs
+    #             runner = Runner.from_cfg(cfg)
+    #             sucess = False
+    #             try:
+    #                 runner.train()
+    #                 sucess = True
+    #                 # gc.collect()
+    #                 # torch.cuda.empty_cache()
+    #                 # Only update memory bank if training was successful
+    #                 # model = init_detector(cfg, os.environ['checkpoint_file'], device=cfg.device)
+    #             except Exception as e:
+    #                 logger.error(f"Training failed: {str(e)}", exc_info=True)
+    #                 gc.collect()
+    #                 torch.cuda.empty_cache()
+    #                 result['error'] = str(e)
 
-                    # Handle checkpoints
+    #                 # Handle checkpoints
 
-                if (sucess):
-                    with open(os.path.join(cfg.work_dir, 'last_checkpoint'), 'r') as f:
-                        latest_ckpt = f.read().strip()
-                        result['model_path'] = latest_ckpt
-                        result['checkpoints'].append(latest_ckpt)
-                        checkpoint_file = latest_ckpt
-                        # self._update_memory_bank(current_task_ids)
-                        gc.collect()
-                        torch.cuda.empty_cache()
-                        # model = init_detector(cfg, latest_ckpt, device=device)
+    #             if (sucess):
+    #                 with open(os.path.join(cfg.work_dir, 'last_checkpoint'), 'r') as f:
+    #                     latest_ckpt = f.read().strip()
+    #                     result['model_path'] = latest_ckpt
+    #                     result['checkpoints'].append(latest_ckpt)
+    #                     checkpoint_file = latest_ckpt
+    #                     # self._update_memory_bank(current_task_ids)
+    #                     gc.collect()
+    #                     torch.cuda.empty_cache()
+    #                     # model = init_detector(cfg, latest_ckpt, device=device)
 
-                        # set the environment variable to use the new model
-                        self.bump_model_version(latest_ckpt, max_ckpts=cfg.default_hooks.checkpoint.max_keep_ckpts)
-                        # self.model_version = self.get("model_version")
-                        logger.info("Training completed successfully")
-                        ic("Training completed successfully")
-                else:
-                    gc.collect()
-                    torch.cuda.empty_cache()
-                    # raise RuntimeError("Training failed - no checkpoint created")
+    #                     # set the environment variable to use the new model
+    #                     self.bump_model_version(latest_ckpt, max_ckpts=cfg.default_hooks.checkpoint.max_keep_ckpts)
+    #                     # self.model_version = self.get("model_version")
+    #                     logger.info("Training completed successfully")
+    #                     ic("Training completed successfully")
+    #             else:
+    #                 gc.collect()
+    #                 torch.cuda.empty_cache()
+    #                 # raise RuntimeError("Training failed - no checkpoint created")
 
-            return result
+    #         return result
 
-        except Exception as e:
-            logger.error(f"Training failed: {str(e)}", exc_info=True)
-            result['error'] = str(e)
-            gc.collect()
-            torch.cuda.empty_cache()
-            # model = init_detector(cfg, os.environ['checkpoint_file'], device)
+    #     except Exception as e:
+    #         logger.error(f"Training failed: {str(e)}", exc_info=True)
+    #         result['error'] = str(e)
+    #         gc.collect()
+    #         torch.cuda.empty_cache()
+    #         # model = init_detector(cfg, os.environ['checkpoint_file'], device)
 
-        return result
+    #     return result
 
     def force_fit(self, event, data, **kwargs):
         """Train MMDetection model with Label Studio annotations"""
@@ -629,10 +652,19 @@ class MMDetection(LabelStudioMLBase):
 
                 # Configure MMDetection
                 cfg = Config.fromfile(config_file)
+                
+                                
+                # Load extra parameters from the DB
+                extra_params = json.loads(self.get("extra_params"))
                 # Update model configuration
                 cfg.model.bbox_head.num_classes = len(self.labels_in_config)
-                cfg.num_queries = 2000
-                cfg.test_cfg.max_per_img = 2000
+                
+                ic(extra_params.get("learning_rate"))
+                cfg.optim_wrapper.optimizer.lr = float(extra_params.get("learning_rate",0.0002))
+                
+                ic(cfg.optim_wrapper.optimizer.lr)
+                cfg.num_queries = int(extra_params.get("num_queries",2000))
+                cfg.test_cfg.max_per_img = int(extra_params.get("max_per_img",2000))
                 # TODO : Each project should have its own workdir
                 # Config 1 : Work dir location
                 cfg.work_dir = os.path.join('work_dirs', project.title)
@@ -640,12 +672,12 @@ class MMDetection(LabelStudioMLBase):
 
                 # Dataset configuration
                 cfg.data_root = ''
-                cfg.train_dataloader.batch_size = 1
+                cfg.train_dataloader.batch_size = int(extra_params.get("train_batch_size",1))
                 cfg.train_dataloader.dataset.data_root = ''
                 cfg.train_dataloader.dataset.ann_file = os.path.join(
                     temp_dir, 'train.json')
-                cfg.train_dataloader.num_workers = 0  # Disable multiprocessing
-                cfg.train_dataloader.persistent_workers = False
+                cfg.train_dataloader.num_workers = int(extra_params.get("train_num_workers",0))  # Disable multiprocessing
+                cfg.train_dataloader.persistent_workers = extra_params.get("train_persistent_workers",False)
                 cfg.train_dataloader.dataset.pipeline= cfg.train_pipeline2
 
                 # Modify val paths
@@ -683,7 +715,7 @@ class MMDetection(LabelStudioMLBase):
                 # Training parameters
                 cfg.train_cfg = dict(
                     type='EpochBasedTrainLoop',
-                    max_epochs=10,
+                    max_epochs=int(extra_params.get("numEpochs",1)),
                     val_interval=1000000
                 )
                 cfg.default_hooks.logger.interval=1
@@ -692,7 +724,15 @@ class MMDetection(LabelStudioMLBase):
                 ic(os.environ['checkpoint_file'])
                 cfg.load_from = os.environ['checkpoint_file']
                 # Initialize and run training
-
+                
+                
+                # Slicing based parameters
+                train_patch_size = tuple(map(int, extra_params.get("train_patch_size","(1024,1024)").strip("()").split(",")))
+                cfg.slice_configuration.slice_height= train_patch_size[0]
+                cfg.slice_configuration.slice_width= train_patch_size[1]
+                test_patch_size = tuple(map(int, extra_params.get("test_patch_size","(1024,1024)").strip("()").split(",")))
+                cfg.model.sliding_window_inference.patch_size = test_patch_size
+                cfg.model.sliding_window_inference.slice_batch_size = int(extra_params.get("test_slice_batch_size", 4))
                 slice_configuration = cfg.get('slice_configuration')
                 cfg = slice_train_images(cfg, **slice_configuration)
                 cfg.log_level = 'ERROR'  # Add this line to suppress INFO/WARNING logs
@@ -755,24 +795,25 @@ class MMDetection(LabelStudioMLBase):
     def load_model_checkpoint_and_version(self):
         if self.has('model_version'):
             self.model_version = self.get('model_version')
-            last_n_ckpts = json.loads(self.get('last_n_ckpts')) if self.has('last_n_ckpts') else []
-            if last_n_ckpts:
-                # Find the latest checkpoint based on the model version
-                latest_ckpt = next(
-                    (ckpt for ckpt in last_n_ckpts if ckpt[0] == self.model_version), None)
-                if latest_ckpt:
-                    os.environ['checkpoint_file'] = latest_ckpt[1]
-                    self.model_version = latest_ckpt[0]
-                    print(self.model_version)
-                    print(os.environ['checkpoint_file'])
+            model_version_history = json.loads(self.get('model_version_history')) if self.has('model_version_history') else []
+            major_model_versions = json.loads(self.get('major_model_versions')) if self.has('major_model_versions') else []
+            all_model_versions = model_version_history + major_model_versions
+            if all_model_versions:
+                # Find the checkpoint path for the current model version
+                version_data = next(
+                    (entry for entry in all_model_versions if entry[0] == self.model_version), None)
+                if version_data:
+                    os.environ['checkpoint_file'] = version_data[1] # This is what actually sets the checkpoint file that training and prediction will use
+                    ic(f"Using model version: {self.model_version} with checkpoint: {version_data[1]}")
                     return
 
-        # If model version not found, last_n_ckpts is empty, or model version can't be found in last_n_ckpts
+        # If model version not found, all_model_versions is empty, or model version can't be found in all_model_versions,
         # Set a default model version
-        self.model_version = f"{self.__class__.__name__}-v0.0.0"
-        self.set("model_version", self.model_version)
-        print(self.model_version)
-        print(os.environ['checkpoint_file'])
+        base_model_name = f"[BASE MODEL] {self.__class__.__name__}-v0.0.0"
+        major_model_versions = [[base_model_name, os.environ['checkpoint_file']]]
+        self.set("major_model_versions", json.dumps(major_model_versions))
+        self.set("model_version", base_model_name)
+        self.model_version = base_model_name
 
     def bump_model_version(self, checkpoint_file, max_ckpts=DEFAULT_NUM_CKPTS_TO_KEEP):
         if not os.path.exists(checkpoint_file):
@@ -785,19 +826,20 @@ class MMDetection(LabelStudioMLBase):
             "%Y-%m-%d %H:%M:%S", time.localtime(timestamp))
         # Update the model version with the timestamp
         version_name = f"{self.__class__.__name__}-{timestamp_str}"
-        last_n_ckpts = json.loads(self.get("last_n_ckpts")) if self.has('last_n_ckpts') else []
-        last_n_ckpts.append([version_name, checkpoint_file])
-        while len(last_n_ckpts) > max_ckpts:
-            remove_ckpt = last_n_ckpts.pop(0)
-            if os.path.exists(remove_ckpt[1]):
-                os.remove(remove_ckpt[1])
-                logger.info(f"Removed checkpoint: {remove_ckpt[1]}")
-        self.set("last_n_ckpts", json.dumps(last_n_ckpts))
+        model_version_history = json.loads(self.get("model_version_history")) if self.has('model_version_history') else []
+        model_version_history.append([version_name, checkpoint_file])
+        while len(model_version_history) > max_ckpts:
+            remove_entry = model_version_history.pop(0)
+            if os.path.exists(remove_entry[1]):
+                os.remove(remove_entry[1])
+                logger.info(f"Removed checkpoint: {remove_entry[1]}")
+        self.set("model_version_history", json.dumps(model_version_history))
         self.set("latest_ckpt", json.dumps([version_name, checkpoint_file]))
 
         os.environ['checkpoint_file'] = checkpoint_file
 
         self.set("model_version", version_name)
+        self.model_version = version_name
 
 
     def _update_memory_bank(self, new_task_ids):
@@ -885,7 +927,7 @@ class MMDetection(LabelStudioMLBase):
                     # Option 1: Skip the entire task
                     # continue
                     # Option 2: Fallback to training on the whole image (more robust)
-                    train_on_whole_image = True
+                    train_on_whole_image = False
                     logger.warning(f"Falling back to training on whole image for task {task_id}.")
 
 
@@ -919,14 +961,16 @@ class MMDetection(LabelStudioMLBase):
                      for result in ann.get('result', []):
                         if result.get('type') == 'keypointlabels':
                             label = result['value'].get('keypointlabels', [None])[0]
-                            ls_label = self.label_map.get(label, label) # Map label if needed
+                            # in the dictionary self.label_map, key means LS label and value means mmdetection label
+                            mmdet_label = self.label_map.get(label, label) # Map label if needed
+                        
 
                             # Use project config labels for checking and indexing
-                            if ls_label not in self.label_index:
-                                logger.warning(f"Task {task_id}: Label '{ls_label}' (original: '{label}') not found in project config labels: {list(self.label_index.keys())}. Skipping annotation.")
+                            if mmdet_label not in self.label_index:
+                                logger.warning(f"Task {task_id}: Label '{mmdet_label}' (original: '{label}') not found in project config labels: {list(self.label_index.keys())}. Skipping annotation.")
                                 continue
 
-                            category_id = self.label_index[ls_label]
+                            category_id = self.label_index[mmdet_label]
 
                             # Convert keypoint center % to absolute pixel coordinates
                             x_pct = result['value']['x']
