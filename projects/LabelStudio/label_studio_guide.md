@@ -1,11 +1,13 @@
 # Start Label studio
 
-`LABEL_STUDIO_LOCAL_FILES_SERVING_ENABLED=true LABEL_STUDIO_LOCAL_FILES_DOCUMENT_ROOT=/media/pc2041 label-studio`
+`LABEL_STUDIO_LOCAL_FILES_SERVING_ENABLED=true LABEL_STUDIO_LOCAL_FILES_DOCUMENT_ROOT=/media/pc2041 label-studio --data-dir "/home/pc2041/.local/share/label-studio"`
 
 
 # Run ML backend on local
 
-`device=cuda LABEL_STUDIO_HOST=http://localhost:8080 LABEL_STUDIO_API_KEY=e5fccfb4114847bb3dd53b014c87901f5a5417af checkpoint_file=work_dirs/mm_grounding_dino_real_filtered_epoch10/epoch_50.pth config_file=configs/eider_ducks/mm_grounding_dino_real_filtered_epoch10.py labels_file=/home/pc2041/VIP_lab/mmwhale2/work_dirs/mm_grounding_dino_real_filtered_epoch10/label_map.json LABEL_STUDIO_LOCAL_FILES_DOCUMENT_ROOT=/media/pc2041 label-studio-ml start projects/LabelStudio/backend_template --with config_file=configs/eider_ducks/mm_grounding_dino_real_filtered_epoch10.py checkpoint_file=work_dirs/mm_grounding_dino_real_filtered_epoch10/epoch_50.pth device=cuda labels_file=/home/pc2041/VIP_lab/mmwhale2/work_dirs/mm_grounding_dino_real_filtered_epoch10/label_map.json --port 8003`
+`cd /home/pc2041/VIP_lab/labelstudio/mmwhale2 && source /home/pc2041/env_labelstudio2/bin/activate`
+
+`device=cuda LABEL_STUDIO_HOST=http://localhost:8080 LABEL_STUDIO_API_KEY=e5fccfb4114847bb3dd53b014c87901f5a5417af checkpoint_file=work_dirs/mm_grounding_dino_real_filtered_epoch10/epoch_50.pth labels_file=/home/pc2041/VIP_lab/mmwhale2/work_dirs/mm_grounding_dino_real_filtered_epoch10/label_map.json model_params_file=projects/LabelStudio/backend_template/model_params.json config_file=configs/eider_ducks/mm_grounding_dino_real_filtered_epoch10.py labels_file=projects/LabelStudio/backend_template/label_map.json LABEL_STUDIO_LOCAL_FILES_DOCUMENT_ROOT=/media/pc2041 label-studio-ml start projects/LabelStudio/backend_template --port 8003`
 
 `device=cuda  checkpoint_file=/home/pc2041/VIP_lab/mmwhale2/work_dirs/grouding_dino_swin-t_vis_caption/epoch_10.pth config_file=/home/pc2041/VIP_lab/mmwhale2/configs/mm_grounding_dino_animals/test_configs_no_caption/demo_config_small_pipeline.py labels_file=/home/pc2041/VIP_lab/mmwhale2/work_dirs/mm_grounding_dino_real_filtered_epoch10/label_map.json LABEL_STUDIO_LOCAL_FILES_DOCUMENT_ROOT=/media/pc2041 label-studio-ml start projects/LabelStudio/backend_template --with config_file=/home/pc2041/VIP_lab/mmwhale2/configs/mm_grounding_dino_animals/test_configs_no_caption/demo_config_small_pipeline.py checkpoint_file=/home/pc2041/VIP_lab/mmwhale2/work_dirs/grouding_dino_swin-t_vis_caption/epoch_10.pth device=cuda labels_file=/home/pc2041/VIP_lab/mmwhale2/work_dirs/mm_grounding_dino_real_filtered_epoch10/label_map.json --port 8003`
 
@@ -61,3 +63,17 @@ e.g
 # Working URL to dataset
 
 http://localhost:8080/data/local-files/?d=data/vip_lab/dataset/whale_data/whale_only_images/ES_AI_Narwhal_2016/2016_08_07%20Narwhal/ES_20160807_25mm_0000195.jpg
+
+
+# Label map file
+
+Key means label in label studio and value means label in mmdetection
+```JSON
+{
+    "female duck": "female duck",
+    "male duck": "male duck",
+    "Ice": "Ice",
+    "Juvenile duck": "Juvenile duck",
+    "duck": "duck"
+  }
+```

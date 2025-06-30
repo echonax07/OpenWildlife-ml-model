@@ -4,7 +4,7 @@
 
 <!--Rect 1 whale 
 	Rect 2 baby_whale-->
-<KeyPointLabels name="keypoints" toName="image">  
+<KeyPointLabels name="keypoints" toName="image" strokeWidth="1">  
 <Label value="female duck" background="#EF4444"/>
 <Label value="male duck" background="blue"/>
 <Label value="Ice" background="green"/>

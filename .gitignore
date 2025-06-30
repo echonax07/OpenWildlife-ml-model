@@ -242,3 +242,6 @@ postgresql
 cache.db
 tp_fp_comparision/
 labelstudio_database/
+# ignore crops folder which can appear anywhere
+**/crops/
+**/merged_images/
