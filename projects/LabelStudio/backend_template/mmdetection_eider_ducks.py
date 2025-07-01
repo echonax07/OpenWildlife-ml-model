@@ -24,6 +24,7 @@ from PIL import Image, ImageDraw, ImageOps  # Added ImageOps
 import numpy as np
 import tempfile
 import math 
+import matplotlib.colors as mcolors
 
 # fit() related import
 import tempfile
@@ -89,50 +90,30 @@ class MMDetection(LabelStudioMLBase):
         self.image_dir = image_dir or upload_dir
         logger.debug(
             f'{self.__class__.__name__} reads images from {self.image_dir}')
+        self.label_map = {}
         if self.labels_file and os.path.exists(self.labels_file):
             # mapping is mmdection label -> label studio label
-            self.label_map = json_load(self.labels_file)
+            # self.label_map = json_load(self.labels_file)
+            pass
         else:
-            self.label_map = {}
+            # self.label_map = {}
+            pass
         # ic(self.label_map)
         # ic(self.parsed_label_config)
         self.from_name, self.to_name, self.value, self.labels_in_config = get_single_tag_keys(
             self.parsed_label_config, 'KeyPointLabels', 'Image')
         schema = list(self.parsed_label_config.values())[0]
+        # create a dictionary from list values as key and value from schema
+        self.label_map = {label: label for label in schema['labels']}
         self.labels_in_config = set(self.labels_in_config) # These are the labels defined in labelstudio
         # Collect label maps from `predicted_values="airplane,car"` attribute in <Label> tag # noqa E501
         self.labels_attrs = schema.get('labels_attrs')
+        
         # ic(self.labels_attrs)
         # if labeling config has Label tags
         # TODO: Remove label map completely and use something like <Label value="Vehicle" predicted_values="airplane,car"> to define the mapping
         # refer here: https://github.com/HumanSignal/label-studio/blob/bcec8fc4bf9b56165ac44e658fce91a1d3a495bc/docs/source/tutorials/object-detector.md?plain=1#L32
-        if self.labels_attrs:
-            # try to find something like <Label value="Vehicle" predicted_values="airplane,car">
-            for ls_label, label_attrs in self.labels_attrs.items():
-                predicted_values = label_attrs.get(
-                    "predicted_values", "").split(",")
-                for predicted_value in predicted_values:
-                    # remove spaces at the beginning and at the end
-                    predicted_value = predicted_value.strip()
-                    if predicted_value:  # it shouldn't be empty (like '')
-                        # if predicted_value not in mmdet_labels:
-                        #     print(
-                        #         f'Predicted value "{predicted_value}" is not in mmdet labels'
-                        #     )
-                        self.label_map[predicted_value] = ls_label
         self.score_threshold = float(os.environ.get("SCORE_THRESHOLD", 0.3))
-        # Initialize memory bank with proper error handling
-        # try:
-        #     memory_bank = self.get('memory_bank')
-        #     self.memory_bank = json.loads(memory_bank)
-        #     # Convert list back to set for trained_task_ids
-        #     self.memory_bank['trained_task_ids'] = set(self.memory_bank.get('trained_task_ids', []))
-        # except (KeyError,TypeError):
-        #     self.memory_bank = {'trained_task_ids': set()}
-        # except Exception as e:
-        #     logger.error(f"Error loading memory bank: {str(e)}")
-        #     self.memory_bank = {'trained_task_ids': set()}
-
         self.max_memory_size = 1000
 
     def setup(self):
@@ -213,15 +194,25 @@ class MMDetection(LabelStudioMLBase):
         
         cfg = Config.fromfile(config_file)
         test_patch_size = tuple(map(int, extra_params.get("test_patch_size","(1024,1024)").strip("()").split(",")))
+        
         cfg.model.bbox_head.num_classes = len(self.labels_in_config)
         cfg.model.sliding_window_inference.patch_size = test_patch_size
         cfg.model.sliding_window_inference.slice_batch_size = int(extra_params.get("test_slice_batch_size", 4))
-        cfg.model.test_cfg.max_per_img = int(extra_params.get("max_per_img", 1000))
+        cfg.model.test_cfg.max_per_img = int(extra_params.get("max_per_img", 900))
+        cfg.model.num_queries = int(extra_params.get("num_queries",900))
         ic(f"PREDICTING WITH MODEL VERSION {self.model_version}")
         ic(checkpoint_file)
         ic(os.getcwd())
         device = os.environ.get("device", "cpu")
         ic(device)
+        metainfo = dict(
+        classes=tuple(self.labels_attrs.keys()),
+        palette=[
+        tuple(int(255 * c) for c in mcolors.to_rgb(attr["background"]))
+        for attr in self.labels_attrs.values()])
+        cfg.train_dataloader.dataset.metainfo=metainfo
+        cfg.val_dataloader.dataset.metainfo=metainfo
+        cfg.test_dataloader.dataset.metainfo=metainfo
         # TODO: Load sliding window_patch size from the model settings JSON.
         model = init_detector(cfg, checkpoint_file, device=device)
         
@@ -229,7 +220,6 @@ class MMDetection(LabelStudioMLBase):
         poly_from_name, poly_to_name, _, _ = get_single_tag_keys(
             self.parsed_label_config, 'PolygonLabels', 'Image'
         )
-        ic(self.label_config)
         label_studio_results = []
         
         for task in tasks:
@@ -295,13 +285,15 @@ class MMDetection(LabelStudioMLBase):
                                 })
             text_prompt = '. '.join(self.label_map.values())
             
+            ic(text_prompt)
+            
             # Get model predictions
             model_results = inference_detector(model, image_path, text_prompt=text_prompt, custom_entities=True).pred_instances
             results = []
             all_scores = []
             
-            classes = model.dataset_meta.get('classes')
-            
+            # classes = model.dataset_meta.get('classes')
+            classes=tuple(self.labels_attrs.keys())
             # Add train regions to results first
             for region in train_regions:
                 results.append({
@@ -324,8 +316,7 @@ class MMDetection(LabelStudioMLBase):
                 score = float(scores[-1])
                 if score < self.score_threshold:
                     continue
-
-                output_label = classes[list(self.label_map.get(label, label))[0]]
+                output_label = classes[label.item()]
                 if output_label not in self.labels_in_config:
                     continue
 
@@ -653,7 +644,14 @@ class MMDetection(LabelStudioMLBase):
                 # Configure MMDetection
                 cfg = Config.fromfile(config_file)
                 
-                                
+                metainfo = dict(
+                classes=tuple(self.labels_attrs.keys()),
+                palette=[
+                tuple(int(255 * c) for c in mcolors.to_rgb(attr["background"]))
+                for attr in self.labels_attrs.values()])
+                cfg.train_dataloader.dataset.metainfo=metainfo
+                cfg.val_dataloader.dataset.metainfo=metainfo
+                cfg.test_dataloader.dataset.metainfo=metainfo            
                 # Load extra parameters from the DB
                 extra_params = json.loads(self.get("extra_params"))
                 # Update model configuration
@@ -663,8 +661,8 @@ class MMDetection(LabelStudioMLBase):
                 cfg.optim_wrapper.optimizer.lr = float(extra_params.get("learning_rate",0.0002))
                 
                 ic(cfg.optim_wrapper.optimizer.lr)
-                cfg.num_queries = int(extra_params.get("num_queries",2000))
-                cfg.test_cfg.max_per_img = int(extra_params.get("max_per_img",2000))
+                cfg.model.num_queries = int(extra_params.get("num_queries",900))
+                cfg.model.test_cfg.max_per_img = int(extra_params.get("max_per_img",900))
                 # TODO : Each project should have its own workdir
                 # Config 1 : Work dir location
                 cfg.work_dir = os.path.join('work_dirs', project.title)
@@ -998,7 +996,7 @@ class MMDetection(LabelStudioMLBase):
 
                             # Ensure width and height are positive
                             if abs_w <= 0 or abs_h <= 0:
-                                logger.warning(f"Task {task_id}: Skipping annotation with non-positive dimensions for label '{ls_label}'. W={abs_w}, H={abs_h}")
+                                logger.warning(f"Task {task_id}: Skipping annotation with non-positive dimensions for label '{mmdet_label}'. W={abs_w}, H={abs_h}")
                                 continue
 
 

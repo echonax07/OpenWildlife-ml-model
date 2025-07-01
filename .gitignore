@@ -226,6 +226,7 @@ core.*
 # some specific lfs files
 !work_dirs/faster_rcnn_clean_v2/best_coco_bbox_mAP_epoch_10.pth
 *.json
+!model_params.json
 tools/dataset_converters/seal/surv_test_kamera_detections_20210212_full_paths.csv
 wandb/latest-run
 faster_coco_eval_repo/csrc/mask/pycocotools/_mask.c
