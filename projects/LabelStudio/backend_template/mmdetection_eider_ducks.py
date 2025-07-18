@@ -66,7 +66,6 @@ LABEL_STUDIO_HOST = os.getenv('LABEL_STUDIO_HOST')
 LABEL_STUDIO_API_KEY = os.getenv('LABEL_STUDIO_API_KEY')
 
 ic(LABEL_STUDIO_HOST)
-# TODO: Test memory bank code
 # TODO: Test cuda memory allocation and clearence
 
 
@@ -112,7 +111,7 @@ class MMDetection(LabelStudioMLBase):
         # ic(self.labels_attrs)
         # if labeling config has Label tags
         # TODO: Remove label map completely and use something like <Label value="Vehicle" predicted_values="airplane,car"> to define the mapping
-        # refer here: https://github.com/HumanSignal/label-studio/blob/bcec8fc4bf9b56165ac44e658fce91a1d3a495bc/docs/source/tutorials/object-detector.md?plain=1#L32
+        # refer here: https://github.com/HumanSignal/label-studio/blob/bcec8fc4bf9b56165ac44e658fce91a1d3a495bc/docs/source/tutorials/object-detector.md?plain=1#L32m        # TODO: Change the thr back to 0.1
         self.score_threshold = float(os.environ.get("SCORE_THRESHOLD", 0.3))
         self.max_memory_size = 1000
 
@@ -187,6 +186,9 @@ class MMDetection(LabelStudioMLBase):
     def predict(self, tasks, context: Optional[Dict] = None, **kwargs):
         config_file = os.environ['config_file']
         checkpoint_file = os.environ['checkpoint_file']
+        
+        # TODO: delete below line later
+        # checkpoint_file = "work_dirs/AES Labelling Part 1/checkpoint_20250710_040905.pth"
         # TODO: Replace this later
         ic(self.get("extra_params"))
         extra_params = json.loads(self.get("extra_params"))
@@ -224,7 +226,9 @@ class MMDetection(LabelStudioMLBase):
         
         for task in tasks:
             image_url = self._get_image_url(task)
+            ic(image_url)
             image_path = self.get_local_path(image_url)
+            ic(image_path)
             img_width, img_height = get_image_size(image_path)
             
             # Get existing annotations and train regions
@@ -353,7 +357,7 @@ class MMDetection(LabelStudioMLBase):
                                 'keypointlabels': [output_label],
                                 'x': float(x_percent),
                                 'y': float(y_percent),
-                                "width": 0.3,
+                                "width": 0.1,
                             },
                             'score': score,
                         })
@@ -597,6 +601,9 @@ class MMDetection(LabelStudioMLBase):
 
         config_file = os.environ['config_file']
         checkpoint_file = os.environ['checkpoint_file']
+        # TODO: delete below line later
+        # checkpoint_file = "work_dirs/AES Labelling Part 1/checkpoint_20250710_040905.pth"
+        # os.environ['checkpoint_file'] = "work_dirs/mm_grounding_dino_real_filtered_epoch10/epoch_50.pth"
         device = os.environ.get("device", "cpu")
         # model = init_detector(config_file, checkpoint_file, device=device)
         ic("Called force fit function")
@@ -718,7 +725,7 @@ class MMDetection(LabelStudioMLBase):
                 )
                 cfg.default_hooks.logger.interval=1
                 cfg.default_hooks.checkpoint.interval = 10
-                cfg.device = 'cuda' if torch.cuda.is_available() else 'cpu'
+                cfg.device = device
                 ic(os.environ['checkpoint_file'])
                 cfg.load_from = os.environ['checkpoint_file']
                 # Initialize and run training
@@ -812,6 +819,35 @@ class MMDetection(LabelStudioMLBase):
         self.set("major_model_versions", json.dumps(major_model_versions))
         self.set("model_version", base_model_name)
         self.model_version = base_model_name
+
+    def load_weights_from_path(self, path: str):
+        """Load model weights from a specified path."""
+        if not os.path.exists(path):
+            logger.error(f"Checkpoint file {path} does not exist.")
+            return False
+
+        # Set the environment variable for the checkpoint file
+        os.environ['checkpoint_file'] = path
+        self.set("checkpoint_file", path)
+        self.save_current_version_as("custom path")
+        return True
+
+    def save_current_version_as(self, name):
+        partial_version_name = f"[{name.upper()}] {self.__class__.__name__}-"
+        version_number = "v0.1.0" # Default version number
+
+        major_model_versions = json.loads(self.get('major_model_versions')) if self.has('major_model_versions') else []
+        if major_model_versions:
+            last_version = major_model_versions[-1]
+            last_version_number = last_version[0].split('-')[-1]
+            # Increment the version number
+            version_parts = last_version_number.split('.')
+            version_parts[1] = str(int(version_parts[1]) + 1)  # Increment minor version
+            version_number = '.'.join(version_parts)
+        
+        full_version_name = f"{partial_version_name}{version_number}"
+        major_model_versions.append([full_version_name, os.environ['checkpoint_file']])
+        self.set("major_model_versions", json.dumps(major_model_versions))
 
     def bump_model_version(self, checkpoint_file, max_ckpts=DEFAULT_NUM_CKPTS_TO_KEEP):
         if not os.path.exists(checkpoint_file):
