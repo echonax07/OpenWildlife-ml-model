@@ -593,8 +593,18 @@ class MMDetection(LabelStudioMLBase):
 
     #     return result
 
+    def set_training_status(self, status: str):
+        TRAINING_STATUSES = ["COMPLETE/IDLE", "SETUP", "IN PROGRESS", "ERROR"]
+        if status not in TRAINING_STATUSES:
+            return
+        
+        self.set("training_status", status)
+
     def force_fit(self, event, data, **kwargs):
         """Train MMDetection model with Label Studio annotations"""
+
+        self.set_training_status("SETUP")
+
         # Environment configuration
         os.environ['OMP_NUM_THREADS'] = '1'
         os.environ['MKL_NUM_THREADS'] = '1'
@@ -744,6 +754,7 @@ class MMDetection(LabelStudioMLBase):
                 runner = Runner.from_cfg(cfg)
                 sucess = False
                 try:
+                    self.set_training_status("IN PROGRESS")
                     print("Starting training...")
                     runner.train()
                     print("Training completed.")
@@ -753,6 +764,7 @@ class MMDetection(LabelStudioMLBase):
                     # Only update memory bank if training was successful
                     # model = init_detector(cfg, os.environ['checkpoint_file'], device=cfg.device)
                 except Exception as e:
+                    self.set_training_status("ERROR")
                     logger.error(f"Training failed: {str(e)}", exc_info=True)
                     gc.collect()
                     torch.cuda.empty_cache()
@@ -761,6 +773,7 @@ class MMDetection(LabelStudioMLBase):
                     # Handle checkpoints
 
                 if (sucess):
+                    self.set_training_status("COMPLETE/IDLE")
                     with open(os.path.join(cfg.work_dir, 'last_checkpoint'), 'r') as f:
                         latest_ckpt = f.read().strip()
                         # Rename the file to include the timestamp
@@ -782,13 +795,15 @@ class MMDetection(LabelStudioMLBase):
                         logger.info("Training completed successfully")
                         ic("Training completed successfully")
                 else:
+                    self.set_training_status("ERROR")
                     gc.collect()
                     torch.cuda.empty_cache()
                     # raise RuntimeError("Training failed - no checkpoint created")
-
+            
             return result
 
         except Exception as e:
+            self.set_training_status("ERROR")
             logger.error(f"Training failed: {str(e)}", exc_info=True)
             result['error'] = str(e)
             gc.collect()
