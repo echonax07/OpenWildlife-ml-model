@@ -1,78 +1,91 @@
 {
-    "numEpochs": {
-        "type": "integer",
-        "min": 1,
-        "default": 4,
-        "label": "Number of Epochs",
-        "description": "Number of epochs for training the model."
-    },
-    "train_patch_size": {
-        "type": "text",
-        "default": "(512,512)",
-        "label": "Patch Size for training",
-        "description": "Patch size for training the model."
-    },
-    "test_patch_size": {
-        "type": "text",
-        "default": "(1024,1024)",
-        "label": "Patch Size for predict",
-        "description": "Patch size for inference from the model."
-    },
-    "train_batch_size": {
-        "type": "integer",
-        "min": 1,
-        "default": 2,
-        "label": "Batch Size for training",
-        "description": "Batch size for training the model."
-    },
-    "test_slice_batch_size": {
-        "type": "integer",
-        "min": 1,
-        "default": 4,
-        "label": "Batch Size for Slicing",
-        "description": "For big images, we slice the images, and this parameter determines how many slices are sent to the model at once"
-    },
-    "checkpoint": {
-        "type": "text",
-        "default": "",
-        "label": "Weights Path",
-        "description": "Path where the weights are located on the backend machine."
-    },
-    "learning_rate": {
-        "type": "text",
-        "default": "0.00002",
-        "label": "Learning Rate",
-        "description": "Learning rate for the optimizer."
-    },
-    "num_queries": {
-        "type": "integer",
-        "default": 900,
-        "label": "Num of Queries",
-        "description": "num_queries for the Grounding DINO model."
-    },
-    "max_per_img": {
-        "type": "integer",
-        "default": 300,
-        "label": "Max objects per image",
-        "description": "Total max objects per image. Ideally set it same as num_quries."
-    },
-    "train_num_workers": {
-        "type": "dropdown",
-        "default": 0,
-        "options": [
-            0,
-            1,
-            2,
-            3,
-            4
-        ],
-        "label": "Num of workers per gpu",
-        "description": "The pytorch workers are responsible for loading images for CPU"
-    },
-        "train_persistent_workers": {
-        "type": "boolean",
-        "default": false,
-        "label": "Persistant Workers",
-        "description": "Whether to pin the threads to the particular process"
-    }
+    "configurableSettings": [
+        {
+            "name": "num_epochs",
+            "type": "integer",
+            "min": 1,
+            "default": 4,
+            "label": "Number of Epochs",
+            "description": "Number of epochs for training the model."
+        },
+        {
+            "name": "train_patch_size",
+            "type": "text",
+            "default": "(512,512)",
+            "label": "Patch Size for training",
+            "description": "Patch size for training the model."
+        },
+        {
+            "name": "test_patch_size",
+            "type": "text",
+            "default": "(1024,1024)",
+            "label": "Patch Size for predict",
+            "description": "Patch size for inference from the model."
+        },
+        {
+            "name": "train_batch_size",
+            "type": "integer",
+            "min": 1,
+            "default": 2,
+            "label": "Batch Size for training",
+            "description": "Batch size for training the model."
+        },
+        {
+            "name": "test_slice_batch_size",
+            "type": "integer",
+            "min": 1,
+            "default": 4,
+            "label": "Batch Size for Slicing",
+            "description": "For big images, we slice the images, and this parameter determines how many slices are sent to the model at once"
+        },
+        {
+            "name": "checkpoint",
+            "type": "text",
+            "default": "",
+            "label": "Weights Path",
+            "description": "Path where the weights are located on the backend machine."
+        },
+        {
+            "name": "learning_rate",
+            "type": "text",
+            "default": "0.00002",
+            "label": "Learning Rate",
+            "description": "Learning rate for the optimizer."
+        },
+        {
+            "name": "num_queries",
+            "type": "integer",
+            "default": 900,
+            "label": "Num of Queries",
+            "description": "num_queries for the Grounding DINO model."
+        },
+        {
+            "name": "max_per_img",
+            "type": "integer",
+            "default": 300,
+            "label": "Max objects per image",
+            "description": "Total max objects per image. Ideally set it same as num_quries."
+        },
+        {
+            "name": "train_num_workers",
+            "type": "dropdown",
+            "default": 0,
+            "options": [
+                0,
+                1,
+                2,
+                3,
+                4
+            ],
+            "label": "Num of workers per gpu",
+            "description": "The pytorch workers are responsible for loading images for CPU"
+        },
+        {
+            "name": "train_persistent_workers",
+            "type": "boolean",
+            "default": false,
+            "label": "Persistant Workers",
+            "description": "Whether to pin the threads to the particular process"
+        }
+    ]
 }
