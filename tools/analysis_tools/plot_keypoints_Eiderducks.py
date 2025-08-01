@@ -113,7 +113,7 @@ def visualize_keypoints(image_path, json_path, output_path,
 
     # Add total count and threshold info
     total_text = f"Total: {len(filtered_labels)}"
-    # threshold_text = f"Score Threshold: {score_threshold}"
+    threshold_text = f"Score Threshold: {score_threshold}"
     (tw, th), _ = cv2.getTextSize(total_text, cv2.FONT_HERSHEY_SIMPLEX, 0.9, 2)
     
     # Draw threshold text

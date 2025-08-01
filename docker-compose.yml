@@ -26,7 +26,7 @@ services:
       - config_file=/app/configs/eider_ducks/mm_grounding_dino_real_filtered_epoch10.py
       - model_params_file=/app/work_dirs/mm_grounding_dino_real_filtered_epoch10/model_params.json
       - device=cuda
-      - SCORE_THRESHOLD=0.5
+      - SCORE_THRESHOLD=0.3
       - LABEL_STUDIO_HOST=http://172.18.0.5:8085
       # - LABEL_STUDIO_HOST=http://ls_nginx:8085
       - LABEL_STUDIO_API_KEY=1827b001dbd5abe74cf64744683815d4f6394c20
@@ -45,3 +45,6 @@ services:
             - driver: nvidia
               count: 1  # Use 1 GPU; set to 'all' to use all available GPUs
               capabilities: [ gpu ]
+# Start redis server
+
+# Start RQ server
