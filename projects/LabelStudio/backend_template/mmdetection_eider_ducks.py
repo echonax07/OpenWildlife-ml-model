@@ -5,7 +5,12 @@ import logging
 import os
 import time
 import shutil
+import traceback
+import uuid
 from urllib.parse import urlparse
+
+from rq import Queue
+from redis import Redis
 
 import boto3
 from botocore.exceptions import ClientError
@@ -42,6 +47,9 @@ import label_studio_sdk
 
 logger = logging.getLogger(__name__)
 
+redis_conn = Redis(host='localhost', port=6379)
+train_queue = Queue('train', connection=redis_conn)
+
 try:
     
     from shapely.geometry import Polygon, Point, MultiPolygon
@@ -68,6 +76,39 @@ LABEL_STUDIO_API_KEY = os.getenv('LABEL_STUDIO_API_KEY')
 ic(LABEL_STUDIO_HOST)
 # TODO: Test cuda memory allocation and clearence
 
+
+def rq_train(data):
+    """Function to run training in a separate thread using RQ."""
+    model = MMDetection(project_id=data['project']['id'])
+    cfg = model.rq_force_fit(data)
+    return cfg
+    
+def on_train_failure(job, connection, type, value, tb):
+    logger.error(f"Training job with job ID {job.id} failed with an error - {str(type)}: {value}")
+    tb_str = ''.join(traceback.format_tb(tb))
+    logger.error(f"Traceback:\n{tb_str}")
+    gc.collect()
+    torch.cuda.empty_cache()
+
+def on_train_success(job, connection, result, *args, **kwargs):
+    cfg = result
+    print(f"Training job with job ID {job.id} completed successfully.")
+    with open(os.path.join(cfg.work_dir, 'last_checkpoint'), 'r') as f:
+        latest_ckpt = f.read().strip()
+        # Rename the file to include the timestamp
+        latest_ckpt_dir = os.path.dirname(latest_ckpt)
+        new_checkpoint_path = os.path.join(latest_ckpt_dir, f"checkpoint_{time.strftime('%Y%m%d_%H%M%S')}.pth")
+        shutil.copyfile(latest_ckpt, new_checkpoint_path)
+        latest_ckpt = new_checkpoint_path
+
+        gc.collect()
+        torch.cuda.empty_cache()
+
+        # set the environment variable to use the new model
+        model = MMDetection(project_id=cfg.project_id)
+        model.bump_model_version(latest_ckpt, max_ckpts=cfg.default_hooks.checkpoint.max_keep_ckpts)
+        logger.info("Training completed successfully")
+        ic("Training completed successfully")
 
 class MMDetection(LabelStudioMLBase):
     """Object detector based on https://github.com/open-mmlab/mmdetection."""
@@ -593,224 +634,176 @@ class MMDetection(LabelStudioMLBase):
 
     #     return result
 
-    def set_training_status(self, status: str):
-        TRAINING_STATUSES = ["COMPLETE/IDLE", "SETUP", "IN PROGRESS", "ERROR"]
-        if status not in TRAINING_STATUSES:
-            return
-        
-        self.set("training_status", status)
-
     def force_fit(self, event, data, **kwargs):
         """Train MMDetection model with Label Studio annotations"""
+        result = {
+            'job_id': '',
+            'error': None,
+        }
 
-        self.set_training_status("SETUP")
+        if not data or 'project' not in data:
+            result['error'] = "Invalid data provided for project ID"
+            return result
+        project_id = str(data['project']['id'])
+        data['env'] = dict(os.environ)
+        # logger.info(f"Training job queued with ID: {job.id}")
+        job = train_queue.enqueue(rq_train,
+                                  data,
+                                  on_failure=on_train_failure,
+                                  on_success=on_train_success,
+                                  job_id=f"train-{project_id}-{uuid.uuid4()}",)
+        logger.info(f"Training job queued with ID: {job.id}")
+        result['job_id'] = job.id
+        return result
+    
+    def rq_force_fit(self, data):
 
-        # Environment configuration
+        # Set all environment variables to be identical to the ones that were in the calling context
+        env_vars = data.get('env', {})
+        for key, value in env_vars.items():
+            os.environ[key] = value
+                
+        # More environment configuration
         os.environ['OMP_NUM_THREADS'] = '1'
         os.environ['MKL_NUM_THREADS'] = '1'
-
+        
         config_file = os.environ['config_file']
         checkpoint_file = os.environ['checkpoint_file']
         # TODO: delete below line later
         # checkpoint_file = "work_dirs/AES Labelling Part 1/checkpoint_20250710_040905.pth"
-        # os.environ['checkpoint_file'] = "work_dirs/mm_grounding_dino_real_filtered_epoch10/epoch_50.pth"
         device = os.environ.get("device", "cpu")
-        # model = init_detector(config_file, checkpoint_file, device=device)
-        ic("Called force fit function")
-        # ic(os.environ['checkpoint_file'])
         logger.info(f"Load new model from: {config_file}, {checkpoint_file}")
+        
+        # try:
+        # Initialize Label Studio client
+        ls = label_studio_sdk.Client(
+            LABEL_STUDIO_HOST,
+            LABEL_STUDIO_API_KEY
+        )
+        project = ls.get_project(data['project']['id'])
+        project_id = str(data['project']['id'])
 
-        result = {
-            'model_path': checkpoint_file,
-            'checkpoints': [],
-            'labels': list(self.labels_in_config),
-            'error': None
-        }
-        try:
-            # Initialize Label Studio client
-            ls = label_studio_sdk.Client(
-                LABEL_STUDIO_HOST,
-                LABEL_STUDIO_API_KEY
-            )
-            project = ls.get_project(data['project']['id'])
-            self.project_id = str(data['project']['id'])
+        # Get image key from labeling config
+        # from_name, to_name, image_key = self.label_interface.get_first_tag_occurence('Image', 'Image')
+        # project.get_tasks(selected_ids=[70665, 70664])
+        # Fetch and validate tasks
+        tasks = data['tasks']
+        current_task_ids = {str(task['id']) for task in tasks}
+        # Store current task IDs before training
+        os.makedirs(os.path.join(
+            'work_dirs', project.title), exist_ok=True)
 
-            # Get image key from labeling config
-            # from_name, to_name, image_key = self.label_interface.get_first_tag_occurence('Image', 'Image')
-            # project.get_tasks(selected_ids=[70665, 70664])
-            # Fetch and validate tasks
-            tasks = data['tasks']
-            current_task_ids = {str(task['id']) for task in tasks}
-            # Store current task IDs before training
-            os.makedirs(os.path.join(
-                'work_dirs', project.title), exist_ok=True)
+        # Training setup
+        cfg = None
+        with tempfile.TemporaryDirectory(dir=os.path.join('work_dirs', project.title)) as temp_dir2:
+            temp_dir = os.path.join('work_dirs', project.title, 'debug_temp')
+            os.makedirs(temp_dir, exist_ok=True)
+            # Convert tasks to COCO format
+            coco_data = self._tasks_to_coco(tasks, temp_dir)
+            # Save COCO annotations
+            ann_file = os.path.join(temp_dir, 'train.json')
+            with open(ann_file, 'w') as f:
+                json.dump(coco_data, f)
 
-            # with open(os.path.join('work_dirs', project.title,'task.json'), "w") as f:
-            #         json.dump(tasks,f)
-            # Training setup
-            with tempfile.TemporaryDirectory(dir=os.path.join('work_dirs', project.title)) as temp_dir2:
-                temp_dir = os.path.join('work_dirs', project.title, 'debug_temp')
-                os.makedirs(temp_dir, exist_ok=True)
-                # Convert tasks to COCO format
-                coco_data = self._tasks_to_coco(tasks, temp_dir)
-                # Save COCO annotations
-                ann_file = os.path.join(temp_dir, 'train.json')
-                with open(ann_file, 'w') as f:
-                    json.dump(coco_data, f)
-
-                # Configure MMDetection
-                cfg = Config.fromfile(config_file)
-                
-                metainfo = dict(
-                classes=tuple(self.labels_attrs.keys()),
-                palette=[
-                tuple(int(255 * c) for c in mcolors.to_rgb(attr["background"]))
-                for attr in self.labels_attrs.values()])
-                cfg.train_dataloader.dataset.metainfo=metainfo
-                cfg.val_dataloader.dataset.metainfo=metainfo
-                cfg.test_dataloader.dataset.metainfo=metainfo            
-                # Load extra parameters from the DB
-                extra_params = json.loads(self.get("extra_params"))
-                # Update model configuration
-                cfg.model.bbox_head.num_classes = len(self.labels_in_config)
-                
-                ic(extra_params.get("learning_rate"))
-                cfg.optim_wrapper.optimizer.lr = float(extra_params.get("learning_rate",0.0002))
-                
-                ic(cfg.optim_wrapper.optimizer.lr)
-                cfg.model.num_queries = int(extra_params.get("num_queries",900))
-                cfg.model.test_cfg.max_per_img = int(extra_params.get("max_per_img",900))
-                # TODO : Each project should have its own workdir
-                # Config 1 : Work dir location
-                cfg.work_dir = os.path.join('work_dirs', project.title)
-                os.makedirs(cfg.work_dir, exist_ok=True)
-
-                # Dataset configuration
-                cfg.data_root = ''
-                cfg.train_dataloader.batch_size = int(extra_params.get("train_batch_size",1))
-                cfg.train_dataloader.dataset.data_root = ''
-                cfg.train_dataloader.dataset.ann_file = os.path.join(
-                    temp_dir, 'train.json')
-                cfg.train_dataloader.num_workers = int(extra_params.get("train_num_workers",0))  # Disable multiprocessing
-                cfg.train_dataloader.persistent_workers = extra_params.get("train_persistent_workers",False)
-                cfg.train_dataloader.dataset.pipeline= cfg.train_pipeline2
-
-                # Modify val paths
-                cfg.val_dataloader.dataset.data_root = ''
-                cfg.val_dataloader.dataset.ann_file = os.path.join(
-                    temp_dir, 'train.json')
-                # Disable multiprocessing to avoid interference with Label Studio which doesnt allow any child to spawn new processes
-                cfg.val_dataloader.num_workers = 0
-                cfg.val_dataloader.persistent_workers = False
-                cfg.val_dataloader.prefetch_factor = None
-                cfg.val_evaluator.ann_file = os.path.join(
-                    temp_dir, 'train.json')
-                cfg.val_evaluator.outfile_prefix = os.path.join(
-                    temp_dir, 'prediction_val')
-
-                # Modify test paths
-                cfg.test_dataloader.dataset.data_root = ''
-                cfg.test_dataloader.dataset.ann_file = os.path.join(
-                    temp_dir, 'train.json')
-                # Disable multiprocessing to avoid interference with Label Studio which doesnt allow any child to spawn new processes
-                cfg.test_dataloader.num_workers = 0
-                cfg.test_dataloader.persistent_workers = False
-                cfg.test_dataloader.prefetch_factor = None
-                cfg.test_evaluator.ann_file = os.path.join(
-                    temp_dir, 'train.json')
-                cfg.test_evaluator.outfile_prefix = os.path.join(
-                    temp_dir, 'prediction_test')
-
-                # Modify train slices path
-                os.makedirs(os.path.join(temp_dir, 'slices'), exist_ok=True)
-                cfg.data_root_slice = os.path.join(temp_dir, 'slices')
-                # whole images data_root
-                cfg.data_root_whole = ''
-
-                # Training parameters
-                cfg.train_cfg = dict(
-                    type='EpochBasedTrainLoop',
-                    max_epochs=int(extra_params.get("numEpochs",1)),
-                    val_interval=1000000
-                )
-                cfg.default_hooks.logger.interval=1
-                cfg.default_hooks.checkpoint.interval = 10
-                cfg.device = device
-                ic(os.environ['checkpoint_file'])
-                cfg.load_from = os.environ['checkpoint_file']
-                # Initialize and run training
-                
-                
-                # Slicing based parameters
-                train_patch_size = tuple(map(int, extra_params.get("train_patch_size","(1024,1024)").strip("()").split(",")))
-                cfg.slice_configuration.slice_height= train_patch_size[0]
-                cfg.slice_configuration.slice_width= train_patch_size[1]
-                test_patch_size = tuple(map(int, extra_params.get("test_patch_size","(1024,1024)").strip("()").split(",")))
-                cfg.model.sliding_window_inference.patch_size = test_patch_size
-                cfg.model.sliding_window_inference.slice_batch_size = int(extra_params.get("test_slice_batch_size", 4))
-                slice_configuration = cfg.get('slice_configuration')
-                cfg = slice_train_images(cfg, **slice_configuration)
-                cfg.log_level = 'ERROR'  # Add this line to suppress INFO/WARNING logs
-                runner = Runner.from_cfg(cfg)
-                sucess = False
-                try:
-                    self.set_training_status("IN PROGRESS")
-                    print("Starting training...")
-                    runner.train()
-                    print("Training completed.")
-                    sucess = True
-                    # gc.collect()
-                    # torch.cuda.empty_cache()
-                    # Only update memory bank if training was successful
-                    # model = init_detector(cfg, os.environ['checkpoint_file'], device=cfg.device)
-                except Exception as e:
-                    self.set_training_status("ERROR")
-                    logger.error(f"Training failed: {str(e)}", exc_info=True)
-                    gc.collect()
-                    torch.cuda.empty_cache()
-                    result['error'] = str(e)
-
-                    # Handle checkpoints
-
-                if (sucess):
-                    self.set_training_status("COMPLETE/IDLE")
-                    with open(os.path.join(cfg.work_dir, 'last_checkpoint'), 'r') as f:
-                        latest_ckpt = f.read().strip()
-                        # Rename the file to include the timestamp
-                        latest_ckpt_dir = os.path.dirname(latest_ckpt)
-                        new_checkpoint_path = os.path.join(latest_ckpt_dir, f"checkpoint_{time.strftime('%Y%m%d_%H%M%S')}.pth")
-                        shutil.copyfile(latest_ckpt, new_checkpoint_path)
-                        latest_ckpt = new_checkpoint_path
-                        
-                        result['model_path'] = latest_ckpt
-                        result['checkpoints'].append(latest_ckpt)
-                        checkpoint_file = latest_ckpt
-                        # self._update_memory_bank(current_task_ids)
-                        gc.collect()
-                        torch.cuda.empty_cache()
-                        # model = init_detector(cfg, latest_ckpt, device=device)
-
-                        # set the environment variable to use the new model
-                        self.bump_model_version(latest_ckpt, max_ckpts=cfg.default_hooks.checkpoint.max_keep_ckpts)
-                        logger.info("Training completed successfully")
-                        ic("Training completed successfully")
-                else:
-                    self.set_training_status("ERROR")
-                    gc.collect()
-                    torch.cuda.empty_cache()
-                    # raise RuntimeError("Training failed - no checkpoint created")
+            # Configure MMDetection
+            cfg = Config.fromfile(config_file)
             
-            return result
+            metainfo = dict(
+            classes=tuple(self.labels_attrs.keys()),
+            palette=[
+            tuple(int(255 * c) for c in mcolors.to_rgb(attr["background"]))
+            for attr in self.labels_attrs.values()])
+            cfg.train_dataloader.dataset.metainfo=metainfo
+            cfg.val_dataloader.dataset.metainfo=metainfo
+            cfg.test_dataloader.dataset.metainfo=metainfo            
+            # Load extra parameters from the DB
+            extra_params = json.loads(self.get("extra_params"))
+            # Update model configuration
+            cfg.model.bbox_head.num_classes = len(self.labels_in_config)
+            
+            ic(extra_params.get("learning_rate"))
+            cfg.optim_wrapper.optimizer.lr = float(extra_params.get("learning_rate",0.0002))
+            
+            ic(cfg.optim_wrapper.optimizer.lr)
+            cfg.model.num_queries = int(extra_params.get("num_queries",900))
+            cfg.model.test_cfg.max_per_img = int(extra_params.get("max_per_img",900))
+            # TODO : Each project should have its own workdir
+            # Config 1 : Work dir location
+            cfg.work_dir = os.path.join('work_dirs', project.title)
+            os.makedirs(cfg.work_dir, exist_ok=True)
 
-        except Exception as e:
-            self.set_training_status("ERROR")
-            logger.error(f"Training failed: {str(e)}", exc_info=True)
-            result['error'] = str(e)
-            gc.collect()
-            torch.cuda.empty_cache()
-            # model = init_detector(cfg, os.environ['checkpoint_file'], device)
+            # Dataset configuration
+            cfg.data_root = ''
+            cfg.train_dataloader.batch_size = int(extra_params.get("train_batch_size",1))
+            cfg.train_dataloader.dataset.data_root = ''
+            cfg.train_dataloader.dataset.ann_file = os.path.join(
+                temp_dir, 'train.json')
+            cfg.train_dataloader.num_workers = int(extra_params.get("train_num_workers",0))  # Disable multiprocessing
+            cfg.train_dataloader.persistent_workers = extra_params.get("train_persistent_workers",False)
+            cfg.train_dataloader.dataset.pipeline= cfg.train_pipeline2
 
-        return result
+            # Modify val paths
+            cfg.val_dataloader.dataset.data_root = ''
+            cfg.val_dataloader.dataset.ann_file = os.path.join(
+                temp_dir, 'train.json')
+            # Disable multiprocessing to avoid interference with Label Studio which doesnt allow any child to spawn new processes
+            cfg.val_dataloader.num_workers = 0
+            cfg.val_dataloader.persistent_workers = False
+            cfg.val_dataloader.prefetch_factor = None
+            cfg.val_evaluator.ann_file = os.path.join(
+                temp_dir, 'train.json')
+            cfg.val_evaluator.outfile_prefix = os.path.join(
+                temp_dir, 'prediction_val')
+
+            # Modify test paths
+            cfg.test_dataloader.dataset.data_root = ''
+            cfg.test_dataloader.dataset.ann_file = os.path.join(
+                temp_dir, 'train.json')
+            # Disable multiprocessing to avoid interference with Label Studio which doesnt allow any child to spawn new processes
+            cfg.test_dataloader.num_workers = 0
+            cfg.test_dataloader.persistent_workers = False
+            cfg.test_dataloader.prefetch_factor = None
+            cfg.test_evaluator.ann_file = os.path.join(
+                temp_dir, 'train.json')
+            cfg.test_evaluator.outfile_prefix = os.path.join(
+                temp_dir, 'prediction_test')
+
+            # Modify train slices path
+            os.makedirs(os.path.join(temp_dir, 'slices'), exist_ok=True)
+            cfg.data_root_slice = os.path.join(temp_dir, 'slices')
+            # whole images data_root
+            cfg.data_root_whole = ''
+
+            # Training parameters
+            cfg.train_cfg = dict(
+                type='EpochBasedTrainLoop',
+                max_epochs=int(extra_params.get("numEpochs",1)),
+                val_interval=1000000
+            )
+            cfg.default_hooks.logger.interval=1
+            cfg.default_hooks.checkpoint.interval = 10
+            cfg.device = device
+            ic(os.environ['checkpoint_file'])
+            cfg.load_from = os.environ['checkpoint_file']
+            # Initialize and run training
+            
+            
+            # Slicing based parameters
+            train_patch_size = tuple(map(int, extra_params.get("train_patch_size","(1024,1024)").strip("()").split(",")))
+            cfg.slice_configuration.slice_height= train_patch_size[0]
+            cfg.slice_configuration.slice_width= train_patch_size[1]
+            test_patch_size = tuple(map(int, extra_params.get("test_patch_size","(1024,1024)").strip("()").split(",")))
+            cfg.model.sliding_window_inference.patch_size = test_patch_size
+            cfg.model.sliding_window_inference.slice_batch_size = int(extra_params.get("test_slice_batch_size", 4))
+            slice_configuration = cfg.get('slice_configuration')
+            cfg = slice_train_images(cfg, **slice_configuration)
+            cfg.log_level = 'ERROR'  # Add this line to suppress INFO/WARNING logs
+            cfg.project_id = project_id
+
+            runner = Runner.from_cfg(cfg)
+            runner.train()
+            
+        return cfg
 
     def load_model_checkpoint_and_version(self):
         if self.has('model_version'):
@@ -845,6 +838,7 @@ class MMDetection(LabelStudioMLBase):
         os.environ['checkpoint_file'] = path
         self.set("checkpoint_file", path)
         self.save_current_version_as("custom path")
+        ic("Model weights loaded from path:", path)
         return True
 
     def save_current_version_as(self, name):
