@@ -162,6 +162,8 @@ model = dict(
 train_pipeline2 = [
     dict(type='LoadImageFromFile', backend_args=_base_.backend_args),
     dict(type='LoadAnnotations', with_bbox=True),
+    dict(type='RandomFlip', prob=0.5),
+    # dict(type='PhotoMetricDistortion', prob=0.3),
     # Adds padding to make images 512x512
     dict(type='Pad', size=(512, 512), pad_val=0),
     dict(
@@ -222,6 +224,8 @@ train_dataloader = dict(
         metainfo=metainfo,
         return_classes=True,
         pipeline=train_pipeline,
+        # pipeline=train_pipeline2,
+        
         filter_cfg=dict(filter_empty_gt=False, min_size=32),
         ann_file=train_ann_file,
         data_prefix=dict(img='')))
