@@ -13,10 +13,10 @@ import io
 # Configuration
 LS_URL = 'http://129.97.250.147:8080'
 API_TOKEN = 'ebdc6fa5f2c3abcd502b55d5ccc1dc0e4ae9f68d'
-PROJECT_ID = 108
+PROJECT_ID = 113
 
 # Output directory
-OUTPUT_DIR = 'AES Labelling 2008 BEL22to25exp'
+OUTPUT_DIR = 'AES fully Manual'
 os.makedirs(OUTPUT_DIR, exist_ok=True)
 
 # Color mapping based on your configuration (BGR format for OpenCV)

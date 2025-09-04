@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Image Grid Merger</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.4.2/p5.min.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            background-color: #f0f0f0;
+        }
+        #controls {
+            margin: 20px;
+            text-align: center;
+        }
+        #canvas-container {
+            border: 2px solid #333;
+            background-color: white;
+        }
+        #download-btn, #zoom-in-btn, #zoom-out-btn {
+            margin: 10px 5px;
+            padding: 10px 20px;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            cursor: pointer;
+        }
+        #download-btn:hover, #zoom-in-btn:hover, #zoom-out-btn:hover {
+            background-color: #45a049;
+        }
+        #zoom-controls {
+            margin-top: 10px;
+        }
+    </style>
+</head>
+<body>
+    <div id="controls">
+        <h2>Image Grid Merger</h2>
+        <label for="file-input">Upload Image Patches:</label>
+        <input type="file" id="file-input" multiple accept="image/*"><br><br>
+        <label for="grid-size">Select Grid Size:</label>
+        <select id="grid-size">
+            <option value="2x2">2x2</option>
+            <option value="2x3">2x3</option>
+            <option value="3x2">3x2</option>
+            <option value="3x3">3x3</option>
+            <option value="4x4">4x4</option>
+        </select><br><br>
+        <button id="download-btn" disabled>Download Merged Image</button>
+        <div id="zoom-controls">
+            <button id="zoom-in-btn">Zoom In</button>
+            <button id="zoom-out-btn">Zoom Out</button>
+        </div>
+    </div>
+    <div id="canvas-container"></div>
+
+    <script>
+        let patches = [];
+        let gridRows, gridCols;
+        let tileSize = 150;
+        let tiles = [];
+        let selectedTile = null;
+        let canvas;
+        let originalTileWidth = 0;
+        let originalTileHeight = 0;
+
+        function setup() {
+            canvas = createCanvas(600, 600);
+            canvas.parent('canvas-container');
+            document.getElementById('file-input').addEventListener('change', handleFileUpload);
+            document.getElementById('grid-size').addEventListener('change', updateGrid);
+            document.getElementById('download-btn').addEventListener('click', downloadMergedImage);
+            document.getElementById('zoom-in-btn').addEventListener('click', () => adjustCanvasSize(10));
+            document.getElementById('zoom-out-btn').addEventListener('click', () => adjustCanvasSize(-10));
+        }
+
+        function adjustCanvasSize(delta) {
+            tileSize = Math.max(50, tileSize + delta);
+            updateGrid();
+        }
+
+        function handleFileUpload(event) {
+            patches = [];
+            tiles = [];
+            const files = event.target.files;
+            let loaded = 0;
+
+            for (let file of files) {
+                let img = loadImage(URL.createObjectURL(file), () => {
+                    loaded++;
+                    // Extract the _crop_xxx part from filename
+                    let label = file.name.match(/_crop_(\d{3})/)?.[1] || '';
+                    // Store original image and create a resized version for preview
+                    let resizedImg = createImage(tileSize, tileSize);
+                    resizedImg.copy(img, 0, 0, img.width, img.height, 0, 0, tileSize, tileSize);
+                    patches.push({ originalImg: img, resizedImg, label });
+                    // Store original dimensions from the first image
+                    if (loaded === 1) {
+                        originalTileWidth = img.width;
+                        originalTileHeight = img.height;
+                    }
+                    if (loaded === files.length) {
+                        updateGrid();
+                    }
+                });
+            }
+        }
+
+        function updateGrid() {
+            const gridSize = document.getElementById('grid-size').value.split('x');
+            gridRows = parseInt(gridSize[0]);
+            gridCols = parseagataCols = parseInt(gridSize[1]);
+            tiles = [];
+
+            // Resize canvas based on grid size and tileSize
+            resizeCanvas(gridCols * tileSize, gridRows * tileSize);
+
+            // Update resized images for current tileSize
+            for (let i = 0; i < gridRows * gridCols && i < patches.length; i++) {
+                let resizedImg = createImage(tileSize, tileSize);
+                resizedImg.copy(patches[i].originalImg, 0, 0, patches[i].originalImg.width, patches[i].originalImg.height, 0, 0, tileSize, tileSize);
+                tiles.push({
+                    img: resizedImg,
+                    originalImg: patches[i].originalImg,
+                    label: patches[i].label,
+                    index: i,
+                    x: (i % gridCols) * tileSize,
+                    y: Math.floor(i / gridCols) * tileSize
+                });
+            }
+
+            // Enable download button if enough patches
+            document.getElementById('download-btn').disabled = tiles.length < gridRows * gridCols;
+        }
+
+        function draw() {
+            background(255);
+            for (let tile of tiles) {
+                if (tile.img) {
+                    image(tile.img, tile.x, tile.y, tileSize, tileSize);
+                }
+                // Draw grid lines
+                noFill();
+                stroke(0);
+                rect(tile.x, tile.y, tileSize, tileSize);
+                // Draw label
+                if (tile.label) {
+                    fill(255);
+                    stroke(0);
+                    strokeWeight(1);
+                    textSize(Math.max(12, tileSize / 10));
+                    textAlign(CENTER, TOP);
+                    text(tile.label, tile.x + tileSize / 2, tile.y + 5);
+                }
+            }
+
+            // Highlight selected tile
+            if (selectedTile !== null) {
+                let tile = tiles[selectedTile];
+                stroke(255, 0, 0);
+                strokeWeight(3);
+                noFill();
+                rect(tile.x, tile.y, tileSize, tileSize);
+                strokeWeight(1);
+            }
+        }
+
+        function mousePressed() {
+            for (let i = 0; i < tiles.length; i++) {
+                let tile = tiles[i];
+                if (mouseX > tile.x && mouseX < tile.x + tileSize &&
+                    mouseY > tile.y && mouseY < tile.y + tileSize) {
+                    selectedTile = i;
+                    break;
+                }
+            }
+        }
+
+        function mouseReleased() {
+            if (selectedTile !== null) {
+                for (let i = 0; i < tiles.length; i++) {
+                    if (i !== selectedTile) {
+                        let tile = tiles[i];
+                        if (mouseX > tile.x && mouseX < tile.x + tileSize &&
+                            mouseY > tile.y && mouseY < tile.y + tileSize) {
+                            // Swap positions (x, y) while keeping img, label, and index
+                            let tempX = tiles[selectedTile].x;
+                            let tempY = tiles[selectedTile].y;
+                            tiles[selectedTile].x = tiles[i].x;
+                            tiles[selectedTile].y = tiles[i].y;
+                            tiles[i].x = tempX;
+                            tiles[i].y = tempY;
+                            break;
+                        }
+                    }
+                }
+                selectedTile = null;
+            }
+        }
+
+        function downloadMergedImage() {
+            // Create a new canvas for the merged image using original dimensions
+            let merged = createGraphics(gridCols * originalTileWidth, gridRows * originalTileHeight);
+            for (let tile of tiles) {
+                if (tile.originalImg) {
+                    merged.image(tile.originalImg, tile.x / tileSize * originalTileWidth, tile.y / tileSize * originalTileHeight, originalTileWidth, originalTileHeight);
+                }
+            }
+            // Download the merged image
+            saveCanvas(merged, 'merged_image', 'png');
+        }
+    </script>
+</body>
+</html>

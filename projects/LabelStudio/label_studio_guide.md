@@ -24,7 +24,8 @@ In a separate terminal, run the resis server:
 `redis-server`
 
 In another terminal, run the rq workers for training and prediction:
-`rq worker train`
+
+`LOG_LEVEL=INFO device=cuda LABEL_STUDIO_HOST=http://localhost:8080 LABEL_STUDIO_API_KEY=e5fccfb4114847bb3dd53b014c87901f5a5417af checkpoint_file="work_dirs/mm_grounding_dino_real_filtered_epoch10/epoch_50.pth" labels_file=/home/pc2041/VIP_lab/mmwhale2/work_dirs/mm_grounding_dino_real_filtered_epoch10/label_map.json model_params_file=projects/LabelStudio/backend_template/model_params_eider.json config_file=configs/eider_ducks/mm_grounding_dino_real_filtered_epoch10.py labels_file=projects/LabelStudio/backend_template/label_map.json LOCAL_FILES_DOCUMENT_ROOT=/home/pc2041 LABEL_STUDIO_LOCAL_FILES_DOCUMENT_ROOT=/home/pc2041 rq worker train`
 
 `rq worker predict`
 
