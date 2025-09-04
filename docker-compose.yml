@@ -3,8 +3,9 @@ version: "3.9"
 networks:
   labelstudio_shared:
     external: true
+
 services:
-  # ----- MMDetection backend -----
+  # ----- MMDetection backend API -----
   mmwhale2:
     image: mmwhale2:latest
     container_name: mmdetection
@@ -17,24 +18,25 @@ services:
     environment:
       - BASIC_AUTH_USER=
       - BASIC_AUTH_PASS=
-      - LOG_LEVEL=DEBUG
+      - LOG_LEVEL=INFO
       - WORKERS=1
       - THREADS=8
       - MODEL_DIR=/data/models
       - checkpoint_file=/app/work_dirs/mm_grounding_dino_real_filtered_epoch10/epoch_50.pth
       - labels_file=/app/work_dirs/mm_grounding_dino_real_filtered_epoch10/label_map.json
       - config_file=/app/configs/eider_ducks/mm_grounding_dino_real_filtered_epoch10.py
-      - model_params_file=/app/work_dirs/mm_grounding_dino_real_filtered_epoch10/model_params.json
+      - model_params_file=/app/projects/LabelStudio/backend_template/model_params.json
       - device=cuda
       - SCORE_THRESHOLD=0.3
-      - LABEL_STUDIO_HOST=http://172.18.0.5:8085
-      # - LABEL_STUDIO_HOST=http://ls_nginx:8085
+      # - LABEL_STUDIO_HOST=http://docker.hub.internal:8085
+      - LABEL_STUDIO_HOST=http://172.18.0.7:8085
       - LABEL_STUDIO_API_KEY=1827b001dbd5abe74cf64744683815d4f6394c20
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
       - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}
       - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}
-      # Time out in seconds
-      - ML_TIMEOUT_TRAIN= 1000
-      - ML_TIMEOUT_PREDICT= 300
+      - ML_TIMEOUT_TRAIN=1000
+      - ML_TIMEOUT_PREDICT=300
     volumes:
       - ./data/server:/data
       - ./work_dirs:/app/work_dirs
@@ -43,8 +45,52 @@ services:
         reservations:
           devices:
             - driver: nvidia
-              count: 1  # Use 1 GPU; set to 'all' to use all available GPUs
+              count: 1
               capabilities: [ gpu ]
-# Start redis server
 
-# Start RQ server
+  # Redis server
+  redis:
+    image: redis:latest
+    container_name: redis
+    networks:
+      - labelstudio_shared
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+
+  # RQ worker for the 'train' queue using GPU
+  rqworker_train:
+    image: mmwhale2:latest
+    container_name: rqworker_train
+    networks:
+      - labelstudio_shared
+    environment:
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - MODEL_DIR=/data/models
+      - checkpoint_file=/app/work_dirs/mm_grounding_dino_real_filtered_epoch10/epoch_50.pth
+      - labels_file=/app/work_dirs/mm_grounding_dino_real_filtered_epoch10/label_map.json
+      - config_file=/app/configs/eider_ducks/mm_grounding_dino_real_filtered_epoch10.py
+      - model_params_file=/app/projects/LabelStudio/backend_template/model_params.json
+      - device=cuda
+      - SCORE_THRESHOLD=0.3
+      # - LABEL_STUDIO_HOST=http://docker.hub.internal:8085
+      - LABEL_STUDIO_HOST=http://172.18.0.7:8085
+      - LABEL_STUDIO_API_KEY=1827b001dbd5abe74cf64744683815d4f6394c20
+      - ML_TIMEOUT_TRAIN=1000
+      - ML_TIMEOUT_PREDICT=300
+    restart: unless-stopped
+    command: >
+      sh -c "rq worker --with-scheduler train"
+    depends_on:
+      - redis
+    volumes:
+      - ./data/server:/data
+      - ./work_dirs:/app/work_dirs
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1   # can be 'all' if you want full access
+              capabilities: [ gpu ]
