@@ -246,3 +246,9 @@ labelstudio_database/
 # ignore crops folder which can appear anywhere
 **/crops/
 **/merged_images/
+
+AES Labelling Part 1 - visualizations/
+AES Labelling 2008 BEL22to25exp/
+10_Images_ManualvsHITL/
+AES fully Manual/
+AES HITL part2/

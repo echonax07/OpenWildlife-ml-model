@@ -41,14 +41,19 @@ from mmengine.runner import Runner
 from mmdet.apis import init_detector
 import label_studio_sdk
 
-
 # Added for polygon operations
 
 
 logger = logging.getLogger(__name__)
 
-redis_conn = Redis(host='localhost', port=6379)
-train_queue = Queue('train', connection=redis_conn)
+
+redis_host = os.getenv('REDIS_HOST', 'localhost')
+redis_port = int(os.getenv('REDIS_PORT', 6379))
+
+ic(redis_host, redis_port)
+# Initialize Redis connection
+redis_conn = Redis(host=redis_host, port=redis_port)
+train_queue = Queue('train', connection=redis_conn, default_timeout=3600)
 
 try:
     
@@ -79,6 +84,10 @@ ic(LABEL_STUDIO_HOST)
 
 def rq_train(data):
     """Function to run training in a separate thread using RQ."""
+    # Set all environment variables to be identical to the ones that were in the calling context
+    env_vars = data.get('env', {})
+    for key, value in env_vars.items():
+        os.environ[key] = value
     model = MMDetection(project_id=data['project']['id'])
     cfg = model.rq_force_fit(data)
     return cfg
@@ -109,6 +118,8 @@ def on_train_success(job, connection, result, *args, **kwargs):
         model.bump_model_version(latest_ckpt, max_ckpts=cfg.default_hooks.checkpoint.max_keep_ckpts)
         logger.info("Training completed successfully")
         ic("Training completed successfully")
+
+
 
 class MMDetection(LabelStudioMLBase):
     """Object detector based on https://github.com/open-mmlab/mmdetection."""
@@ -153,8 +164,8 @@ class MMDetection(LabelStudioMLBase):
         # if labeling config has Label tags
         # TODO: Remove label map completely and use something like <Label value="Vehicle" predicted_values="airplane,car"> to define the mapping
         # refer here: https://github.com/HumanSignal/label-studio/blob/bcec8fc4bf9b56165ac44e658fce91a1d3a495bc/docs/source/tutorials/object-detector.md?plain=1#L32m        # TODO: Change the thr back to 0.1
-        self.score_threshold = float(os.environ.get("SCORE_THRESHOLD", 0.3))
-        self.max_memory_size = 1000
+        # self.score_threshold = float(os.environ.get("SCORE_THRESHOLD", 0.3))
+        # self.max_memory_size = 1000
 
     def setup(self):
         self.load_model_checkpoint_and_version()
@@ -237,6 +248,7 @@ class MMDetection(LabelStudioMLBase):
         
         cfg = Config.fromfile(config_file)
         test_patch_size = tuple(map(int, extra_params.get("test_patch_size","(1024,1024)").strip("()").split(",")))
+        score_threshold = float(extra_params.get("score_threshold",0.3))
         
         cfg.model.bbox_head.num_classes = len(self.labels_in_config)
         cfg.model.sliding_window_inference.patch_size = test_patch_size
@@ -359,7 +371,7 @@ class MMDetection(LabelStudioMLBase):
             for item in model_results:
                 bboxes, label, scores = item['bboxes'], item['labels'], item['scores']
                 score = float(scores[-1])
-                if score < self.score_threshold:
+                if score < score_threshold:
                     continue
                 output_label = classes[label.item()]
                 if output_label not in self.labels_in_config:
@@ -646,7 +658,7 @@ class MMDetection(LabelStudioMLBase):
             return result
         project_id = str(data['project']['id'])
         data['env'] = dict(os.environ)
-        # logger.info(f"Training job queued with ID: {job.id}")
+
         job = train_queue.enqueue(rq_train,
                                   data,
                                   on_failure=on_train_failure,
@@ -717,6 +729,7 @@ class MMDetection(LabelStudioMLBase):
             cfg.val_dataloader.dataset.metainfo=metainfo
             cfg.test_dataloader.dataset.metainfo=metainfo            
             # Load extra parameters from the DB
+            ic(self.get("extra_params"))
             extra_params = json.loads(self.get("extra_params"))
             # Update model configuration
             cfg.model.bbox_head.num_classes = len(self.labels_in_config)
@@ -739,8 +752,18 @@ class MMDetection(LabelStudioMLBase):
             cfg.train_dataloader.dataset.ann_file = os.path.join(
                 temp_dir, 'train.json')
             cfg.train_dataloader.num_workers = int(extra_params.get("train_num_workers",0))  # Disable multiprocessing
-            cfg.train_dataloader.persistent_workers = extra_params.get("train_persistent_workers",False)
-            cfg.train_dataloader.dataset.pipeline= cfg.train_pipeline2
+            cfg.train_dataloader.persistent_workers = extra_params.get("train_persistent_workers",False) 
+#             train_pipeline2 = [
+#     dict(type='LoadImageFromFile', backend_args=_base_.backend_args),
+#     dict(type='LoadAnnotations', with_bbox=True),
+#     # Adds padding to make images 512x512
+#     dict(type='Pad', size=(512, 512), pad_val=0),
+#     dict(
+#         type='PackDetInputs',
+#         meta_keys=('img_id', 'img_path', 'ori_shape', 'img_shape',
+#                    'scale_factor', 'flip', 'flip_direction', 'text',
+#                    'custom_entities'))
+# ]
 
             # Modify val paths
             cfg.val_dataloader.dataset.data_root = ''
@@ -799,10 +822,15 @@ class MMDetection(LabelStudioMLBase):
             cfg = slice_train_images(cfg, **slice_configuration)
             cfg.log_level = 'ERROR'  # Add this line to suppress INFO/WARNING logs
             cfg.project_id = project_id
-
+            train_pipeline = cfg.train_pipeline2
+            for i in range(len(train_pipeline)):
+                if train_pipeline[i]['type'] == 'Pad':
+                    train_pipeline[i]['size'] = train_patch_size
+            cfg.train_dataloader.dataset.pipeline= train_pipeline
+            # ic(cfg.train_dataloader.dataset.pipeline)
             runner = Runner.from_cfg(cfg)
             runner.train()
-            
+
         return cfg
 
     def load_model_checkpoint_and_version(self):
@@ -817,7 +845,7 @@ class MMDetection(LabelStudioMLBase):
                     (entry for entry in all_model_versions if entry[0] == self.model_version), None)
                 if version_data:
                     os.environ['checkpoint_file'] = version_data[1] # This is what actually sets the checkpoint file that training and prediction will use
-                    ic(f"Using model version: {self.model_version} with checkpoint: {version_data[1]}")
+                    ic(f"Using model version: {self.model_version} with checkpoint: {version_data[1]} for project id: {self.project_id}")
                     return
 
         # If model version not found, all_model_versions is empty, or model version can't be found in all_model_versions,
@@ -925,6 +953,7 @@ class MMDetection(LabelStudioMLBase):
         # ic(self.label_index)
         coco = {
             'images': [],
+            'info': {},
             'annotations': [],
             'categories': [{'id': i, 'name': l} for i, l in enumerate(self.label_map_inverted.values())]
         }
@@ -992,12 +1021,14 @@ class MMDetection(LabelStudioMLBase):
                                  bbox_height_text = float(result['value']['text'][0])
                                  required_height = bbox_height_text if bbox_height_text > 0 else required_height
                              except (ValueError, IndexError, KeyError):
+                                 print(traceback.format_exc())
                                  logger.warning(f"Task {task_id}: Could not parse bbox_height_px value.")
                          elif result.get('type') == 'textarea' and result.get('from_name') == 'width': # Adjust from_name if needed
                              try:
                                  bbox_width_text = float(result['value']['text'][0])
                                  required_width = bbox_width_text if bbox_width_text > 0 else required_width
                              except (ValueError, IndexError, KeyError):
+                                 print(traceback.format_exc())
                                  logger.warning(f"Task {task_id}: Could not parse bbox_width_px value.")
 
                      # Now process keypoints
@@ -1227,13 +1258,16 @@ class MMDetection(LabelStudioMLBase):
 
 
             except FileNotFoundError:
+                 print(traceback.format_exc())
                  logger.warning(f"Image file not found for task {task_id} at path derived from {task['data'].get('image', 'N/A')}. Skipping task.")
             except IOError as e:
+                 print(traceback.format_exc())
                  logger.error(f"Error opening or reading image for task {task_id}: {e}. Skipping task.")
             except Exception as e:
                 # Catch broader errors during task processing
+                print(traceback.format_exc())
                 logger.error(f"Error processing task {task_id}: {e}", exc_info=True)
-
+        ic(coco['images'])
         if not coco['images']:
             logger.warning("COCO generation resulted in zero images. Training cannot proceed.")
         if not coco['annotations']:
