@@ -865,7 +865,8 @@ class MMDetection(LabelStudioMLBase):
         # Set the environment variable for the checkpoint file
         os.environ['checkpoint_file'] = path
         self.set("checkpoint_file", path)
-        self.save_current_version_as("custom path")
+        version = self.save_current_version_as("custom path")
+        self.set("model_version", version)
         ic("Model weights loaded from path:", path)
         return True
 
@@ -885,6 +886,8 @@ class MMDetection(LabelStudioMLBase):
         full_version_name = f"{partial_version_name}{version_number}"
         major_model_versions.append([full_version_name, os.environ['checkpoint_file']])
         self.set("major_model_versions", json.dumps(major_model_versions))
+
+        return full_version_name
 
     def bump_model_version(self, checkpoint_file, max_ckpts=DEFAULT_NUM_CKPTS_TO_KEEP):
         if not os.path.exists(checkpoint_file):
