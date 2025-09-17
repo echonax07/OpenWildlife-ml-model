@@ -42,11 +42,14 @@ pycocoevalcap = "1.2"
 transformers = "4.49.0"
 gunicorn = "23.0.0"
 rq = "^1.16.0"
+gdown = "^5.2.0"
 sahi = { path = "sahi", develop = false }
-label_studio_ml_backend = { path = "../label-studio-ml-backend", develop = false }
+# label_studio_ml_backend = { path = "../label-studio-ml-backend", develop = false }
+# label-studio-sdk = { path = "../label-studio-sdk", develop = false }
+label_studio_ml_backend = { git = "https://github.com/echonax07/OpenWildlife-ls-ML-backend.git", branch = "master" }
+label-studio-sdk = { git = "https://github.com/echonax07/OpenWildlife-ls-sdk.git", branch = "main" }
 # faster_coco_eval_repo = { path = "faster_coco_eval_repo", develop = false }
 # mmcv = { version = "2.2.0", source = "openmmlab" }
-label-studio-sdk = { path = "../label-studio-sdk", develop = false }
 
 [tool.poetry.dev-dependencies]
 # (leave empty or add test/formatting tools if you wish)

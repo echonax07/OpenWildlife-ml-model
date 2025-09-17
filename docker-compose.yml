@@ -9,6 +9,9 @@ services:
   mmwhale2:
     image: mmwhale2:latest
     container_name: mmdetection
+    build:
+      context: .
+      dockerfile: Dockerfile
     init: true
     networks:
       - labelstudio_shared
@@ -22,24 +25,24 @@ services:
       - WORKERS=1
       - THREADS=8
       - MODEL_DIR=/data/models
-      - checkpoint_file=/app/work_dirs/mm_grounding_dino_real_filtered_epoch10/epoch_50.pth
-      - labels_file=/app/work_dirs/mm_grounding_dino_real_filtered_epoch10/label_map.json
-      - config_file=/app/configs/eider_ducks/mm_grounding_dino_real_filtered_epoch10.py
+      - checkpoint_file=/app/checkpoints/epoch_20.pth
+      - config_file=/app/configs/OpenWildlife/base_config.py
       - model_params_file=/app/projects/LabelStudio/backend_template/model_params.json
-      - device=cuda
+      - device=cuda # use 'cpu' if you don't have a GPU
       - SCORE_THRESHOLD=0.3
       # - LABEL_STUDIO_HOST=http://docker.hub.internal:8085
-      - LABEL_STUDIO_HOST=http://172.18.0.7:8085
-      - LABEL_STUDIO_API_KEY=1827b001dbd5abe74cf64744683815d4f6394c20
+      - LABEL_STUDIO_HOST=http://app:8000
+      - LABEL_STUDIO_API_KEY=1827b001dbd5abe74cf64744683815d4f6394c20 # put your Label Studio API key here
       - REDIS_HOST=redis
-      - REDIS_PORT=6379
+      - REDIS_PORT=6380
       - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}
       - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}
-      - ML_TIMEOUT_TRAIN=1000
-      - ML_TIMEOUT_PREDICT=300
+      - ML_TIMEOUT_TRAIN=1000 # time in seconds to wait for training to complete
+      - ML_TIMEOUT_PREDICT=300 # time in seconds to wait for prediction to complete
     volumes:
       - ./data/server:/data
       - ./work_dirs:/app/work_dirs
+      - ./checkpoints:/app/checkpoints
     deploy:
       resources:
         reservations:
@@ -56,7 +59,8 @@ services:
       - labelstudio_shared
     restart: unless-stopped
     ports:
-      - "6379:6379"
+      - "6380:6380"
+    command: ["redis-server", "--port", "6380"]
 
   # RQ worker for the 'train' queue using GPU
   rqworker_train:
@@ -66,16 +70,15 @@ services:
       - labelstudio_shared
     environment:
       - REDIS_HOST=redis
-      - REDIS_PORT=6379
+      - REDIS_PORT=6380
       - MODEL_DIR=/data/models
-      - checkpoint_file=/app/work_dirs/mm_grounding_dino_real_filtered_epoch10/epoch_50.pth
-      - labels_file=/app/work_dirs/mm_grounding_dino_real_filtered_epoch10/label_map.json
-      - config_file=/app/configs/eider_ducks/mm_grounding_dino_real_filtered_epoch10.py
-      - model_params_file=/app/projects/LabelStudio/backend_template/model_params.json
+      - checkpoint_file=/app/checkpoints/epoch_20.pth 
+      - config_file=/app/configs/OpenWildlife/base_config.py
+      - model_params_file=/app/projects/LabelStudio/backend_template/model_params.json # default model params
       - device=cuda
       - SCORE_THRESHOLD=0.3
       # - LABEL_STUDIO_HOST=http://docker.hub.internal:8085
-      - LABEL_STUDIO_HOST=http://172.18.0.7:8085
+      - LABEL_STUDIO_HOST=http://app:8000
       - LABEL_STUDIO_API_KEY=1827b001dbd5abe74cf64744683815d4f6394c20
       - ML_TIMEOUT_TRAIN=1000
       - ML_TIMEOUT_PREDICT=300
@@ -83,10 +86,12 @@ services:
     command: >
       sh -c "rq worker --with-scheduler train"
     depends_on:
+      - mmwhale2
       - redis
     volumes:
       - ./data/server:/data
       - ./work_dirs:/app/work_dirs
+      - ./checkpoints:/app/checkpoints
     deploy:
       resources:
         reservations:

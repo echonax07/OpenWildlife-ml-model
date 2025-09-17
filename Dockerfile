@@ -46,9 +46,13 @@ WORKDIR /app
 COPY pyproject.toml poetry.lock ./
 COPY download_bert_nltk_weights.py ./
 
-# # Copy SDK and application code
-COPY --from=ls_sdk / /label-studio-sdk
-COPY --from=ls_ml_backend / /label-studio-ml-backend
+# # # Copy SDK and application code
+# COPY --from=ls_sdk / /label-studio-sdk
+# COPY --from=ls_ml_backend / /label-studio-ml-backend
+RUN git clone https://github.com/echonax07/OpenWildlife-ls-sdk.git /label-studio-sdk
+RUN git clone https://github.com/echonax07/OpenWildlife-ls-ML-backend.git /label-studio-ml-backend
+
+
 COPY . .
 
 
@@ -60,7 +64,11 @@ RUN pip install mmcv==2.2.0 --no-deps -f https://download.openmmlab.com/mmcv/dis
 
 RUN python download_bert_nltk_weights.py
 
-COPY /checkpoints /app/checkpoints
+# RUN echo "Hello"
+# Install gdown and download checkpoint from Google Drive
+RUN gdown --fuzzy "https://drive.google.com/file/d/19-n-afE2hQ4-OUB6qMCtsr4JgCXlbTxC/view?usp=sharing" -O /app/checkpoints/
+
+# COPY /checkpoints /app/checkpoints
 
 # copy the contents of the backend_template directory to /app
 COPY /projects/LabelStudio/backend_template/. /app/
