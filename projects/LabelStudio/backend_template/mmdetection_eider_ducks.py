@@ -41,8 +41,11 @@ from mmengine.runner import Runner
 from mmdet.apis import init_detector
 import label_studio_sdk
 
+from flask import jsonify
+
 # Added for polygon operations
 
+BASE_MODEL_CHECKPOINT = os.environ["checkpoint_file"]
 
 logger = logging.getLogger(__name__)
 
@@ -53,7 +56,9 @@ redis_port = int(os.getenv('REDIS_PORT', 6379))
 ic(redis_host, redis_port)
 # Initialize Redis connection
 redis_conn = Redis(host=redis_host, port=redis_port)
-train_queue = Queue('train', connection=redis_conn, default_timeout=3600)
+# train_queue = Queue('job', connection=redis_conn, default_timeout=3600)
+# predict_queue = Queue('job', connection=redis_conn, default_timeout=3600)
+job_queue = Queue('job', connection=redis_conn, default_timeout=3600)
 
 try:
     
@@ -81,6 +86,15 @@ LABEL_STUDIO_API_KEY = os.getenv('LABEL_STUDIO_API_KEY')
 ic(LABEL_STUDIO_HOST)
 # TODO: Test cuda memory allocation and clearence
 
+def rq_predict(data):
+    """Function to run prediction in a separate thread using RQ."""
+    # Set all environment variables to be identical to the ones that were in the calling context
+    env_vars = data.get('env', {})
+    for key, value in env_vars.items():
+        os.environ[key] = value
+    model = MMDetection(project_id=data['project_id'])
+    predictions = model.predict(data['tasks'], context=data["context"])
+    return predictions
 
 def rq_train(data):
     """Function to run training in a separate thread using RQ."""
@@ -92,12 +106,31 @@ def rq_train(data):
     cfg = model.rq_force_fit(data)
     return cfg
     
-def on_train_failure(job, connection, type, value, tb):
-    logger.error(f"Training job with job ID {job.id} failed with an error - {str(type)}: {value}")
+def on_job_failure(job, connection, type, value, tb):
+    logger.error(f"Job with job ID {job.id} failed with an error - {str(type)}: {value}")
     tb_str = ''.join(traceback.format_tb(tb))
     logger.error(f"Traceback:\n{tb_str}")
     gc.collect()
     torch.cuda.empty_cache()
+
+def on_predict_success(job, connection, result, *args, **kwargs):
+    logger.info(f"Prediction job with job ID {job.id} completed successfully.")
+    gc.collect()
+    torch.cuda.empty_cache()
+
+    # res = result.result
+
+    # if res is None:
+    #     res = []
+    
+    # return res
+
+    # model = MMDetection(project_id=result[0].project_id)
+    # if isinstance(res, dict):
+    #     res = response.get("predictions", response)
+
+    # model.save_job_results(job.id, jsonify({'results': res}))
+
 
 def on_train_success(job, connection, result, *args, **kwargs):
     cfg = result
@@ -120,6 +153,12 @@ def on_train_success(job, connection, result, *args, **kwargs):
         ic("Training completed successfully")
 
 
+def on_job_success(job, connection, result, *args, **kwargs):
+    logger.info(f"Prediction job with job ID {job.id} completed successfully.")
+    if isinstance(result, list):
+        on_predict_success(job, None, None)
+    else:
+        on_train_success(job, None, result)
 
 class MMDetection(LabelStudioMLBase):
     """Object detector based on https://github.com/open-mmlab/mmdetection."""
@@ -128,13 +167,11 @@ class MMDetection(LabelStudioMLBase):
                  config_file=None,
                  checkpoint_file=None,
                  image_dir=None,
-                 labels_file=None,
                  score_threshold=0.3,
                  device='cpu',
                  **kwargs):
 
         super(MMDetection, self).__init__(**kwargs)
-        self.labels_file = labels_file or os.environ.get('labels_file')
         self.model_params_file = os.environ.get('model_params_file')
         # default Label Studio image upload folder
         upload_dir = os.path.join(get_data_dir(), 'media', 'upload')
@@ -142,15 +179,6 @@ class MMDetection(LabelStudioMLBase):
         logger.debug(
             f'{self.__class__.__name__} reads images from {self.image_dir}')
         self.label_map = {}
-        if self.labels_file and os.path.exists(self.labels_file):
-            # mapping is mmdection label -> label studio label
-            # self.label_map = json_load(self.labels_file)
-            pass
-        else:
-            # self.label_map = {}
-            pass
-        # ic(self.label_map)
-        # ic(self.parsed_label_config)
         self.from_name, self.to_name, self.value, self.labels_in_config = get_single_tag_keys(
             self.parsed_label_config, 'KeyPointLabels', 'Image')
         schema = list(self.parsed_label_config.values())[0]
@@ -235,6 +263,32 @@ class MMDetection(LabelStudioMLBase):
 
         return image_url
 
+    def queue_predict(self, tasks: List[Dict], project_id, context = None, **kwargs) -> dict:
+        """Predict a set of tasks with MMDetection model"""
+        result = {
+            'job_id': '',
+            'error': None,
+        }
+
+        if not tasks:
+            result['error'] = "Invalid data provided for project ID"
+            return result
+        data = {}
+        data["project_id"] = project_id
+        data['env'] = dict(os.environ)
+        data["context"] = context
+        data["tasks"] = tasks
+
+        job = job_queue.enqueue(rq_predict,
+                                  data,
+                                  on_failure=on_job_failure,
+                                  on_success=on_job_success,
+                                  job_id=f"predict-{project_id}-{uuid.uuid4()}",)
+        logger.info(f"Predict job queued with ID: {job.id}")
+        result['job_id'] = job.id
+        return result
+
+
     def predict(self, tasks, context: Optional[Dict] = None, **kwargs):
         config_file = os.environ['config_file']
         checkpoint_file = os.environ['checkpoint_file']
@@ -293,7 +347,10 @@ class MMDetection(LabelStudioMLBase):
             
             # Parse annotations to find train regions and existing points
             num_train_regions = 0
-            for ann in task.get('annotations', []):
+            annotations = task.get('annotations', [])
+            if isinstance(annotations, dict):
+                annotations = [annotations]
+            for ann in annotations:
                 for result in ann.get('result', []):
                     # Collect train regions
                     if result.get('type') == 'polygonlabels' and 'Train region' in result.get('value', {}).get('polygonlabels', []):
@@ -436,7 +493,8 @@ class MMDetection(LabelStudioMLBase):
             label_studio_results.append({
                 'result': results,
                 'score': round(avg_score, 3),
-                'model_version': self.get("model_version")
+                'model_version': self.get("model_version"),
+                'task': task['id'],
             })
         ic("Prediction returned successfully")
         del model
@@ -659,10 +717,10 @@ class MMDetection(LabelStudioMLBase):
         project_id = str(data['project']['id'])
         data['env'] = dict(os.environ)
 
-        job = train_queue.enqueue(rq_train,
+        job = job_queue.enqueue(rq_train,
                                   data,
-                                  on_failure=on_train_failure,
-                                  on_success=on_train_success,
+                                  on_failure=on_job_failure,
+                                  on_success=on_job_success,
                                   job_id=f"train-{project_id}-{uuid.uuid4()}",)
         logger.info(f"Training job queued with ID: {job.id}")
         result['job_id'] = job.id
@@ -851,7 +909,7 @@ class MMDetection(LabelStudioMLBase):
         # If model version not found, all_model_versions is empty, or model version can't be found in all_model_versions,
         # Set a default model version
         base_model_name = f"[BASE MODEL] {self.__class__.__name__}-v0.0.0"
-        major_model_versions = [[base_model_name, os.environ['checkpoint_file']]]
+        major_model_versions = [[base_model_name, BASE_MODEL_CHECKPOINT]]
         self.set("major_model_versions", json.dumps(major_model_versions))
         self.set("model_version", base_model_name)
         self.model_version = base_model_name
@@ -953,6 +1011,13 @@ class MMDetection(LabelStudioMLBase):
             label_name: i
             for i, label_name in enumerate(self.label_map_inverted.values()) # Use labels from project config directly
         }
+
+        tasks_json = json.dumps(tasks)
+
+        # Save tasks to a temporary JSON file for debugging
+        temp_tasks_file = 'tasks_debug.json'
+        with open(temp_tasks_file, 'w') as f:
+            f.write(tasks_json)
         # ic(self.label_index)
         coco = {
             'images': [],
@@ -982,7 +1047,10 @@ class MMDetection(LabelStudioMLBase):
                 train_on_whole_image = True # Default
                 train_region_polygons_percent = [] # Store multiple regions (as percentage points)
 
-                for ann in task.get('annotations', []):
+                annotations = task.get('annotations', [])
+                if isinstance(annotations, dict):
+                    annotations = [annotations]
+                for ann in annotations:
                     for result in ann.get('result', []):
                         # Check for the choice first
                         if result.get('type') == 'choices' and result.get('from_name') == 'train_region_choice':
@@ -1015,7 +1083,10 @@ class MMDetection(LabelStudioMLBase):
                 required_width = 0.5 # Default keypoint width %
                 required_height = 0.5 # Default keypoint height %
 
-                for ann in task.get('annotations', []):
+                annotations = task.get('annotations', [])
+                if isinstance(annotations, dict):
+                    annotations = [annotations]
+                for ann in annotations:
                      # Look for text inputs defining bbox size (assuming specific from_names)
                      for result in ann.get('result', []):
                          if result.get('type') == 'textarea' and result.get('from_name') == 'height': # Adjust from_name if needed
