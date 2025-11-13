@@ -1387,7 +1387,7 @@ description = "Fast transfer of large files with the Hugging Face Hub."
 optional = false
 python-versions = ">=3.8"
 groups = ["main"]
-markers = "python_version >= \"3.10\" and (platform_machine == \"arm64\" or platform_machine == \"x86_64\" or platform_machine == \"amd64\" or platform_machine == \"aarch64\") or platform_machine == \"x86_64\" or platform_machine == \"amd64\" or platform_machine == \"arm64\" or platform_machine == \"aarch64\" or platform_system == \"Linux\" and platform_machine == \"aarch64\" and sys_platform != \"linux\""
+markers = "platform_machine == \"arm64\" or platform_machine == \"x86_64\" or platform_machine == \"amd64\" or platform_machine == \"aarch64\" or platform_system == \"Linux\" and platform_machine == \"aarch64\" and sys_platform != \"linux\""
 files = [
     {file = "hf_xet-1.1.9-cp37-abi3-macosx_10_12_x86_64.whl", hash = "sha256:a3b6215f88638dd7a6ff82cb4e738dcbf3d863bf667997c093a3c990337d1160"},
     {file = "hf_xet-1.1.9-cp37-abi3-macosx_11_0_arm64.whl", hash = "sha256:9b486de7a64a66f9a172f4b3e0dfe79c9f0a93257c501296a2521a13495a698a"},
@@ -2405,7 +2405,7 @@ semver = "*"
 type = "git"
 url = "https://github.com/echonax07/OpenWildlife-ls-ML-backend.git"
 reference = "master"
-resolved_reference = "89a6f93d59b63282e4513b0727f55b519597d88c"
+resolved_reference = "db74e0af66fda9ab023bef2a1cf86753570d2623"
 
 [[package]]
 name = "label-studio-sdk"
@@ -2422,7 +2422,7 @@ develop = false
 appdirs = ">=1.4.3"
 datamodel-code-generator = "0.26.1"
 httpx = ">=0.21.2"
-icecream = "*"
+icecream = "^2.0.0"
 ijson = ">=3.2.3"
 jsf = "^0.11.2"
 jsonschema = ">=4.23.0"
@@ -2444,7 +2444,7 @@ xmljson = "0.2.1"
 type = "git"
 url = "https://github.com/echonax07/OpenWildlife-ls-sdk.git"
 reference = "main"
-resolved_reference = "3b29b0a237a46ccec952adfa97598ff7961d4e57"
+resolved_reference = "432bbd96e07983efc55b4ce4c2f106d135a9360e"
 
 [[package]]
 name = "lark"
