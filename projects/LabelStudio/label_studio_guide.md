@@ -4,10 +4,9 @@ cd /home/pc2041/VIP_lab/labelstudio/mmwhale2 && source /home/pc2041/env_labelstu
 
 # Start Label studio
 
-`LABEL_STUDIO_LOCAL_FILES_SERVING_ENABLED=true LABEL_STUDIO_LOCAL_FILES_DOCUMENT_ROOT=/media/pc2041 label-studio --data-dir "/home/pc2041/.local/share/label-studio"`
+`ML_TIMEOUT_TRAIN=300000 ML_TIMEOUT_PREDICT=300000 LABEL_STUDIO_LOCAL_FILES_SERVING_ENABLED=true LABEL_STUDIO_LOCAL_FILES_DOCUMENT_ROOT=/home/pc2041 label-studio --data-dir "/home/pc2041/.local/share/label-studio"`
 
-ML_TIMEOUT_TRAIN=300000 ML_TIMEOUT_PREDICT=300000 LABEL_STUDIO_LOCAL_FILES_SERVING_ENABLED=true LABEL_STUDIO_LOCAL_FILES_DOCUMENT_ROOT=/home/pc2041 label-studio --data-dir "/home/pc2041/.local/share/label-studio"
-
+LABEL_STUDIO_LOCAL_FILES_SERVING_ENABLED=true LABEL_STUDIO_LOCAL_FILES_DOCUMENT_ROOT=/media/pc2041 label-studio --data-dir "/home/pc2041/.local/share/label-studio"
 
 # Start ML backend with gunicorn (use for production setup)
 
@@ -23,9 +22,9 @@ LOG_LEVEL=INFO device=cuda LABEL_STUDIO_HOST=http://localhost:8080 LABEL_STUDIO_
 In a separate terminal, run the resis server:
 `redis-server`
 
-In another terminal, run the rq workers for training and prediction:
+In another terminal, run the rq workers for job:
 
-`LOG_LEVEL=INFO device=cuda LABEL_STUDIO_HOST=http://localhost:8080 LABEL_STUDIO_API_KEY=e5fccfb4114847bb3dd53b014c87901f5a5417af checkpoint_file="work_dirs/mm_grounding_dino_real_filtered_epoch10/epoch_50.pth" model_params_file=projects/LabelStudio/backend_template/model_params_eider.json config_file=configs/eider_ducks/mm_grounding_dino_real_filtered_epoch10.py LOCAL_FILES_DOCUMENT_ROOT=/home/pc2041 LABEL_STUDIO_LOCAL_FILES_DOCUMENT_ROOT=/home/pc2041 rq worker train`
+`LOG_LEVEL=INFO device=cuda LABEL_STUDIO_HOST=http://localhost:8080 LABEL_STUDIO_API_KEY=e5fccfb4114847bb3dd53b014c87901f5a5417af checkpoint_file="work_dirs/mm_grounding_dino_real_filtered_epoch10/epoch_50.pth" model_params_file=projects/LabelStudio/backend_template/model_params_eider.json config_file=configs/eider_ducks/mm_grounding_dino_real_filtered_epoch10.py LOCAL_FILES_DOCUMENT_ROOT=/home/pc2041 LABEL_STUDIO_LOCAL_FILES_DOCUMENT_ROOT=/home/pc2041 rq worker job`
 
 `rq worker predict`
 
