@@ -13,10 +13,10 @@ import io
 # Configuration
 LS_URL = 'http://129.97.250.147:8080'
 API_TOKEN = 'ebdc6fa5f2c3abcd502b55d5ccc1dc0e4ae9f68d'
-PROJECT_ID = 133
+PROJECT_ID = 110
 
 # Output directory
-OUTPUT_DIR = 'visualizations/Heavy correction predictions_visualizations'
+OUTPUT_DIR = 'visualizations/Scott-2008-all_photos_combined_Predictions'
 os.makedirs(OUTPUT_DIR, exist_ok=True)
 
 # Color mapping based on your configuration (BGR format for OpenCV)
@@ -52,70 +52,87 @@ def download_image(image_url, headers=None):
         print(f"Error downloading image from {image_url}: {e}")
         return None
 
-def extract_annotations(task):
-    """Extract annotations from a Label Studio task"""
-    annotations = {
+def extract_predictions(task):
+    """Extract predictions from a Label Studio task"""
+    predictions = {
         'keypoints': [],
         'polygons': [],
         'rectangles': [],
         'width': None,
         'height': None,
-        'train_region_choice': None
+        'train_region_choice': None,
+        'scores': []
     }
     
-    if not task.get('annotations'):
-        return annotations
+    if not task.get('predictions'):
+        return predictions
     
-    # Get the latest annotation
-    annotation = task['annotations'][-1] if task['annotations'] else {}
-    results = annotation.get('result', [])
+    # Get all predictions (or just the latest one)
+    all_predictions = task['predictions']
     
-    for result in results:
-        if result.get('type') == 'keypointlabels':
-            keypoints = result.get('value', {})
-            label = keypoints.get('keypointlabels', [])
-            if label:
-                annotations['keypoints'].append({
-                    'label': label[0],
-                    'x': keypoints.get('x', 0),
-                    'y': keypoints.get('y', 0),
-                    'width': keypoints.get('width', 0),
-                    'height': keypoints.get('height', 0)
-                })
+    for prediction in all_predictions:
+        results = prediction.get('result', [])
         
-        elif result.get('type') == 'polygonlabels':
-            polygon = result.get('value', {})
-            label = polygon.get('polygonlabels', [])
-            if label:
-                annotations['polygons'].append({
-                    'label': label[0],
-                    'points': polygon.get('points', [])
-                })
-        
-        elif result.get('type') == 'rectanglelabels':
-            rectangle = result.get('value', {})
-            label = rectangle.get('rectanglelabels', [])
-            if label:
-                annotations['rectangles'].append({
-                    'label': label[0],
-                    'x': rectangle.get('x', 0),
-                    'y': rectangle.get('y', 0),
-                    'width': rectangle.get('width', 0),
-                    'height': rectangle.get('height', 0)
-                })
-        
-        elif result.get('from_name') == 'width':
-            annotations['width'] = result.get('value', {}).get('text', [None])[0]
-        
-        elif result.get('from_name') == 'height':
-            annotations['height'] = result.get('value', {}).get('text', [None])[0]
-        
-        elif result.get('from_name') == 'train_region_choice':
-            annotations['train_region_choice'] = result.get('value', {}).get('choices', [None])[0]
+        for result in results:
+            score = result.get('score', None)
+            
+            if result.get('type') == 'keypointlabels':
+                keypoints = result.get('value', {})
+                label = keypoints.get('keypointlabels', [])
+                if label:
+                    prediction_data = {
+                        'label': label[0],
+                        'x': keypoints.get('x', 0),
+                        'y': keypoints.get('y', 0),
+                        'width': keypoints.get('width', 0),
+                        'height': keypoints.get('height', 0),
+                        'score': score
+                    }
+                    predictions['keypoints'].append(prediction_data)
+                    if score is not None:
+                        predictions['scores'].append(score)
+            
+            elif result.get('type') == 'polygonlabels':
+                polygon = result.get('value', {})
+                label = polygon.get('polygonlabels', [])
+                if label:
+                    prediction_data = {
+                        'label': label[0],
+                        'points': polygon.get('points', []),
+                        'score': score
+                    }
+                    predictions['polygons'].append(prediction_data)
+                    if score is not None:
+                        predictions['scores'].append(score)
+            
+            elif result.get('type') == 'rectanglelabels':
+                rectangle = result.get('value', {})
+                label = rectangle.get('rectanglelabels', [])
+                if label:
+                    prediction_data = {
+                        'label': label[0],
+                        'x': rectangle.get('x', 0),
+                        'y': rectangle.get('y', 0),
+                        'width': rectangle.get('width', 0),
+                        'height': rectangle.get('height', 0),
+                        'score': score
+                    }
+                    predictions['rectangles'].append(prediction_data)
+                    if score is not None:
+                        predictions['scores'].append(score)
+            
+            elif result.get('from_name') == 'width':
+                predictions['width'] = result.get('value', {}).get('text', [None])[0]
+            
+            elif result.get('from_name') == 'height':
+                predictions['height'] = result.get('value', {}).get('text', [None])[0]
+            
+            elif result.get('from_name') == 'train_region_choice':
+                predictions['train_region_choice'] = result.get('value', {}).get('choices', [None])[0]
     
-    return annotations
+    return predictions
 
-def draw_statistics_overlay(image, annotations):
+def draw_statistics_overlay(image, predictions):
     """Draw statistics overlay on the image"""
     img_height, img_width = image.shape[:2]
     
@@ -123,26 +140,27 @@ def draw_statistics_overlay(image, annotations):
     label_counts = Counter()
     
     # Count keypoints
-    for kp in annotations['keypoints']:
+    for kp in predictions['keypoints']:
         label_counts[kp['label']] += 1
     
     # Count polygons
-    for poly in annotations['polygons']:
+    for poly in predictions['polygons']:
         label_counts[poly['label']] += 1
     
     # Count rectangles
-    for rect in annotations['rectangles']:
+    for rect in predictions['rectangles']:
         label_counts[rect['label']] += 1
     
     if not label_counts:
         return image
     
-    # Calculate total count
+    # Calculate total count and average score
     total_count = sum(label_counts.values())
+    avg_score = np.mean(predictions['scores']) if predictions['scores'] else None
     
-    # Create overlay box (larger to accommodate bigger text and total count)
-    overlay_width = 450
-    overlay_height = 250
+    # Create overlay box (larger to accommodate bigger text and additional info)
+    overlay_width = 500
+    overlay_height = 280
     overlay_x = 20
     overlay_y = 60
     
@@ -162,7 +180,7 @@ def draw_statistics_overlay(image, annotations):
     image = cv2.addWeighted(overlay, alpha, image, 1 - alpha, 0)
     
     # Draw title
-    title_text = "Label Statistics:"
+    title_text = "Prediction Statistics:"
     cv2.putText(image, title_text, (overlay_x + 10, overlay_y + 30),
                cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0, 0, 0), 2, cv2.LINE_AA)
     
@@ -193,33 +211,42 @@ def draw_statistics_overlay(image, annotations):
     cv2.putText(image, total_text, (overlay_x + 10, y_offset),
                cv2.FONT_HERSHEY_SIMPLEX, 0.75, (0, 0, 0), 2, cv2.LINE_AA)
     
+    # Add average score
+    if avg_score is not None:
+        y_offset += 25
+        score_text = f"Avg Score: {avg_score:.3f}"
+        cv2.putText(image, score_text, (overlay_x + 10, y_offset),
+                   cv2.FONT_HERSHEY_SIMPLEX, 0.75, (0, 0, 0), 2, cv2.LINE_AA)
+    
     # Add dimensions and training info
     y_offset += 30
     
     # Draw dimensions if available
-    if annotations.get('width') or annotations.get('height'):
-        dim_text = f"Dimensions: {annotations.get('width', 'N/A')} x {annotations.get('height', 'N/A')}"
+    if predictions.get('width') or predictions.get('height'):
+        dim_text = f"Dimensions: {predictions.get('width', 'N/A')} x {predictions.get('height', 'N/A')}"
         cv2.putText(image, dim_text, (overlay_x + 10, y_offset),
                    cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 0, 0), 1, cv2.LINE_AA)
         y_offset += line_height
     
     # Draw training choice if available
-    if annotations.get('train_region_choice'):
-        choice_text = f"Training: {annotations['train_region_choice']}"
+    if predictions.get('train_region_choice'):
+        choice_text = f"Training: {predictions['train_region_choice']}"
         cv2.putText(image, choice_text, (overlay_x + 10, y_offset),
                    cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 0, 0), 1, cv2.LINE_AA)
     
     return image
 
-def visualize_annotations(image, annotations, task_id, image_filename):
-    """Visualize annotations on image using OpenCV"""
+def visualize_predictions(image, predictions, task_id, image_filename):
+    """Visualize predictions on image using OpenCV"""
     # Make a copy of the image
     vis_image = image.copy()
     img_height, img_width = vis_image.shape[:2]
     
     # Draw keypoints
-    for kp in annotations['keypoints']:
+    for kp in predictions['keypoints']:
         label = kp['label']
+        score = kp.get('score')
+        
         # Convert percentage coordinates to pixel coordinates
         x = int((kp['x'] / 100) * img_width)
         y = int((kp['y'] / 100) * img_height)
@@ -228,10 +255,14 @@ def visualize_annotations(image, annotations, task_id, image_filename):
         
         # Draw keypoint as filled circle
         cv2.circle(vis_image, (x, y), CIRCLE_RADIUS, color, -1)
-        # cv2.circle(vis_image, (x, y), CIRCLE_RADIUS, (0, 0, 0), 2)  # Black border
+        cv2.circle(vis_image, (x, y), CIRCLE_RADIUS + 2, (0, 0, 0), 1)  # Black border
         
-        # Add label text
-        label_text = label
+        # Add label text with score
+        if score is not None:
+            label_text = f"{label} ({score:.2f})"
+        else:
+            label_text = label
+            
         (text_width, text_height), baseline = cv2.getTextSize(
             label_text, cv2.FONT_HERSHEY_SIMPLEX, 0.6, 1)
         
@@ -258,8 +289,9 @@ def visualize_annotations(image, annotations, task_id, image_filename):
         #            0.6, (255, 255, 255), 1, cv2.LINE_AA)
     
     # Draw polygons (train regions)
-    for poly in annotations['polygons']:
+    for poly in predictions['polygons']:
         label = poly['label']
+        score = poly.get('score')
         points = poly['points']
         
         if points:
@@ -282,24 +314,30 @@ def visualize_annotations(image, annotations, task_id, image_filename):
                 center_x = int(np.mean([p[0] for p in pixel_points]))
                 center_y = int(np.mean([p[1] for p in pixel_points]))
                 
-                label_text = label
+                if score is not None:
+                    label_text = f"{label} ({score:.2f})"
+                else:
+                    label_text = label
+                    
                 (text_width, text_height), _ = cv2.getTextSize(
                     label_text, cv2.FONT_HERSHEY_SIMPLEX, 0.7, 2)
                 
-                # # Text background
-                # cv2.rectangle(vis_image,
-                #               (center_x - text_width//2 - 5, center_y - text_height//2 - 5),
-                #               (center_x + text_width//2 + 5, center_y + text_height//2 + 5),
-                #               color, -1)
+                # Text background
+                cv2.rectangle(vis_image,
+                              (center_x - text_width//2 - 5, center_y - text_height//2 - 5),
+                              (center_x + text_width//2 + 5, center_y + text_height//2 + 5),
+                              color, -1)
                 
-                # # Text
-                # cv2.putText(vis_image, label_text,
-                #            (center_x - text_width//2, center_y + text_height//2),
-                #            cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 255, 255), 2, cv2.LINE_AA)
+                # Text
+                cv2.putText(vis_image, label_text,
+                           (center_x - text_width//2, center_y + text_height//2),
+                           cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 255, 255), 2, cv2.LINE_AA)
     
     # Draw rectangles
-    for rect in annotations['rectangles']:
+    for rect in predictions['rectangles']:
         label = rect['label']
+        score = rect.get('score')
+        
         # Convert percentage coordinates to pixel coordinates
         x = int((rect['x'] / 100) * img_width)
         y = int((rect['y'] / 100) * img_height)
@@ -311,36 +349,54 @@ def visualize_annotations(image, annotations, task_id, image_filename):
         # Draw rectangle
         cv2.rectangle(vis_image, (x, y), (x + width, y + height), color, 1)
         
-        # Add label text
-        label_text = label
+        # Add label text with score
+        if score is not None:
+            label_text = f"{label} ({score:.2f})"
+        else:
+            label_text = label
+            
         (text_width, text_height), _ = cv2.getTextSize(
             label_text, cv2.FONT_HERSHEY_SIMPLEX, 0.6, 1)
         
-        # # Text background
-        # cv2.rectangle(vis_image,
-        #               (x, y - text_height - 10),
-        #               (x + text_width + 10, y),
-        #               color, -1)
+        # Text background
+        cv2.rectangle(vis_image,
+                      (x, y - text_height - 10),
+                      (x + text_width + 10, y),
+                      color, -1)
         
-        # # Text
-        # cv2.putText(vis_image, label_text,
-        #            (x + 5, y - 5),
-        #            cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 255, 255), 1, cv2.LINE_AA)
+        # Text
+        cv2.putText(vis_image, label_text,
+                   (x + 5, y - 5),
+                   cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 255, 255), 1, cv2.LINE_AA)
     
     # Add statistics overlay
-    vis_image = draw_statistics_overlay(vis_image, annotations)
+    vis_image = draw_statistics_overlay(vis_image, predictions)
     
-    # Add title to the image
-    title_text = f"Task {task_id} - {image_filename}"
-    cv2.putText(vis_image, title_text, (10, 30),
-               cv2.FONT_HERSHEY_SIMPLEX, 0.8, (0, 0, 0), 2, cv2.LINE_AA)
-    cv2.putText(vis_image, title_text, (10, 30),
-               cv2.FONT_HERSHEY_SIMPLEX, 0.8, (255, 255, 255), 1, cv2.LINE_AA)
-    
+    # Add title to the image with a more distinguishable font style
+    title_text = f"Task {task_id} - {image_filename} [PREDICTIONS]"
+    (text_width, text_height), baseline = cv2.getTextSize(
+        title_text, cv2.FONT_HERSHEY_DUPLEX, 1.1, 2)
+    # Coordinates for the rectangle
+    rect_x1, rect_y1 = 5, 10
+    rect_x2, rect_y2 = 5 + text_width + 20, 10 + text_height + 20
+
+    # Draw semi-transparent rectangle
+    overlay = vis_image.copy()
+    cv2.rectangle(overlay, (rect_x1, rect_y1), (rect_x2, rect_y2), (0, 0, 0), -1)
+    alpha = 0.5
+    vis_image = cv2.addWeighted(overlay, alpha, vis_image, 1 - alpha, 0)
+
+    # Draw a thick black outline for better contrast
+    cv2.putText(vis_image, title_text, (15, rect_y1 + text_height + 5),
+                cv2.FONT_HERSHEY_DUPLEX, 1.1, (0, 0, 0), 4, cv2.LINE_AA)
+    # Draw the white text on top
+    cv2.putText(vis_image, title_text, (15, rect_y1 + text_height + 5),
+                cv2.FONT_HERSHEY_DUPLEX, 1.1, (255, 255, 255), 2, cv2.LINE_AA)
+
     return vis_image
 
 def main():
-    """Main function to process all tasks and create visualizations"""
+    """Main function to process all tasks and create prediction visualizations"""
     print("Connecting to Label Studio...")
     
     # Initialize Label Studio client
@@ -356,18 +412,30 @@ def main():
         print(f"Found {len(tasks)} tasks")
         
         # Process each task
+        processed_count = 0
+        skipped_count = 0
+        
         for i, task in enumerate(tasks):
             print(f"\nProcessing task {i+1}/{len(tasks)} (ID: {task['id']})")
+            
+            # Check if task has predictions
+            if not task.get('predictions'):
+                print(f"No predictions found for task {task['id']} - skipping")
+                skipped_count += 1
+                continue
             
             # Get image URL
             image_url = task.get('data', {}).get('image')
             if not image_url:
                 print(f"No image URL found for task {task['id']}")
+                skipped_count += 1
                 continue
             
             # Handle relative URLs
             if image_url.startswith('/'):
                 image_url2 = LS_URL.rstrip('/') + image_url
+            else:
+                image_url2 = image_url
             
             # Download image
             headers = {'Authorization': f'Token {API_TOKEN}'}
@@ -375,14 +443,15 @@ def main():
             
             if image is None:
                 print(f"Failed to download image for task {task['id']}")
+                skipped_count += 1
                 continue
             
-            # Extract annotations
-            annotations = extract_annotations(task)
+            # Extract predictions
+            predictions = extract_predictions(task)
             
-            # image_url = image_url.strip(LS_URL)        
+            # Determine image filename
             is_uploaded_file = image_url.startswith("/data/upload")
-            is_local_storage_file = image_url.startswith("/data/local-files")  and "?d=" in image_url
+            is_local_storage_file = image_url.startswith("/data/local-files") and "?d=" in image_url
             is_cloud_storage_file = (
                 image_url.startswith("s3:") or image_url.startswith("gs:") or image_url.startswith("azure-blob:")
             )
@@ -394,20 +463,27 @@ def main():
                 # Extract filename from local storage URL
                 image_filename = os.path.basename(unquote(image_url.split('?d=')[1]))
             elif is_cloud_storage_file:
-                pass
+                image_filename = f"task_{task['id']}.jpg"
+            else:
+                image_filename = f"task_{task['id']}.jpg"
+            
             # Create visualization
-            vis_image = visualize_annotations(image, annotations, task['id'], image_filename)
+            vis_image = visualize_predictions(image, predictions, task['id'], image_filename)
             
             # Save the visualization
-            # output_filename = f"task_{task['id']}_{image_filename.split('.')[0]}_annotated.png"
-            output_filename = f"{image_filename.split('.')[0].split('-')[-1]}_annotated.png"
+            output_filename = f"{image_filename.split('.')[0].split('-')[-1]}.png"
             
             output_path = os.path.join(OUTPUT_DIR, output_filename)
             cv2.imwrite(output_path, vis_image, [cv2.IMWRITE_PNG_COMPRESSION, 9])
             
-            print(f"Saved visualization: {output_path}")
+            print(f"Saved prediction visualization: {output_path}")
+            print(f"Found {len(predictions['keypoints']) + len(predictions['polygons']) + len(predictions['rectangles'])} predictions")
+            processed_count += 1
         
-        print(f"\nAll visualizations saved to: {OUTPUT_DIR}")
+        print(f"\nSummary:")
+        print(f"- Processed: {processed_count} tasks with predictions")
+        print(f"- Skipped: {skipped_count} tasks (no predictions or errors)")
+        print(f"- All prediction visualizations saved to: {OUTPUT_DIR}")
         
     except Exception as e:
         print(f"Error: {e}")
