@@ -39,10 +39,16 @@ services:
       - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}
       - ML_TIMEOUT_TRAIN=1000 # time in seconds to wait for training to complete
       - ML_TIMEOUT_PREDICT=300 # time in seconds to wait for prediction to complete
+      # Local file serving configuration
+      - LOCAL_FILES_DOCUMENT_ROOT=/data/files
+      - LABEL_STUDIO_LOCAL_FILES_DOCUMENT_ROOT=/data/files
     volumes:
       - ./data/server:/data
       - ./work_dirs:/app/work_dirs
       - ./checkpoints:/app/checkpoints
+      # USER CONFIG: Change /home/pc2041/YOUR_IMAGES_HERE to match frontend path
+      # - /home/pc2041/YOUR_IMAGES_HERE:/data/files:ro
+      - /media/pc2041/Elements/Eureka_2023_25mm/DSLR_25mm/20230902:/label-studio/files:ro
     deploy:
       resources:
         reservations:
@@ -82,6 +88,9 @@ services:
       - LABEL_STUDIO_API_KEY=1827b001dbd5abe74cf64744683815d4f6394c20
       - ML_TIMEOUT_TRAIN=1000
       - ML_TIMEOUT_PREDICT=300
+      # Local file serving configuration
+      - LOCAL_FILES_DOCUMENT_ROOT=/data/files
+      - LABEL_STUDIO_LOCAL_FILES_DOCUMENT_ROOT=/data/files
     restart: unless-stopped
     command: >
       sh -c "rq worker --with-scheduler job"
@@ -92,6 +101,9 @@ services:
       - ./data/server:/data
       - ./work_dirs:/app/work_dirs
       - ./checkpoints:/app/checkpoints
+      # USER CONFIG: Change /home/pc2041/YOUR_IMAGES_HERE to match frontend path
+      # - /home/pc2041/YOUR_IMAGES_HERE:/data/files:ro
+      - /media/pc2041/Elements/Eureka_2023_25mm/DSLR_25mm/20230902:/label-studio/files:ro
     deploy:
       resources:
         reservations:
