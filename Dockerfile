@@ -31,7 +31,7 @@ RUN --mount=type=cache,target=/pip-cache \
 RUN python download_bert_nltk_weights.py
 
 # Download checkpoint from Google Drive
-RUN gdown --fuzzy "https://drive.google.com/file/d/19-n-afE2hQ4-OUB6qMCtsr4JgCXlbTxC/view?usp=sharing" -O /app/checkpoints/
+RUN gdown --fuzzy "https://drive.google.com/file/d/1WkDy4fP1xqaDVfMywZGWlZBOvK5BiMxt/view?usp=sharing" -O /app/checkpoints/
 
 # CUDA-specific mmcv wheel
 RUN --mount=type=cache,target=/pip-cache \
